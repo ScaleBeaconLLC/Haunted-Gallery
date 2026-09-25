@@ -25,6 +25,18 @@ Add `&debug=1` to a phone URL to show frame-rate and resolution stats.
 
 For development with hot reload run `npm start` in `server/` and `npm run dev` in `client/`, then open the Vite URL (port 5173).
 
+## Temporary public HTTPS preview (free, from this laptop)
+
+This preview runs only while the laptop, the server and the tunnel are all running. The address changes every time the tunnel restarts.
+
+```sh
+# server/.env.production (gitignored) must contain HOST_KEY=<password>
+cd server && npm run build && NODE_ENV=production node build/index.js
+cloudflared tunnel --no-autoupdate --url http://localhost:2567   # prints https://<random>.trycloudflare.com
+```
+
+Open `https://<random>.trycloudflare.com/host.html` and enter the `HOST_KEY` password. The QR code then points phones to the same HTTPS address.
+
 ## Tests
 
 - `server/`: `npm test` runs the rules engine tests (scoring, privacy, camera, infection, 40 CPU matches) and a WebSocket room test (host auth, seats, private SOS delivery, rejoin, pause/reset).

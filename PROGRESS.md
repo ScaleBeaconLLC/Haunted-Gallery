@@ -113,7 +113,8 @@ This file separates what has been **verified**, what is **built but not yet veri
 | Node.js | 24.21.0 installed | — |
 | PlayCanvas Editor MCP | Configured in `.mcp.json`; **not connected** (needs the Editor open in Chrome) | See next steps |
 | Blender | **Not installed** | Only needed once models or animations must be converted to GLB |
-| Colyseus Cloud | **No account or credentials** on this machine; it is a paid subscription | Your decision (see next steps) |
+| Temporary public preview | **Live** (2026-09-25) through a Cloudflare quick tunnel: production-mode server on this laptop, `HOST_KEY` in the gitignored `server/.env.production`. A 12-bot match over the public HTTPS/WSS URL finished with 0 privacy violations. | The URL dies when the laptop, server or tunnel stops, and changes on every restart |
+| Colyseus Cloud | Not chosen for now (paid); a free temporary tunnel was chosen instead | Revisit before the event for a permanent URL |
 | ffmpeg | Not installed system-wide; a portable copy was used for validation only | None |
 
 ## Next steps
