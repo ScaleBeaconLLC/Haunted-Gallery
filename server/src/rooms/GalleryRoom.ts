@@ -298,7 +298,8 @@ export class GalleryRoom extends Room<{ state: GalleryState; client: GalleryClie
 
   private syncPublic() {
     const g = this.game;
-    if (!g) return;
+    // Lobby counts must refresh on claim/release too, not only on join/leave.
+    if (!g) { this.updateCounts(); return; }
     const s = this.state;
     s.phase = g.phase;
     s.round = g.round;

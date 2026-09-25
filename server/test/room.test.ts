@@ -24,6 +24,19 @@ describe("GalleryRoom over WebSockets", () => {
   after(async () => colyseus.shutdown());
   beforeEach(async () => colyseus.cleanup());
 
+  it("counts a guest who claims after joining, so the host can start", async () => {
+    const host = await colyseus.sdk.create("gallery", { role: "host" });
+    record(host);
+    const phone = await colyseus.sdk.joinById(host.roomId, { playerKey: key(42) });
+    record(phone);
+    await sleep(200);
+    assert.strictEqual((host.state as any).humanCount, 0);
+    phone.send("claim", { character: "nia", name: "Solo" });
+    await until(() => (host.state as any).humanCount === 1);
+    phone.send("release");
+    await until(() => (host.state as any).humanCount === 0);
+  });
+
   it("runs lobby, host auth, private SOS delivery and rejoin", async () => {
     const host = await colyseus.sdk.create("gallery", { role: "host" });
     const hostInbox = record(host);
