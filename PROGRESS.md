@@ -9,7 +9,7 @@ This file separates what has been **verified**, what is **built but not yet veri
 | # | Step | Status |
 |---|------|--------|
 | 1 | PlayCanvas 3D seven-room blockout, touch controls, camera, doors, 14 hiding covers | **Built.** Renders in phone-sized headless browsers. **Not yet checked on a real iPhone or Android** (memory and frame pacing still to measure). |
-| 2 | Colyseus lobby, 12-seat synchronized match, server-authoritative travel, private camera/SOS | **Built and tested** with automated WebSocket tests and 3–4 simulated phones. **Two real phones in the same room: not yet done.** |
+| 2 | Colyseus lobby, 12-seat synchronized match, server-authoritative travel, private camera/SOS | **Built and tested**: 12 WebSocket bots played full matches with 0 privacy violations; 3–4 simulated phones in browsers. **Two real phones in the same room: not yet done.** |
 | 3 | Hunt, infection, rescue scoring, opening/ending, MP3/OGG audio | **Built.** Rules unit-tested. Audio plays through Web Audio but **has not been auditioned on phones**. |
 | 4 | Published test URL/QR, 12-device rehearsal | **Local Wi-Fi preview only.** No public deployment yet (needs a Colyseus Cloud decision; see Connections). |
 
@@ -61,9 +61,27 @@ This file separates what has been **verified**, what is **built but not yet veri
   - Hunter panel for infected players. Opening cinematic captions (limo arrival is caption-only). Results screen.
 - **Audio**:
   - MP3 with OGG fallback. One voice per character with priority quiet < discovery < grabbed < bite; grab and bite interrupt lower-priority lines.
+  - Each guest's quiet whisper plays softly on their own phone only when they settle into cover.
+  - Discovery plays only for phones in the same room, after the reveal.
   - Stereo panning and distance attenuation, separate buses and a master limiter. iOS audio unlocks on tap.
 - **Phone robustness**: screen wake lock (HTTPS only), automatic reconnect and rejoin after sleep, server clock sync, vibration on SOS/grab/bite, and adaptive render resolution.
 - **Host console** (`/host.html`): create a session, QR code plus join URL (uses the laptop's LAN address on local previews), roster with seat freeing, CPU-fill toggle, start/pause/resume/reset, live aggregate counts and results. It never shows rooms, hiding places or SOS.
+
+### Verified with 12 WebSocket bots (`tools/e2e/bots.mjs`)
+- 12 protocol-level phones (no rendering) played **2 complete 12-player matches** against the running server: 3.4 and 2.7 minutes, 8 and 6 rounds.
+- 1,101 private views were checked: **0 privacy violations** (no other guest's hiding place, no misrouted SOS, no survivor data to hunters).
+- 20 SOS sent / 20 received, and only by the intended recipients. Camera flashes and pickups raced correctly: the losers got "Someone already has the camera".
+
+### Verified production build
+- `npm run build` + `NODE_ENV=production node build/index.js`:
+  - session creation is refused without `HOST_KEY` or with a wrong key, and accepted with the right one;
+  - `/monitor` and `/api/lan` are disabled.
+- `ecosystem.config.cjs` runs **one** process. Rooms are in memory and joined by code; several processes would need Redis presence.
+
+### 12 browsers on this laptop
+- 12 phone browsers in one Edge process joined, claimed 12 distinct seats, started, and received the SOS privately (the other 11 phones got nothing).
+- Rendering 12 WebGL phones at once is **not** possible here: Chromium's cap on WebGL contexts per process dropped the oldest phone's 3D view, and 12 separate browsers exceeded the laptop's free RAM (1.6 of 7.2 GB).
+- The 3D view is therefore checked with 3–4 phones, and the 12-seat logic with the bots. **A real 12-device rehearsal is still required.**
 
 ### Verified with automated browser tests (`tools/e2e/phones.mjs`, Edge headless, 390×844 touch viewports)
 - Host creates a session; 3–4 phones join by code and claim distinct guests; the host starts.

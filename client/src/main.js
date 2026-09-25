@@ -61,7 +61,13 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 conn.addEventListener('state', e => { pub = e.detail; render(); });
 conn.addEventListener('hello', e => { me = e.detail.character; game.setMe(me); render(); });
 conn.addEventListener('view', e => {
+  const prevHide = view?.hide ?? null;
   view = e.detail;
+  // Settling into cover: the character's quiet line, on this phone only and softly.
+  if (view?.hide && view.hide !== prevHide && view.status === 'alive') {
+    const spot = ROOMS[view.room]?.hides.find(h => h.id === view.hide)?.pos;
+    if (spot) setTimeout(() => audio.voice(view.id, 'quiet', spot), 400);
+  }
   const mine = view?.id ?? view?.character ?? null;
   if (mine !== me) { me = mine; game.setMe(me); }
   game.applyView(view, pub);
