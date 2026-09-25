@@ -1,0 +1,21 @@
+node_modules/
+server/build/
+server/public/
+client/public/audio/
+client/dist/
+
+# Secrets and deploy credentials never go to GitHub.
+.env
+.env.*
+!.env.example
+.colyseus-cloud.json
+.devmode.json
+*.pem
+*.key
+
+# The original handoff archive (its contents are extracted in PlayCanvas-Handoff/).
+*.zip
+
+.DS_Store
+Thumbs.db
+*.log

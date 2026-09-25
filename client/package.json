@@ -1,0 +1,21 @@
+{
+  "name": "haunted-gallery-client",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Haunted Gallery mobile browser client (PlayCanvas engine + Colyseus SDK)",
+  "scripts": {
+    "audio": "node scripts/copy-audio.mjs",
+    "dev": "npm run audio && vite --host",
+    "build": "npm run audio && vite build",
+    "preview": "vite preview --host"
+  },
+  "dependencies": {
+    "@colyseus/sdk": "^0.18.4",
+    "playcanvas": "^2.22.4",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "vite": "^8.3.1"
+  }
+}

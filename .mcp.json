@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "playcanvas": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@playcanvas/editor-mcp-server"]
+    }
+  }
+}

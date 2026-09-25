@@ -1,0 +1,16 @@
+{
+  "units": "meters after multiplying original Unreal centimeter coordinates by 0.01",
+  "status": "approximate seven-room blockout reference; reconstruct native PlayCanvas collisions and doors",
+  "rooms": {
+    "portrait": {"name": "Grand Portrait Gallery", "center": [-11.75, 9], "hide": {"curtain_recess": [-19.2, 3], "service_niche": [-19, 15]}},
+    "sculpture": {"name": "Sculpture Vault", "center": [-24, 30], "size": [16, 16], "hide": {"plinth_shadow": [-30.2, 25], "shipping_screen": [-17.8, 35]}},
+    "archive": {"name": "Archive Library", "center": [11.75, 9], "hide": {"reading_alcove": [19, 12.5], "rolling_shelf": [6, 16]}},
+    "conservation": {"name": "Conservation Lab", "center": [24, 30], "size": [16, 16], "hide": {"cabinet_bay": [30.2, 25], "canvas_rack": [17.8, 35]}},
+    "study": {"name": "Curator's Study", "center": [-20, 48], "size": [16, 12], "hide": {"bookcase_gap": [-26.7, 44], "desk_drapery": [-13.3, 52]}},
+    "sealed": {"name": "Sealed Exhibition Room", "center": [0, 30], "size": [14, 16], "hide": {"crate_tunnel": [-5.7, 25], "blackout_recess": [5.7, 35]}},
+    "mirrors": {"name": "Hall of Mirrors", "center": [20, 48], "size": [16, 12], "hide": {"false_reflection": [26.7, 44], "velvet_pocket": [13.3, 52]}}
+  },
+  "camera_start": [-17.5, 10],
+  "rear_service_exit_reference": [0, 20],
+  "note": "Original Unreal topology includes connecting corridors, so edges in the game bible need physically walkable routes, door positions and navmesh checked inside PlayCanvas. The old .umap does not transfer to PlayCanvas."
+}

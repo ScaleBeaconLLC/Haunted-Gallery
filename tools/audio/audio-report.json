@@ -1,0 +1,1102 @@
+{
+  "checkedAt": "2026-09-25T20:15:10.793Z",
+  "manifestClips": 52,
+  "filesChecked": 104,
+  "failures": 0,
+  "unlisted": [],
+  "failuresDetail": [],
+  "clips": [
+    {
+      "id": "julian/discovery",
+      "mp3": {
+        "path": "audio/MP3/Discovery/VO_julian_discovered_01.mp3",
+        "ok": true,
+        "size": 21141,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 2.928
+      },
+      "ogg": {
+        "path": "audio/OGG/Discovery/VO_julian_discovered_01.ogg",
+        "ok": true,
+        "size": 23413,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 2.904
+      }
+    },
+    {
+      "id": "anika/discovery",
+      "mp3": {
+        "path": "audio/MP3/Discovery/VO_anika_discovered_01.mp3",
+        "ok": true,
+        "size": 34821,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 4.608
+      },
+      "ogg": {
+        "path": "audio/OGG/Discovery/VO_anika_discovered_01.ogg",
+        "ok": true,
+        "size": 41509,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 4.584
+      }
+    },
+    {
+      "id": "marcus/discovery",
+      "mp3": {
+        "path": "audio/MP3/Discovery/VO_marcus_discovered_01.mp3",
+        "ok": true,
+        "size": 24693,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.048
+      },
+      "ogg": {
+        "path": "audio/OGG/Discovery/VO_marcus_discovered_01.ogg",
+        "ok": true,
+        "size": 23951,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.024
+      }
+    },
+    {
+      "id": "mei/discovery",
+      "mp3": {
+        "path": "audio/MP3/Discovery/VO_mei_discovered_01.mp3",
+        "ok": true,
+        "size": 24477,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 2.808
+      },
+      "ogg": {
+        "path": "audio/OGG/Discovery/VO_mei_discovered_01.ogg",
+        "ok": true,
+        "size": 25527,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 2.784
+      }
+    },
+    {
+      "id": "dev/discovery",
+      "mp3": {
+        "path": "audio/MP3/Discovery/VO_dev_discovered_01.mp3",
+        "ok": true,
+        "size": 34725,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 4.272
+      },
+      "ogg": {
+        "path": "audio/OGG/Discovery/VO_dev_discovered_01.ogg",
+        "ok": true,
+        "size": 38506,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 4.248
+      }
+    },
+    {
+      "id": "amara/discovery",
+      "mp3": {
+        "path": "audio/MP3/Discovery/VO_amara_discovered_01.mp3",
+        "ok": true,
+        "size": 33837,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.912
+      },
+      "ogg": {
+        "path": "audio/OGG/Discovery/VO_amara_discovered_01.ogg",
+        "ok": true,
+        "size": 36661,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.888
+      }
+    },
+    {
+      "id": "alex/discovery",
+      "mp3": {
+        "path": "audio/MP3/Discovery/VO_alex_discovered_01.mp3",
+        "ok": true,
+        "size": 26301,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.024
+      },
+      "ogg": {
+        "path": "audio/OGG/Discovery/VO_alex_discovered_01.ogg",
+        "ok": true,
+        "size": 25829,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3
+      }
+    },
+    {
+      "id": "andre/discovery",
+      "mp3": {
+        "path": "audio/MP3/Discovery/VO_andre_discovered_01.mp3",
+        "ok": true,
+        "size": 19389,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 2.64
+      },
+      "ogg": {
+        "path": "audio/OGG/Discovery/VO_andre_discovered_01.ogg",
+        "ok": true,
+        "size": 23787,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 2.616
+      }
+    },
+    {
+      "id": "rafael/discovery",
+      "mp3": {
+        "path": "audio/MP3/Discovery/VO_rafael_discovered_01.mp3",
+        "ok": true,
+        "size": 25149,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.24
+      },
+      "ogg": {
+        "path": "audio/OGG/Discovery/VO_rafael_discovered_01.ogg",
+        "ok": true,
+        "size": 29756,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.216
+      }
+    },
+    {
+      "id": "simone/discovery",
+      "mp3": {
+        "path": "audio/MP3/Discovery/VO_simone_discovered_01.mp3",
+        "ok": true,
+        "size": 30813,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.984
+      },
+      "ogg": {
+        "path": "audio/OGG/Discovery/VO_simone_discovered_01.ogg",
+        "ok": true,
+        "size": 36140,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.96
+      }
+    },
+    {
+      "id": "owen/discovery",
+      "mp3": {
+        "path": "audio/MP3/Discovery/VO_owen_discovered_01.mp3",
+        "ok": true,
+        "size": 30213,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.888
+      },
+      "ogg": {
+        "path": "audio/OGG/Discovery/VO_owen_discovered_01.ogg",
+        "ok": true,
+        "size": 35248,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.864
+      }
+    },
+    {
+      "id": "tessa/discovery",
+      "mp3": {
+        "path": "audio/MP3/Discovery/VO_tessa_discovered_01.mp3",
+        "ok": true,
+        "size": 26061,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.048
+      },
+      "ogg": {
+        "path": "audio/OGG/Discovery/VO_tessa_discovered_01.ogg",
+        "ok": true,
+        "size": 28978,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.024
+      }
+    },
+    {
+      "id": "nia/discovery",
+      "mp3": {
+        "path": "audio/MP3/Discovery/VO_nia_discovered_01.mp3",
+        "ok": true,
+        "size": 35229,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 4.2
+      },
+      "ogg": {
+        "path": "audio/OGG/Discovery/VO_nia_discovered_01.ogg",
+        "ok": true,
+        "size": 38071,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 4.176
+      }
+    },
+    {
+      "id": "julian/grabbed",
+      "mp3": {
+        "path": "audio/MP3/Grabbed/VO_julian_grabbed_01.mp3",
+        "ok": true,
+        "size": 26541,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.288
+      },
+      "ogg": {
+        "path": "audio/OGG/Grabbed/VO_julian_grabbed_01.ogg",
+        "ok": true,
+        "size": 28499,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.264
+      }
+    },
+    {
+      "id": "anika/grabbed",
+      "mp3": {
+        "path": "audio/MP3/Grabbed/VO_anika_grabbed_01.mp3",
+        "ok": true,
+        "size": 31101,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.984
+      },
+      "ogg": {
+        "path": "audio/OGG/Grabbed/VO_anika_grabbed_01.ogg",
+        "ok": true,
+        "size": 35544,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.96
+      }
+    },
+    {
+      "id": "marcus/grabbed",
+      "mp3": {
+        "path": "audio/MP3/Grabbed/VO_marcus_grabbed_01.mp3",
+        "ok": true,
+        "size": 28893,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.6
+      },
+      "ogg": {
+        "path": "audio/OGG/Grabbed/VO_marcus_grabbed_01.ogg",
+        "ok": true,
+        "size": 26043,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.576
+      }
+    },
+    {
+      "id": "mei/grabbed",
+      "mp3": {
+        "path": "audio/MP3/Grabbed/VO_mei_grabbed_01.mp3",
+        "ok": true,
+        "size": 35589,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 4.608
+      },
+      "ogg": {
+        "path": "audio/OGG/Grabbed/VO_mei_grabbed_01.ogg",
+        "ok": true,
+        "size": 40229,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 4.584
+      }
+    },
+    {
+      "id": "dev/grabbed",
+      "mp3": {
+        "path": "audio/MP3/Grabbed/VO_dev_grabbed_01.mp3",
+        "ok": true,
+        "size": 34653,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 4.56
+      },
+      "ogg": {
+        "path": "audio/OGG/Grabbed/VO_dev_grabbed_01.ogg",
+        "ok": true,
+        "size": 40321,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 4.536
+      }
+    },
+    {
+      "id": "amara/grabbed",
+      "mp3": {
+        "path": "audio/MP3/Grabbed/VO_amara_grabbed_01.mp3",
+        "ok": true,
+        "size": 31125,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 4.008
+      },
+      "ogg": {
+        "path": "audio/OGG/Grabbed/VO_amara_grabbed_01.ogg",
+        "ok": true,
+        "size": 36664,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.984
+      }
+    },
+    {
+      "id": "alex/grabbed",
+      "mp3": {
+        "path": "audio/MP3/Grabbed/VO_alex_grabbed_01.mp3",
+        "ok": true,
+        "size": 34725,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 4.536
+      },
+      "ogg": {
+        "path": "audio/OGG/Grabbed/VO_alex_grabbed_01.ogg",
+        "ok": true,
+        "size": 32555,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 4.512
+      }
+    },
+    {
+      "id": "andre/grabbed",
+      "mp3": {
+        "path": "audio/MP3/Grabbed/VO_andre_grabbed_01.mp3",
+        "ok": true,
+        "size": 31557,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.96
+      },
+      "ogg": {
+        "path": "audio/OGG/Grabbed/VO_andre_grabbed_01.ogg",
+        "ok": true,
+        "size": 36748,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.936
+      }
+    },
+    {
+      "id": "rafael/grabbed",
+      "mp3": {
+        "path": "audio/MP3/Grabbed/VO_rafael_grabbed_01.mp3",
+        "ok": true,
+        "size": 33549,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 4.512
+      },
+      "ogg": {
+        "path": "audio/OGG/Grabbed/VO_rafael_grabbed_01.ogg",
+        "ok": true,
+        "size": 40240,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 4.488
+      }
+    },
+    {
+      "id": "simone/grabbed",
+      "mp3": {
+        "path": "audio/MP3/Grabbed/VO_simone_grabbed_01.mp3",
+        "ok": true,
+        "size": 24045,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.048
+      },
+      "ogg": {
+        "path": "audio/OGG/Grabbed/VO_simone_grabbed_01.ogg",
+        "ok": true,
+        "size": 28687,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.024
+      }
+    },
+    {
+      "id": "owen/grabbed",
+      "mp3": {
+        "path": "audio/MP3/Grabbed/VO_owen_grabbed_01.mp3",
+        "ok": true,
+        "size": 23421,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.144
+      },
+      "ogg": {
+        "path": "audio/OGG/Grabbed/VO_owen_grabbed_01.ogg",
+        "ok": true,
+        "size": 28333,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.12
+      }
+    },
+    {
+      "id": "tessa/grabbed",
+      "mp3": {
+        "path": "audio/MP3/Grabbed/VO_tessa_grabbed_01.mp3",
+        "ok": true,
+        "size": 29085,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.768
+      },
+      "ogg": {
+        "path": "audio/OGG/Grabbed/VO_tessa_grabbed_01.ogg",
+        "ok": true,
+        "size": 34819,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.744
+      }
+    },
+    {
+      "id": "nia/grabbed",
+      "mp3": {
+        "path": "audio/MP3/Grabbed/VO_nia_grabbed_01.mp3",
+        "ok": true,
+        "size": 32565,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 4.2
+      },
+      "ogg": {
+        "path": "audio/OGG/Grabbed/VO_nia_grabbed_01.ogg",
+        "ok": true,
+        "size": 38343,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 4.176
+      }
+    },
+    {
+      "id": "julian/bite",
+      "mp3": {
+        "path": "audio/MP3/Bite/VO_julian_bitten_01.mp3",
+        "ok": true,
+        "size": 25197,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.768
+      },
+      "ogg": {
+        "path": "audio/OGG/Bite/VO_julian_bitten_01.ogg",
+        "ok": true,
+        "size": 30433,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.744
+      }
+    },
+    {
+      "id": "anika/bite",
+      "mp3": {
+        "path": "audio/MP3/Bite/VO_anika_bitten_01.mp3",
+        "ok": true,
+        "size": 23709,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.384
+      },
+      "ogg": {
+        "path": "audio/OGG/Bite/VO_anika_bitten_01.ogg",
+        "ok": true,
+        "size": 30838,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.36
+      }
+    },
+    {
+      "id": "marcus/bite",
+      "mp3": {
+        "path": "audio/MP3/Bite/VO_marcus_bitten_01.mp3",
+        "ok": true,
+        "size": 30549,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 4.344
+      },
+      "ogg": {
+        "path": "audio/OGG/Bite/VO_marcus_bitten_01.ogg",
+        "ok": true,
+        "size": 30415,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 4.32
+      }
+    },
+    {
+      "id": "mei/bite",
+      "mp3": {
+        "path": "audio/MP3/Bite/VO_mei_bitten_01.mp3",
+        "ok": true,
+        "size": 21213,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 2.928
+      },
+      "ogg": {
+        "path": "audio/OGG/Bite/VO_mei_bitten_01.ogg",
+        "ok": true,
+        "size": 25685,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 2.904
+      }
+    },
+    {
+      "id": "dev/bite",
+      "mp3": {
+        "path": "audio/MP3/Bite/VO_dev_bitten_01.mp3",
+        "ok": true,
+        "size": 23709,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.168
+      },
+      "ogg": {
+        "path": "audio/OGG/Bite/VO_dev_bitten_01.ogg",
+        "ok": true,
+        "size": 27758,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.144
+      }
+    },
+    {
+      "id": "amara/bite",
+      "mp3": {
+        "path": "audio/MP3/Bite/VO_amara_bitten_01.mp3",
+        "ok": true,
+        "size": 25125,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.456
+      },
+      "ogg": {
+        "path": "audio/OGG/Bite/VO_amara_bitten_01.ogg",
+        "ok": true,
+        "size": 31209,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.432
+      }
+    },
+    {
+      "id": "alex/bite",
+      "mp3": {
+        "path": "audio/MP3/Bite/VO_alex_bitten_01.mp3",
+        "ok": true,
+        "size": 18669,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 2.472
+      },
+      "ogg": {
+        "path": "audio/OGG/Bite/VO_alex_bitten_01.ogg",
+        "ok": true,
+        "size": 21776,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 2.448
+      }
+    },
+    {
+      "id": "andre/bite",
+      "mp3": {
+        "path": "audio/MP3/Bite/VO_andre_bitten_01.mp3",
+        "ok": true,
+        "size": 24237,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.192
+      },
+      "ogg": {
+        "path": "audio/OGG/Bite/VO_andre_bitten_01.ogg",
+        "ok": true,
+        "size": 26851,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.168
+      }
+    },
+    {
+      "id": "rafael/bite",
+      "mp3": {
+        "path": "audio/MP3/Bite/VO_rafael_bitten_01.mp3",
+        "ok": true,
+        "size": 22821,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.504
+      },
+      "ogg": {
+        "path": "audio/OGG/Bite/VO_rafael_bitten_01.ogg",
+        "ok": true,
+        "size": 30949,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.48
+      }
+    },
+    {
+      "id": "simone/bite",
+      "mp3": {
+        "path": "audio/MP3/Bite/VO_simone_bitten_01.mp3",
+        "ok": true,
+        "size": 16821,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 2.16
+      },
+      "ogg": {
+        "path": "audio/OGG/Bite/VO_simone_bitten_01.ogg",
+        "ok": true,
+        "size": 20873,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 2.136
+      }
+    },
+    {
+      "id": "owen/bite",
+      "mp3": {
+        "path": "audio/MP3/Bite/VO_owen_bitten_01.mp3",
+        "ok": true,
+        "size": 23733,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.168
+      },
+      "ogg": {
+        "path": "audio/OGG/Bite/VO_owen_bitten_01.ogg",
+        "ok": true,
+        "size": 29818,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.144
+      }
+    },
+    {
+      "id": "tessa/bite",
+      "mp3": {
+        "path": "audio/MP3/Bite/VO_tessa_bitten_01.mp3",
+        "ok": true,
+        "size": 19845,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 2.808
+      },
+      "ogg": {
+        "path": "audio/OGG/Bite/VO_tessa_bitten_01.ogg",
+        "ok": true,
+        "size": 26460,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 2.784
+      }
+    },
+    {
+      "id": "nia/bite",
+      "mp3": {
+        "path": "audio/MP3/Bite/VO_nia_bitten_01.mp3",
+        "ok": true,
+        "size": 26157,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.528
+      },
+      "ogg": {
+        "path": "audio/OGG/Bite/VO_nia_bitten_01.ogg",
+        "ok": true,
+        "size": 32116,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.504
+      }
+    },
+    {
+      "id": "julian/quiet",
+      "mp3": {
+        "path": "audio/MP3/Quiet/VO_julian_quiet_01.mp3",
+        "ok": true,
+        "size": 28221,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.528
+      },
+      "ogg": {
+        "path": "audio/OGG/Quiet/VO_julian_quiet_01.ogg",
+        "ok": true,
+        "size": 32922,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.504
+      }
+    },
+    {
+      "id": "anika/quiet",
+      "mp3": {
+        "path": "audio/MP3/Quiet/VO_anika_quiet_01.mp3",
+        "ok": true,
+        "size": 21837,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.264
+      },
+      "ogg": {
+        "path": "audio/OGG/Quiet/VO_anika_quiet_01.ogg",
+        "ok": true,
+        "size": 29719,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.24
+      }
+    },
+    {
+      "id": "marcus/quiet",
+      "mp3": {
+        "path": "audio/MP3/Quiet/VO_marcus_quiet_01.mp3",
+        "ok": true,
+        "size": 19845,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 2.136
+      },
+      "ogg": {
+        "path": "audio/OGG/Quiet/VO_marcus_quiet_01.ogg",
+        "ok": true,
+        "size": 21101,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 2.112
+      }
+    },
+    {
+      "id": "mei/quiet",
+      "mp3": {
+        "path": "audio/MP3/Quiet/VO_mei_quiet_01.mp3",
+        "ok": true,
+        "size": 25533,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.024
+      },
+      "ogg": {
+        "path": "audio/OGG/Quiet/VO_mei_quiet_01.ogg",
+        "ok": true,
+        "size": 29004,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3
+      }
+    },
+    {
+      "id": "dev/quiet",
+      "mp3": {
+        "path": "audio/MP3/Quiet/VO_dev_quiet_01.mp3",
+        "ok": true,
+        "size": 22269,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 2.976
+      },
+      "ogg": {
+        "path": "audio/OGG/Quiet/VO_dev_quiet_01.ogg",
+        "ok": true,
+        "size": 27704,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 2.952
+      }
+    },
+    {
+      "id": "amara/quiet",
+      "mp3": {
+        "path": "audio/MP3/Quiet/VO_amara_quiet_01.mp3",
+        "ok": true,
+        "size": 16533,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 2.064
+      },
+      "ogg": {
+        "path": "audio/OGG/Quiet/VO_amara_quiet_01.ogg",
+        "ok": true,
+        "size": 20323,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 2.04
+      }
+    },
+    {
+      "id": "alex/quiet",
+      "mp3": {
+        "path": "audio/MP3/Quiet/VO_alex_quiet_01.mp3",
+        "ok": true,
+        "size": 26229,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.216
+      },
+      "ogg": {
+        "path": "audio/OGG/Quiet/VO_alex_quiet_01.ogg",
+        "ok": true,
+        "size": 30665,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.192
+      }
+    },
+    {
+      "id": "andre/quiet",
+      "mp3": {
+        "path": "audio/MP3/Quiet/VO_andre_quiet_01.mp3",
+        "ok": true,
+        "size": 26997,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.36
+      },
+      "ogg": {
+        "path": "audio/OGG/Quiet/VO_andre_quiet_01.ogg",
+        "ok": true,
+        "size": 30672,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.336
+      }
+    },
+    {
+      "id": "rafael/quiet",
+      "mp3": {
+        "path": "audio/MP3/Quiet/VO_rafael_quiet_01.mp3",
+        "ok": true,
+        "size": 27093,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.672
+      },
+      "ogg": {
+        "path": "audio/OGG/Quiet/VO_rafael_quiet_01.ogg",
+        "ok": true,
+        "size": 31433,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.648
+      }
+    },
+    {
+      "id": "simone/quiet",
+      "mp3": {
+        "path": "audio/MP3/Quiet/VO_simone_quiet_01.mp3",
+        "ok": true,
+        "size": 19077,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 2.304
+      },
+      "ogg": {
+        "path": "audio/OGG/Quiet/VO_simone_quiet_01.ogg",
+        "ok": true,
+        "size": 22700,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 2.28
+      }
+    },
+    {
+      "id": "owen/quiet",
+      "mp3": {
+        "path": "audio/MP3/Quiet/VO_owen_quiet_01.mp3",
+        "ok": true,
+        "size": 25101,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.888
+      },
+      "ogg": {
+        "path": "audio/OGG/Quiet/VO_owen_quiet_01.ogg",
+        "ok": true,
+        "size": 34179,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.864
+      }
+    },
+    {
+      "id": "tessa/quiet",
+      "mp3": {
+        "path": "audio/MP3/Quiet/VO_tessa_quiet_01.mp3",
+        "ok": true,
+        "size": 18789,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 2.208
+      },
+      "ogg": {
+        "path": "audio/OGG/Quiet/VO_tessa_quiet_01.ogg",
+        "ok": true,
+        "size": 21720,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 2.184
+      }
+    },
+    {
+      "id": "nia/quiet",
+      "mp3": {
+        "path": "audio/MP3/Quiet/VO_nia_quiet_01.mp3",
+        "ok": true,
+        "size": 26133,
+        "codec": "mp3",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.6
+      },
+      "ogg": {
+        "path": "audio/OGG/Quiet/VO_nia_quiet_01.ogg",
+        "ok": true,
+        "size": 32433,
+        "codec": "vorbis",
+        "sampleRate": 48000,
+        "channels": 1,
+        "duration": 3.576
+      }
+    }
+  ]
+}

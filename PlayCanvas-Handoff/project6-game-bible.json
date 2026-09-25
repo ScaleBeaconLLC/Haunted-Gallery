@@ -1,0 +1,233 @@
+{
+  "schema": 1,
+  "title": "Haunted Gallery",
+  "project": "Project 6 - Seven Rooms, Cast & Story",
+  "corePromise": "A cinematic 3D survival hunt where each player chooses whether to stay, hide, or risk moving to a connected room while Elias Voss and infected guests search the mansion museum.",
+  "session": {
+    "guestCharacters": 13,
+    "maxActiveSurvivors": 12,
+    "curator": "Elias Voss",
+    "birthdayRule": "After twelve unique survivor seats are assigned, the one unselected guest is the birthday guest and opening victim. That guest is already inside.",
+    "soloRule": "One human may select a survivor; CPUs fill every other active survivor seat.",
+    "win": "Escape the mansion alive.",
+    "loss": "Every remaining survivor has escaped or become infected."
+  },
+  "cast": [
+    "Julian Mercer",
+    "Anika Rao",
+    "Marcus Bell",
+    "Mei Chen",
+    "Dev Patel",
+    "Amara Okafor",
+    "Alex Park",
+    "Andre Calder",
+    "Rafael Duarte",
+    "Simone Whitaker",
+    "Owen Price",
+    "Tessa Monroe",
+    "Nia Calder"
+  ],
+  "roomGraph": {
+    "portrait": [
+      "sculpture",
+      "sealed"
+    ],
+    "sculpture": [
+      "portrait",
+      "sealed",
+      "study"
+    ],
+    "archive": [
+      "sealed",
+      "conservation"
+    ],
+    "conservation": [
+      "archive",
+      "sealed",
+      "mirrors"
+    ],
+    "study": [
+      "sculpture",
+      "sealed"
+    ],
+    "sealed": [
+      "portrait",
+      "sculpture",
+      "archive",
+      "conservation",
+      "study",
+      "mirrors"
+    ],
+    "mirrors": [
+      "conservation",
+      "sealed"
+    ]
+  },
+  "rooms": [
+    {
+      "id": "portrait",
+      "name": "Grand Portrait Gallery",
+      "storyPurpose": "The midnight unveiling and first bite happen here.",
+      "hiding": [
+        "curtain recess",
+        "portrait service niche"
+      ],
+      "searchRisk": "Frames and curtains create false movement and uncertain sightlines."
+    },
+    {
+      "id": "sculpture",
+      "name": "Sculpture Vault",
+      "storyPurpose": "A dangerous shortcut around the central exhibition.",
+      "hiding": [
+        "plinth shadow",
+        "shipping screen"
+      ],
+      "searchRisk": "Statues make silhouettes difficult to read."
+    },
+    {
+      "id": "archive",
+      "name": "Archive Library",
+      "storyPurpose": "Museum records reveal Elias has staged previous private unveilings.",
+      "hiding": [
+        "screened reading alcove",
+        "rolling shelf bay"
+      ],
+      "searchRisk": "Rolling shelves can trap a survivor who waits too long."
+    },
+    {
+      "id": "conservation",
+      "name": "Conservation Lab",
+      "storyPurpose": "Restoration notes explain that the camera flash interrupts the infection long enough to flee.",
+      "hiding": [
+        "rolling cabinet bay",
+        "canvas rack recess"
+      ],
+      "searchRisk": "Metal carts and hanging canvas announce careless movement."
+    },
+    {
+      "id": "study",
+      "name": "Curator's Study",
+      "storyPurpose": "Personal records establish Elias Voss as the recurring Curator.",
+      "hiding": [
+        "secret bookcase gap",
+        "desk drapery recess"
+      ],
+      "searchRisk": "The Curator searches this room more thoroughly after its clue is found."
+    },
+    {
+      "id": "sealed",
+      "name": "Sealed Exhibition Room",
+      "storyPurpose": "The central hub offers the fastest routes and the greatest exposure.",
+      "hiding": [
+        "crate tunnel",
+        "display blackout recess"
+      ],
+      "searchRisk": "Most paths cross here, increasing the chance of meeting a hunter."
+    },
+    {
+      "id": "mirrors",
+      "name": "Hall of Mirrors",
+      "storyPurpose": "Reflections make camera timing and zombie identity uncertain.",
+      "hiding": [
+        "false reflection alcove",
+        "velvet partition pocket"
+      ],
+      "searchRisk": "A false reflection can reveal a hiding survivor when a hunter searches."
+    }
+  ],
+  "opening": [
+    "Twelve active guests arrive by limousine; the unselected birthday guest is already inside the mansion museum.",
+    "An arriving guest who arranged the visit leads them in. Elias Voss welcomes the group.",
+    "At midnight Elias unveils a supposedly lost masterpiece. The painting is background story, not a supernatural trigger.",
+    "An active guest deliberately takes a normal birthday photograph with the working antique camera beside Elias and the birthday guest.",
+    "The flash unexpectedly freezes Elias. The group retreats, while the birthday guest remains to check on him.",
+    "Roughly five seconds later Elias bites the birthday guest. The single camera falls during the panic with its batteries intact.",
+    "If the camera moves to a side room before lockdown, show who picked it up and left it there. Keep its location and recharge state consistent.",
+    "The birthday guest turns into the first additional zombie. Panic and security lockdown start the survival hunt."
+  ],
+  "huntLoop": {
+    "choiceWindow": "Each living survivor privately chooses stay, move to one connected room, or hide at one of that room's two hiding places.",
+    "movement": "Unreal animates chosen characters between rooms; movement is committed once the travel window starts.",
+    "uncertainty": "Players know which people have visibly turned, but room destinations and hiding choices remain private.",
+    "hunterTurn": "Elias and infected survivors select rooms to search. A survivor found without a successful escape or flash is bitten.",
+    "infection": "A bitten survivor drops carried objects, becomes an infected hunter, and joins the next hunter turn.",
+    "camera": "The carrier may deliberately take a photograph. Visible infected characters freeze for five seconds. The camera recharges for seven seconds.",
+    "cameraDrop": "If the carrier is bitten, the camera falls at that exact room position and may be recovered later.",
+    "escape": "A survivor reaching the exit during a safe travel window leaves alive. The carrier may escape with the camera or return to help others."
+  },
+  "storyFlow": [
+    {
+      "act": 1,
+      "name": "The Invitation",
+      "play": "Twelve unique human/CPU survivor seats, the unselected birthday guest already inside, and limousine arrival of the active guests."
+    },
+    {
+      "act": 2,
+      "name": "The Unveiling",
+      "play": "Elias welcome, painting backdrop, deliberate birthday photo, five-second freeze, delayed bite, camera continuity and lockdown."
+    },
+    {
+      "act": 3,
+      "name": "The Hunt",
+      "play": "Stay, move and hide decisions; first infection; the camera is recovered; survivors learn the five-second stun by experience."
+    },
+    {
+      "act": 4,
+      "name": "The Truth",
+      "play": "Archive, lab and study clues explain the recurring unveilings without requiring every clue for escape."
+    },
+    {
+      "act": 5,
+      "name": "The Last Run",
+      "play": "Remaining survivors choose self-preservation or rescue, cross the central exhibition and attempt the final exit."
+    },
+    {
+      "act": 6,
+      "name": "Aftermath",
+      "play": "Show who escaped, who turned and where the camera ended. Elias remains the signature threat for future sessions."
+    }
+  ],
+  "hideRules": {
+    "locationsPerRoom": 2,
+    "physicalRequirement": "Every hiding point has a collision cover large enough to break direct sight and a visible in-world recess.",
+    "choice": "A survivor may enter only a hiding point in their current room.",
+    "search": "A hunter must choose a room and then a hiding location to check; entering the same room does not automatically expose every hidden survivor.",
+    "repeatPressure": "Using the same hiding place on consecutive hunt turns raises its search chance for CPUs and may expose an audio cue.",
+    "exit": "A hidden survivor must leave hiding before moving rooms."
+  },
+  "prototypeBoundary": {
+    "implementedNow": [
+      "seven-room saved Unreal blockout",
+      "two collision-backed hiding locations in every room",
+      "14 cast spawn slots",
+      "all 14 runtime cast assets load",
+      "eight opening beat markers",
+      "full story and room graph manifests"
+    ],
+    "laterProduction": [
+      "final MetaHuman likenesses and formal wardrobe",
+      "final limousine and museum art",
+      "approved dialogue and voice performances",
+      "facial and cinematic animation",
+      "complete choice/hunt/camera/escape gameplay state machine",
+      "full CPU behavior and balance"
+    ]
+  },
+  "openingContinuity": {
+    "arrivingActiveGuests": 12,
+    "birthdayGuestAlreadyInside": true,
+    "cameraCount": 1,
+    "deliberatePhoto": true,
+    "biteDelayAfterFlashSecondsApprox": 5,
+    "paintingIsSupernaturalTrigger": false,
+    "finalVoices": "distinct AI-generated voices",
+    "humanActorsRequired": false
+  },
+  "rescueAndPhoneMessages": {
+    "specification": "References/Story/PROJECT6_RESCUE_AND_PHONE_MESSAGES.md",
+    "objective": "Recover the one camera, save as many living guests as possible, and escape alive.",
+    "sos": "Named private preset message to one living guest with verified room snapshot and timestamp; never shown to hunters.",
+    "hunterKnowledge": "Alive identities and public status, never live survivor rooms, hiding places, or SOS.",
+    "scoring": "Escape +100 personal/+100 team; verified rescue followed by escape +150 rescuer/+150 team; successful camera assist +50 photographer."
+  }
+}

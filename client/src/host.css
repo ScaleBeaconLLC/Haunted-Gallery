@@ -1,0 +1,20 @@
+body.host { overflow: auto; background: radial-gradient(ellipse at top, #2a0c12, #0b0709 60%); min-height: 100%; }
+body.host main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+body.host #h-auth { margin: 10vh auto 0; }
+.h-grid { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 16px; }
+@media (max-width: 760px) { .h-grid { grid-template-columns: 1fr; } }
+.h-grid .card { width: 100%; }
+#h-qr { width: 100%; max-width: 320px; aspect-ratio: 1; display: block; margin: 8px auto; background: #fff; border-radius: 8px; }
+.h-code { text-align: center; font: bold 44px ui-monospace, Menlo, monospace; letter-spacing: .25em; color: var(--gold); }
+.h-url input { font-size: 13px; }
+.h-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin: 10px 0 14px; }
+.h-stats div { background: #1a1113; border: 1px solid var(--line); border-radius: 10px; padding: 8px; text-align: center; font-size: 13px; color: var(--muted); }
+.h-stats b { display: block; font-size: 24px; color: var(--ink); }
+.h-toggle { display: flex; align-items: center; gap: 8px; }
+.h-toggle input { width: auto; margin: 0; }
+#h-roster { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; }
+.h-seat { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 8px 10px; background: #1a1113; border: 1px solid var(--line); border-radius: 8px; font-size: 14px; }
+.h-seat.off { opacity: .5; }
+.h-seat .s { font-size: 12px; color: var(--muted); }
+.h-seat button { padding: 4px 8px; border-radius: 6px; border: 1px solid #a33; background: #2a1216; font-size: 12px; }
+h3 { color: var(--gold); margin: 16px 0 8px; }

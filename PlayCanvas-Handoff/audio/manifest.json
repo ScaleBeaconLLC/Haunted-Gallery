@@ -1,0 +1,423 @@
+{
+  "source": "Inworld TTS-2 AI auditions, not acting-approved",
+  "sample_rate_hz": 48000,
+  "clip_count": 52,
+  "clips": [
+    {
+      "character": "julian",
+      "voice": "Blake",
+      "event": "discovery",
+      "duration_s": 2.9,
+      "mp3": "audio/MP3/Discovery/VO_julian_discovered_01.mp3",
+      "ogg": "audio/OGG/Discovery/VO_julian_discovered_01.ogg"
+    },
+    {
+      "character": "anika",
+      "voice": "Eleanor",
+      "event": "discovery",
+      "duration_s": 4.58,
+      "mp3": "audio/MP3/Discovery/VO_anika_discovered_01.mp3",
+      "ogg": "audio/OGG/Discovery/VO_anika_discovered_01.ogg"
+    },
+    {
+      "character": "marcus",
+      "voice": "Jason",
+      "event": "discovery",
+      "duration_s": 3.02,
+      "mp3": "audio/MP3/Discovery/VO_marcus_discovered_01.mp3",
+      "ogg": "audio/OGG/Discovery/VO_marcus_discovered_01.ogg"
+    },
+    {
+      "character": "mei",
+      "voice": "Hana",
+      "event": "discovery",
+      "duration_s": 2.78,
+      "mp3": "audio/MP3/Discovery/VO_mei_discovered_01.mp3",
+      "ogg": "audio/OGG/Discovery/VO_mei_discovered_01.ogg"
+    },
+    {
+      "character": "dev",
+      "voice": "Aarav",
+      "event": "discovery",
+      "duration_s": 4.25,
+      "mp3": "audio/MP3/Discovery/VO_dev_discovered_01.mp3",
+      "ogg": "audio/OGG/Discovery/VO_dev_discovered_01.ogg"
+    },
+    {
+      "character": "amara",
+      "voice": "Luna",
+      "event": "discovery",
+      "duration_s": 3.89,
+      "mp3": "audio/MP3/Discovery/VO_amara_discovered_01.mp3",
+      "ogg": "audio/OGG/Discovery/VO_amara_discovered_01.ogg"
+    },
+    {
+      "character": "alex",
+      "voice": "Nate",
+      "event": "discovery",
+      "duration_s": 3.0,
+      "mp3": "audio/MP3/Discovery/VO_alex_discovered_01.mp3",
+      "ogg": "audio/OGG/Discovery/VO_alex_discovered_01.ogg"
+    },
+    {
+      "character": "andre",
+      "voice": "Mark",
+      "event": "discovery",
+      "duration_s": 2.62,
+      "mp3": "audio/MP3/Discovery/VO_andre_discovered_01.mp3",
+      "ogg": "audio/OGG/Discovery/VO_andre_discovered_01.ogg"
+    },
+    {
+      "character": "rafael",
+      "voice": "Simon",
+      "event": "discovery",
+      "duration_s": 3.22,
+      "mp3": "audio/MP3/Discovery/VO_rafael_discovered_01.mp3",
+      "ogg": "audio/OGG/Discovery/VO_rafael_discovered_01.ogg"
+    },
+    {
+      "character": "simone",
+      "voice": "Sarah",
+      "event": "discovery",
+      "duration_s": 3.96,
+      "mp3": "audio/MP3/Discovery/VO_simone_discovered_01.mp3",
+      "ogg": "audio/OGG/Discovery/VO_simone_discovered_01.ogg"
+    },
+    {
+      "character": "owen",
+      "voice": "Clive",
+      "event": "discovery",
+      "duration_s": 3.86,
+      "mp3": "audio/MP3/Discovery/VO_owen_discovered_01.mp3",
+      "ogg": "audio/OGG/Discovery/VO_owen_discovered_01.ogg"
+    },
+    {
+      "character": "tessa",
+      "voice": "Ashley",
+      "event": "discovery",
+      "duration_s": 3.02,
+      "mp3": "audio/MP3/Discovery/VO_tessa_discovered_01.mp3",
+      "ogg": "audio/OGG/Discovery/VO_tessa_discovered_01.ogg"
+    },
+    {
+      "character": "nia",
+      "voice": "Olivia",
+      "event": "discovery",
+      "duration_s": 4.18,
+      "mp3": "audio/MP3/Discovery/VO_nia_discovered_01.mp3",
+      "ogg": "audio/OGG/Discovery/VO_nia_discovered_01.ogg"
+    },
+    {
+      "character": "julian",
+      "voice": "Blake",
+      "event": "grabbed",
+      "duration_s": 3.26,
+      "mp3": "audio/MP3/Grabbed/VO_julian_grabbed_01.mp3",
+      "ogg": "audio/OGG/Grabbed/VO_julian_grabbed_01.ogg"
+    },
+    {
+      "character": "anika",
+      "voice": "Eleanor",
+      "event": "grabbed",
+      "duration_s": 3.96,
+      "mp3": "audio/MP3/Grabbed/VO_anika_grabbed_01.mp3",
+      "ogg": "audio/OGG/Grabbed/VO_anika_grabbed_01.ogg"
+    },
+    {
+      "character": "marcus",
+      "voice": "Jason",
+      "event": "grabbed",
+      "duration_s": 3.58,
+      "mp3": "audio/MP3/Grabbed/VO_marcus_grabbed_01.mp3",
+      "ogg": "audio/OGG/Grabbed/VO_marcus_grabbed_01.ogg"
+    },
+    {
+      "character": "mei",
+      "voice": "Hana",
+      "event": "grabbed",
+      "duration_s": 4.58,
+      "mp3": "audio/MP3/Grabbed/VO_mei_grabbed_01.mp3",
+      "ogg": "audio/OGG/Grabbed/VO_mei_grabbed_01.ogg"
+    },
+    {
+      "character": "dev",
+      "voice": "Aarav",
+      "event": "grabbed",
+      "duration_s": 4.54,
+      "mp3": "audio/MP3/Grabbed/VO_dev_grabbed_01.mp3",
+      "ogg": "audio/OGG/Grabbed/VO_dev_grabbed_01.ogg"
+    },
+    {
+      "character": "amara",
+      "voice": "Luna",
+      "event": "grabbed",
+      "duration_s": 3.98,
+      "mp3": "audio/MP3/Grabbed/VO_amara_grabbed_01.mp3",
+      "ogg": "audio/OGG/Grabbed/VO_amara_grabbed_01.ogg"
+    },
+    {
+      "character": "alex",
+      "voice": "Nate",
+      "event": "grabbed",
+      "duration_s": 4.51,
+      "mp3": "audio/MP3/Grabbed/VO_alex_grabbed_01.mp3",
+      "ogg": "audio/OGG/Grabbed/VO_alex_grabbed_01.ogg"
+    },
+    {
+      "character": "andre",
+      "voice": "Mark",
+      "event": "grabbed",
+      "duration_s": 3.94,
+      "mp3": "audio/MP3/Grabbed/VO_andre_grabbed_01.mp3",
+      "ogg": "audio/OGG/Grabbed/VO_andre_grabbed_01.ogg"
+    },
+    {
+      "character": "rafael",
+      "voice": "Simon",
+      "event": "grabbed",
+      "duration_s": 4.49,
+      "mp3": "audio/MP3/Grabbed/VO_rafael_grabbed_01.mp3",
+      "ogg": "audio/OGG/Grabbed/VO_rafael_grabbed_01.ogg"
+    },
+    {
+      "character": "simone",
+      "voice": "Sarah",
+      "event": "grabbed",
+      "duration_s": 3.02,
+      "mp3": "audio/MP3/Grabbed/VO_simone_grabbed_01.mp3",
+      "ogg": "audio/OGG/Grabbed/VO_simone_grabbed_01.ogg"
+    },
+    {
+      "character": "owen",
+      "voice": "Clive",
+      "event": "grabbed",
+      "duration_s": 3.12,
+      "mp3": "audio/MP3/Grabbed/VO_owen_grabbed_01.mp3",
+      "ogg": "audio/OGG/Grabbed/VO_owen_grabbed_01.ogg"
+    },
+    {
+      "character": "tessa",
+      "voice": "Ashley",
+      "event": "grabbed",
+      "duration_s": 3.74,
+      "mp3": "audio/MP3/Grabbed/VO_tessa_grabbed_01.mp3",
+      "ogg": "audio/OGG/Grabbed/VO_tessa_grabbed_01.ogg"
+    },
+    {
+      "character": "nia",
+      "voice": "Olivia",
+      "event": "grabbed",
+      "duration_s": 4.18,
+      "mp3": "audio/MP3/Grabbed/VO_nia_grabbed_01.mp3",
+      "ogg": "audio/OGG/Grabbed/VO_nia_grabbed_01.ogg"
+    },
+    {
+      "character": "julian",
+      "voice": "Blake",
+      "event": "bite",
+      "duration_s": 3.74,
+      "mp3": "audio/MP3/Bite/VO_julian_bitten_01.mp3",
+      "ogg": "audio/OGG/Bite/VO_julian_bitten_01.ogg"
+    },
+    {
+      "character": "anika",
+      "voice": "Eleanor",
+      "event": "bite",
+      "duration_s": 3.36,
+      "mp3": "audio/MP3/Bite/VO_anika_bitten_01.mp3",
+      "ogg": "audio/OGG/Bite/VO_anika_bitten_01.ogg"
+    },
+    {
+      "character": "marcus",
+      "voice": "Jason",
+      "event": "bite",
+      "duration_s": 4.32,
+      "mp3": "audio/MP3/Bite/VO_marcus_bitten_01.mp3",
+      "ogg": "audio/OGG/Bite/VO_marcus_bitten_01.ogg"
+    },
+    {
+      "character": "mei",
+      "voice": "Hana",
+      "event": "bite",
+      "duration_s": 2.9,
+      "mp3": "audio/MP3/Bite/VO_mei_bitten_01.mp3",
+      "ogg": "audio/OGG/Bite/VO_mei_bitten_01.ogg"
+    },
+    {
+      "character": "dev",
+      "voice": "Aarav",
+      "event": "bite",
+      "duration_s": 3.14,
+      "mp3": "audio/MP3/Bite/VO_dev_bitten_01.mp3",
+      "ogg": "audio/OGG/Bite/VO_dev_bitten_01.ogg"
+    },
+    {
+      "character": "amara",
+      "voice": "Luna",
+      "event": "bite",
+      "duration_s": 3.43,
+      "mp3": "audio/MP3/Bite/VO_amara_bitten_01.mp3",
+      "ogg": "audio/OGG/Bite/VO_amara_bitten_01.ogg"
+    },
+    {
+      "character": "alex",
+      "voice": "Nate",
+      "event": "bite",
+      "duration_s": 2.45,
+      "mp3": "audio/MP3/Bite/VO_alex_bitten_01.mp3",
+      "ogg": "audio/OGG/Bite/VO_alex_bitten_01.ogg"
+    },
+    {
+      "character": "andre",
+      "voice": "Mark",
+      "event": "bite",
+      "duration_s": 3.17,
+      "mp3": "audio/MP3/Bite/VO_andre_bitten_01.mp3",
+      "ogg": "audio/OGG/Bite/VO_andre_bitten_01.ogg"
+    },
+    {
+      "character": "rafael",
+      "voice": "Simon",
+      "event": "bite",
+      "duration_s": 3.48,
+      "mp3": "audio/MP3/Bite/VO_rafael_bitten_01.mp3",
+      "ogg": "audio/OGG/Bite/VO_rafael_bitten_01.ogg"
+    },
+    {
+      "character": "simone",
+      "voice": "Sarah",
+      "event": "bite",
+      "duration_s": 2.14,
+      "mp3": "audio/MP3/Bite/VO_simone_bitten_01.mp3",
+      "ogg": "audio/OGG/Bite/VO_simone_bitten_01.ogg"
+    },
+    {
+      "character": "owen",
+      "voice": "Clive",
+      "event": "bite",
+      "duration_s": 3.14,
+      "mp3": "audio/MP3/Bite/VO_owen_bitten_01.mp3",
+      "ogg": "audio/OGG/Bite/VO_owen_bitten_01.ogg"
+    },
+    {
+      "character": "tessa",
+      "voice": "Ashley",
+      "event": "bite",
+      "duration_s": 2.78,
+      "mp3": "audio/MP3/Bite/VO_tessa_bitten_01.mp3",
+      "ogg": "audio/OGG/Bite/VO_tessa_bitten_01.ogg"
+    },
+    {
+      "character": "nia",
+      "voice": "Olivia",
+      "event": "bite",
+      "duration_s": 3.5,
+      "mp3": "audio/MP3/Bite/VO_nia_bitten_01.mp3",
+      "ogg": "audio/OGG/Bite/VO_nia_bitten_01.ogg"
+    },
+    {
+      "character": "julian",
+      "voice": "Blake",
+      "event": "quiet",
+      "duration_s": 3.5,
+      "mp3": "audio/MP3/Quiet/VO_julian_quiet_01.mp3",
+      "ogg": "audio/OGG/Quiet/VO_julian_quiet_01.ogg"
+    },
+    {
+      "character": "anika",
+      "voice": "Eleanor",
+      "event": "quiet",
+      "duration_s": 3.24,
+      "mp3": "audio/MP3/Quiet/VO_anika_quiet_01.mp3",
+      "ogg": "audio/OGG/Quiet/VO_anika_quiet_01.ogg"
+    },
+    {
+      "character": "marcus",
+      "voice": "Jason",
+      "event": "quiet",
+      "duration_s": 2.11,
+      "mp3": "audio/MP3/Quiet/VO_marcus_quiet_01.mp3",
+      "ogg": "audio/OGG/Quiet/VO_marcus_quiet_01.ogg"
+    },
+    {
+      "character": "mei",
+      "voice": "Hana",
+      "event": "quiet",
+      "duration_s": 3.0,
+      "mp3": "audio/MP3/Quiet/VO_mei_quiet_01.mp3",
+      "ogg": "audio/OGG/Quiet/VO_mei_quiet_01.ogg"
+    },
+    {
+      "character": "dev",
+      "voice": "Aarav",
+      "event": "quiet",
+      "duration_s": 2.95,
+      "mp3": "audio/MP3/Quiet/VO_dev_quiet_01.mp3",
+      "ogg": "audio/OGG/Quiet/VO_dev_quiet_01.ogg"
+    },
+    {
+      "character": "amara",
+      "voice": "Luna",
+      "event": "quiet",
+      "duration_s": 2.04,
+      "mp3": "audio/MP3/Quiet/VO_amara_quiet_01.mp3",
+      "ogg": "audio/OGG/Quiet/VO_amara_quiet_01.ogg"
+    },
+    {
+      "character": "alex",
+      "voice": "Nate",
+      "event": "quiet",
+      "duration_s": 3.19,
+      "mp3": "audio/MP3/Quiet/VO_alex_quiet_01.mp3",
+      "ogg": "audio/OGG/Quiet/VO_alex_quiet_01.ogg"
+    },
+    {
+      "character": "andre",
+      "voice": "Mark",
+      "event": "quiet",
+      "duration_s": 3.34,
+      "mp3": "audio/MP3/Quiet/VO_andre_quiet_01.mp3",
+      "ogg": "audio/OGG/Quiet/VO_andre_quiet_01.ogg"
+    },
+    {
+      "character": "rafael",
+      "voice": "Simon",
+      "event": "quiet",
+      "duration_s": 3.65,
+      "mp3": "audio/MP3/Quiet/VO_rafael_quiet_01.mp3",
+      "ogg": "audio/OGG/Quiet/VO_rafael_quiet_01.ogg"
+    },
+    {
+      "character": "simone",
+      "voice": "Sarah",
+      "event": "quiet",
+      "duration_s": 2.28,
+      "mp3": "audio/MP3/Quiet/VO_simone_quiet_01.mp3",
+      "ogg": "audio/OGG/Quiet/VO_simone_quiet_01.ogg"
+    },
+    {
+      "character": "owen",
+      "voice": "Clive",
+      "event": "quiet",
+      "duration_s": 3.86,
+      "mp3": "audio/MP3/Quiet/VO_owen_quiet_01.mp3",
+      "ogg": "audio/OGG/Quiet/VO_owen_quiet_01.ogg"
+    },
+    {
+      "character": "tessa",
+      "voice": "Ashley",
+      "event": "quiet",
+      "duration_s": 2.18,
+      "mp3": "audio/MP3/Quiet/VO_tessa_quiet_01.mp3",
+      "ogg": "audio/OGG/Quiet/VO_tessa_quiet_01.ogg"
+    },
+    {
+      "character": "nia",
+      "voice": "Olivia",
+      "event": "quiet",
+      "duration_s": 3.58,
+      "mp3": "audio/MP3/Quiet/VO_nia_quiet_01.mp3",
+      "ogg": "audio/OGG/Quiet/VO_nia_quiet_01.ogg"
+    }
+  ]
+}
