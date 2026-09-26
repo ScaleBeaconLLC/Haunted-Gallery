@@ -10,7 +10,22 @@ _Written 2026-09-25, updated 2026-09-26 after the Colyseus Cloud deployment. No 
 | Gameplay baseline commit | `6f65621`, "Real-time hide-and-seek upgrade…" (was `main` == `origin/main`) |
 | Baseline checkpoint tag | `checkpoint-gameplay-upgrade` → `6f65621` (earlier: `checkpoint-rounds-v1` → `a2fbac9`) |
 | Working branch | `multiplayer-foundation` (branched from `6f65621`), then **`mansion-rooms`** (branched from `multiplayer-foundation`: bedroom wing, reference-based room art, 15-minute spec timing; see `docs/MANSION_REFERENCE_MAPPING.md`) |
-| Deployed to Colyseus Cloud? | **Yes**: commit **`fd998c0`** on `multiplayer-foundation` (see below) |
+| Deployed to Colyseus Cloud? | **Yes**: now commit **`b1581a4`** on **`mansion-rooms`** (2026-09-26). Previously `fd998c0` on `multiplayer-foundation`. |
+
+## Current deployment: `mansion-rooms` @ `b1581a4` (2026-09-26)
+
+| Check | Result |
+|---|---|
+| Deployed with | `npx @colyseus/cloud@1.0.12 deploy --env production --branch mansion-rooms --remote https://github.com/ScaleBeaconLLC/Haunted-Gallery.git` (not `main`) |
+| Fingerprint | Cloud serves `main-DZTZQa03.js`, identical to a fresh GitHub clone of `b1581a4` built with `npm install && npm run build` (27/27 server tests pass in that clone) |
+| `tools/e2e/remote-multiplayer.mjs` | **15/15 pass** against the Cloud endpoint |
+| `tools/e2e/bots.mjs` (12 bots) | Full match, **0 privacy violations** in 3,410 private views |
+| `tools/e2e/cloud-tour.mjs` (no test hooks) | The host creates a session with `HOST_KEY`, and players join through the QR link. There are 13 guests plus Elias, the countdown shows 15:00 with the "Final lockdown · 11:45 p.m." clock, and each player walks room by room to the bedroom wing. Julian (phone) ends up under the four-poster, Anika (desktop) inside the guest wardrobe, Marcus (phone) under the single bed. No page errors. Screenshots are in `docs/screenshots/mansion-cloud/`. |
+
+Found and fixed during the Cloud tour:
+- The action panel, lobby grid, SOS inbox and host roster were rebuilt on every view (~10×/s), so a tap could land on a replaced button. They now update only when their content changes.
+- "Hand over the camera" appeared and vanished as guests walked past. It now stays in place and is disabled when nobody is in reach.
+- On a 390 px phone the lockdown caption overlapped the HUD. Captions now sit below the HUD's actual height.
 
 ## Colyseus Cloud deployment (verified)
 

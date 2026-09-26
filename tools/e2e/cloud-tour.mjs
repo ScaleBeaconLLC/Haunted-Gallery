@@ -112,15 +112,15 @@ try {
   const tours = [
     walkAndHide('julian', julian, async (room, when) => {
       if (room === 'corridor' && when === 'leaving') { await sleep(1800); await shot(julian, '06-phone-running-into-portrait-corridor'); }
-      if (room === 'master_bedroom' && when === 'leaving') { await sleep(2500); await shot(julian, '08-phone-entering-master-bedroom'); }
+      if (room === 'master_bedroom' && when === 'leaving') { await sleep(2500); await shot(julian, '08-phone-on-the-way-to-master-bedroom'); }
       if (room === 'corridor' && when === 'arrived') await shot(julian, '07-phone-corridor-bedroom-cards');
     }),
     walkAndHide('anika', anika, async (room, when) => {
       if (room === 'study' && when === 'leaving') { await sleep(1500); await shot(anika, '09-desktop-travel-to-curators-study'); }
-      if (room === 'guest_bedroom' && when === 'leaving') { await sleep(2500); await shot(anika, '10-desktop-entering-guest-bedroom'); }
+      if (room === 'guest_bedroom' && when === 'leaving') { await sleep(2500); await shot(anika, '10-desktop-on-the-way-to-guest-bedroom'); }
     }),
     walkAndHide('marcus', marcus, async (room, when) => {
-      if (room === 'spare_bedroom' && when === 'leaving') { await sleep(2500); await shot(marcus, '12-phone-entering-spare-bedroom'); }
+      if (room === 'spare_bedroom' && when === 'leaving') { await sleep(2500); await shot(marcus, '12-phone-on-the-way-to-spare-bedroom'); }
     }),
   ];
   const [j, a, m] = await Promise.all(tours);

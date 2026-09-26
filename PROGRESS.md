@@ -31,6 +31,8 @@ The 15 concept images from `Haunted_Gallery_Claude_Complete_Package.zip` (in `re
   - `tools/e2e/bedrooms.mjs` (desktop + phone-sized browsers) passes all checks.
   - The 3-phone regression scenario passes.
   - 12 bots: 0 privacy violations.
+- **Live on Colyseus Cloud:** `b1581a4` at https://us-ord-c6919c4a.colyseus.cloud. The fingerprint matches a clean clone; 15/15 live multiplayer checks; 12 bots with 0 privacy violations; a natural-play tour (no test hooks) on desktop and phone-sized browsers reached all three bedrooms. Screenshots: `docs/screenshots/mansion-cloud/`.
+- **Not verified:** real iPhone/Android frame rate, heat and touch feel in the new rooms. The tour used headless Edge with software rendering and phone emulation.
 
 ## What changed in the (earlier) gameplay upgrade
 
