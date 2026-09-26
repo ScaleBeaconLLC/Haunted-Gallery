@@ -798,8 +798,24 @@ box("Washstand", (BATH["x1"] - IN - 0.3, 0.42, 7.3), (0.55, 0.84, 1.0), M["wardr
 box("Basin", (BATH["x1"] - IN - 0.32, 0.9, 7.3), (0.42, 0.12, 0.55), M["porcelain"], bevel=0.05)
 box("BathMirror", (BATH["x1"] - IN - 0.02, 1.6, 7.3), (0.02, 0.8, 0.6), M["mirror"])
 box("BathMirrorFrame", (BATH["x1"] - IN - 0.015, 1.6, 7.3), (0.03, 0.92, 0.72), M["gilt"], bevel=0.01)
-cyl("TowelRail", (BATH["x0"] + IN + 0.1, 1.2, 7.4), 0.015, 0.8, M["brass"], axis="z", seg=8)
-box("Towel", (BATH["x0"] + IN + 0.12, 0.95, 7.4), (0.04, 0.5, 0.55), M["towel"], bevel=0.01)
+cyl("TowelRail", (1.35, 1.2, BATH["z0"] + IN + 0.1), 0.015, 0.8, M["brass"], axis="x", seg=8)
+box("Towel", (1.35, 0.95, BATH["z0"] + IN + 0.12), (0.55, 0.5, 0.04), M["towel"], bevel=0.01)
+# Linen cupboard on the west wall: hollow, shelves above head height, doors ajar (a hide).
+LX, LZ, LD, LW, LH = BATH["x0"] + IN + 0.3, 6.8, 0.6, 1.0, 2.2
+box("LinenBack", (BATH["x0"] + IN + 0.02, LH / 2 + 0.1, LZ), (0.03, LH, LW), M["wardrobe_in"])
+for sz in (-1, 1):
+    box(f"LinenSide{sz}", (LX, LH / 2 + 0.1, LZ + sz * (LW / 2 - 0.02)), (LD, LH, 0.04), M["wardrobe"], bevel=0.01)
+box("LinenTop", (LX, LH + 0.13, LZ), (LD + 0.06, 0.06, LW + 0.08), M["wardrobe"], bevel=0.012)
+box("LinenBase", (LX, 0.06, LZ), (LD + 0.03, 0.12, LW + 0.03), M["wardrobe"], bevel=0.01)
+for i, y in enumerate((1.95, 2.18)):
+    box(f"LinenShelf{i}", (LX, y, LZ), (LD - 0.06, 0.03, LW - 0.08), M["wardrobe_in"])
+    for k in range(3):
+        box(f"LinenStack{i}{k}", (LX - 0.05, y + 0.08, LZ - 0.28 + k * 0.28), (0.36, 0.12, 0.24), M["towel"], bevel=0.02)
+lfront = LX + LD / 2
+for sz, ang, nm in ((-1, 70, "Open"), (1, 15, "Ajar")):
+    hinge_z = LZ + sz * LW / 2
+    a = math.radians(ang); dw = LW / 2
+    box(f"LinenDoor{nm}", (lfront + math.sin(a) * dw / 2, LH / 2 + 0.12, hinge_z - sz * math.cos(a) * dw / 2), (0.03, LH - 0.1, dw), M["wardrobe"], bevel=0.01, rot=sz * ang)
 box("BathWindow", (BATH["x0"] + IN + 0.03, 1.9, 8.9), (0.02, 1.0, 0.7), M["window"])
 fit_uv(bpy.data.objects["BathWindow"], "z")
 LAMPS.append((BATH["x1"] - IN - 0.12, 2.1, 6.6))

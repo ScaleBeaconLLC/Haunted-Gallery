@@ -3,7 +3,7 @@
 import { CORRIDORS, ROOMS, ROOM_IDS, EXIT_CORRIDOR } from '@game/data.ts';
 
 export function mapSvg({ myRoom, targetRoom, route = [], exitOpen }) {
-  const pad = 2, minX = -33, maxX = 33, minZ = 0, maxZ = 81;
+  const pad = 2, minX = -33, maxX = 33, minZ = 0, maxZ = 82;
   const W = maxX - minX + pad * 2, H = maxZ - minZ + pad * 2;
   // North (larger z) at the top of the screen.
   const X = x => x - minX + pad, Y = z => maxZ - z + pad;

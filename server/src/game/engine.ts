@@ -16,7 +16,7 @@ import {
   RoomId, SCORE, SOS_PRESETS, SosPreset, SosReply, TUNING, Vec2, frontOf, hideIds, hideSpot, standingSpot,
 } from "./data.js";
 import {
-  Waypoint, ZoneId, blockSpot, canHear, canSee, dist, isRoom, planRoute, roomRoute, roomsOf, staggerSpot, toward, zoneAt,
+  Waypoint, ZoneId, blockSpot, canHear, canSee, dist, doorwaysBetween, isRoom, planRoute, roomRoute, roomsOf, staggerSpot, toward, zoneAt,
 } from "./nav.js";
 
 export type ActorId = CharacterId | "elias";
@@ -72,6 +72,8 @@ export interface Actor {
   blocking: string | null;
   /** Standing at a View Gallery section, looking at the wall (open, visible, vulnerable). */
   viewing: string | null;
+  /** Direct steering from the phone's stick: a unit direction, walk or run, valid until `until`. */
+  steer: { dx: number; dz: number; run: boolean; until: number } | null;
   snares: number;
   clues: Set<string>;
   clueNotes: Map<string, string>;
@@ -200,7 +202,7 @@ export class HauntedGame {
       id, status, active, birthday, cpu, score: 0, pos: [...pos] as Vec2, zone: "portrait", room: "portrait", yaw: 90,
       path: [], pace: "walk", intent: { kind: "idle" }, intentSeq: 0, intentState: "done", intentReason: null, lastIntentAt: -Infinity,
       hide: null, hideState: "none", hideTimer: 0, afterLeave: null, peeking: false,
-      stunnedUntil: 0, stunKind: null, snareImmuneUntil: 0, grabbedBy: null, grabbing: null, biteAt: 0, searching: null, blocking: null, viewing: null,
+      stunnedUntil: 0, stunKind: null, snareImmuneUntil: 0, grabbedBy: null, grabbing: null, biteAt: 0, searching: null, blocking: null, viewing: null, steer: null,
       snares: 0, clues: new Set(), clueNotes: new Map(),
       ai: { nextThinkAt: 0, sawHide: [], heard: null, hideUntil: 0, blockUntil: 0, lastSeen: null, lastSearched: new Map(), replanAt: 0, guardUntil: 0, nextGuardAt: Infinity, committedUntil: 0, chaseUntil: 0, ignore: new Map(), windup: null },
     };
@@ -406,6 +408,7 @@ export class HauntedGame {
     a.intentReason = null;
     a.searching = null;
     a.viewing = null;
+    a.steer = null;
     if (a.blocking) { a.blocking = null; }
     a.peeking = false;
     // Leaving cover takes a moment; the journey starts once the character is out.
@@ -506,6 +509,9 @@ export class HauntedGame {
     }
     if (a.hideState === "leaving" && now >= a.hideTimer) {
       a.hideState = "none";
+      // Out on the open side of the cover (not left standing inside the bed or wardrobe).
+      const hs = a.hide ? hideSpot(a.hide) : null;
+      if (hs) { a.pos = frontOf(hs.spot, 0.35); this.updateZone(a); }
       a.hide = null;
       const next = a.afterLeave; a.afterLeave = null;
       this.emit({ type: "left_cover", to: this.witnessesOf(a), id: a.id });
@@ -532,6 +538,10 @@ export class HauntedGame {
       }
     }
 
+    if (a.steer) {
+      if (now >= a.steer.until) a.steer = null;
+      else if (a.hideState === "none") { this.steerStep(a, now, dt); return; }
+    }
     if (!a.path.length) return;
     let budget = this.speed(a) * dt;
     while (budget > 0 && a.path.length) {
@@ -914,7 +924,7 @@ export class HauntedGame {
       let radius = 0, kind = "";
       if (o.grabbing || o.grabbedBy) { radius = TUNING.hearStruggle; kind = "struggle"; }
       else if (o.searching) { radius = TUNING.hearSearch; kind = "search"; }
-      else if (o.path.length && !this.stunned(o, now)) { radius = o.pace === "run" ? TUNING.hearRun : TUNING.hearWalk; kind = o.pace === "run" ? "running" : "steps"; }
+      else if (this.isMoving(o, now)) { radius = o.pace === "run" ? TUNING.hearRun : TUNING.hearWalk; kind = o.pace === "run" ? "running" : "steps"; }
       if (!radius || !canHear(listener.pos, listener.zone, o.pos, o.zone, radius)) continue;
       const bearing = Math.round(Math.atan2(o.pos[0] - listener.pos[0], o.pos[1] - listener.pos[1]) * 180 / Math.PI / 15) * 15;
       out.push({ bearing, band: dist(o.pos, listener.pos) < 5 ? "near" : "far", kind, ...(listener.cpu ? { src: o } : {}) } as any);
@@ -1098,8 +1108,8 @@ export class HauntedGame {
       id: o.id,
       pos: r2(o.pos),
       yaw: Math.round(o.yaw),
-      moving: o.path.length > 0 && !this.stunned(o, now),
-      running: o.pace === "run" && o.path.length > 0,
+      moving: this.isMoving(o, now),
+      running: o.pace === "run" && this.isMoving(o, now),
       revealed: this.revealed(me, o, now),
       stunned: this.stunned(o, now) ? o.stunKind : null,
       action: o.grabbing ? "grabbing" : o.grabbedBy ? "grabbed" : o.searching ? "searching" : o.blocking ? "blocking" : o.viewing ? "viewing"
@@ -1119,7 +1129,7 @@ export class HauntedGame {
       me: {
         pos: r2(me.pos), yaw: Math.round(me.yaw), zone: me.zone, room: me.room, inRoom: isRoom(me.zone),
         hide: me.hide, hideState: me.hideState, pose: hs?.spot.pose ?? null, look: hs?.spot.look ?? null, hidePos: hs?.spot.pos ?? null,
-        peeking: me.peeking, pace: me.pace, moving: me.path.length > 0,
+        peeking: me.peeking, pace: me.pace, moving: this.isMoving(me, now), steering: !!me.steer,
         path: me.path.slice(0, 12).map(w => r2(w.p)),
         intent: { seq: me.intentSeq, kind: me.intent.kind, target: (me.intent as any).room ?? (me.intent as any).spot ?? (me.intent as any).door ?? (me.intent as any).target ?? null, state: me.intentState, reason: me.intentReason },
         caught: !!me.grabbedBy, caughtBy: me.grabbedBy, grabbing: me.grabbing,
@@ -1150,6 +1160,8 @@ export class HauntedGame {
         inspect: this.cluesInReach(me).map(c => ({ id: c, label: CLUES.find(x => x.id === c)!.label, read: me.clues.has(c) })),
         passTo: actors.filter(x => x.id !== "elias" && !x.revealed && dist(this.get(x.id).pos, me.pos) <= TUNING.passReach).map(x => x.id),
         gallery: this.galleryStations(me).map(g => ({ id: g.id, label: g.label })),
+        // Only the hiding place(s) you are standing right beside (the phone shows a small "Hide").
+        nearHides: this.nearSpots(me, TUNING.hideOfferRange).map(h => ({ id: h.id, label: h.label, pose: h.pose })),
       };
       view.clues = [...me.clueNotes].map(([cid, text]) => ({ id: cid, label: CLUES.find(c => c.id === cid)!.label, text }));
       view.sos = this.sosViewFor(me, now, names);
@@ -1159,11 +1171,88 @@ export class HauntedGame {
       view.huntOptions = {
         rooms: rooms.filter(r => r !== me.room || !isRoom(me.zone)),
         searchSpots: isRoom(me.zone) ? ROOMS[me.zone].hides.map(h => ({ id: h.id, label: h.label })) : [],
+        nearSearch: this.nearSpots(me, TUNING.searchOfferRange).map(h => ({ id: h.id, label: h.label, pose: h.pose })),
         doors: isRoom(me.zone) ? DOORWAYS.filter(d => d.room === me.zone).map(d => ({ key: d.key, to: d.to, label: d.to === "exit" ? "Service exit" : `Door to ${ROOMS[d.to as RoomId].name}` })) : [],
         chase: actors.filter(x => x.id !== "elias" && this.get(x.id).status === "alive").map(x => x.id),
       };
     }
     return view;
+  }
+
+  /** Hiding places in this room whose open side is within `range` metres. */
+  private nearSpots(a: Actor, range: number) {
+    if (!isRoom(a.zone) || a.hideState !== "none") return [];
+    return ROOMS[a.zone].hides.filter(h => dist(frontOf(h), a.pos) <= range);
+  }
+
+  private isMoving(a: Actor, now: number) {
+    if (this.stunned(a, now)) return false;
+    return a.path.length > 0 || (!!a.steer && now < a.steer.until && a.hideState === "none");
+  }
+
+  /**
+   * Direct control: the phone's stick. A gentle push walks (quiet), a strong push runs (heard
+   * much further away). Leaving cover first takes the usual moment. The server moves the
+   * character: walls, furniture and blocked doorways stop it; doorways let it through.
+   */
+  steer(id: ActorId, dx: number, dz: number, strength: number, now: number) {
+    if (this.phase !== "hunt") throw new GameError("Wait for the lockdown");
+    const a = this.get(id);
+    if (a.status === "escaped" || a.grabbedBy || a.grabbing || this.stunned(a, now)) return;
+    const len = Math.hypot(dx, dz);
+    if (!Number.isFinite(len) || !Number.isFinite(strength)) throw new GameError("Bad input");
+    if (len < 1e-3 || strength < 0.12) { a.steer = null; return; }
+    const run = strength >= TUNING.steerRunThreshold;
+    if (a.path.length || a.intent.kind !== "idle") {
+      a.path = []; a.intent = { kind: "idle" }; a.intentState = "done"; a.intentReason = null;
+    }
+    a.searching = null; a.viewing = null; a.peeking = false;
+    if (a.blocking) a.blocking = null;
+    if (a.hideState === "hidden" || a.hideState === "entering") {
+      a.hideState = "leaving"; a.hideTimer = now + TUNING.leaveCoverMs; a.afterLeave = null;
+    }
+    a.pace = run ? "run" : "walk";
+    a.steer = { dx: dx / len, dz: dz / len, run, until: now + TUNING.steerHoldMs };
+  }
+
+  private walkable(p: Vec2, from: ZoneId, a: Actor, now: number): boolean {
+    const r = TUNING.bodyRadius;
+    const z = zoneAt(p);
+    if (!z) return false;
+    // keep the body clear of walls: every side point must be on walkable floor
+    for (const [ox, oz] of [[r, 0], [-r, 0], [0, r], [0, -r]] as const) if (!zoneAt([p[0] + ox, p[1] + oz])) return false;
+    // furniture in Blender-built rooms
+    for (const rid of roomsOf(z)) for (const [x0, x1, z0, z1] of ROOMS[rid].obstacles ?? []) {
+      if (p[0] > x0 - r && p[0] < x1 + r && p[1] > z0 - r && p[1] < z1 + r) return false;
+    }
+    // a hunter standing in a doorway still stops survivors
+    if (z !== from) {
+      for (const d of doorwaysBetween(from, z)) if (this.doorBlockedFor(a, d.key, now)) return false;
+    }
+    if (z === "exit" && a.status !== "alive") return false;
+    return true;
+  }
+
+  private steerStep(a: Actor, now: number, dt: number) {
+    const s = a.steer!;
+    const budget = this.speed(a) * dt;
+    a.yaw = Math.atan2(s.dx, s.dz) * 180 / Math.PI;
+    const from = a.zone;
+    const tries: Vec2[] = [
+      [a.pos[0] + s.dx * budget, a.pos[1] + s.dz * budget],
+      [a.pos[0] + s.dx * budget, a.pos[1]],      // slide along a wall
+      [a.pos[0], a.pos[1] + s.dz * budget],
+    ];
+    // Never trap someone who is already inside a footprint (e.g. placed there): let them walk out.
+    const free = !this.walkable(a.pos, from, a, now);
+    const next = tries.find(p => free ? !!zoneAt(p) : this.walkable(p, from, a, now));
+    if (!next) return;
+    a.pos = next;
+    this.updateZone(a);
+    // Crossing the Garden Gate threshold is the escape.
+    if (a.zone === "exit" && a.status === "alive" && dist(a.pos, EXIT_POINT) < 0.9) {
+      if (this.exitOpen) { a.steer = null; this.escape(a, now); }
+    }
   }
 
   /** Gallery sections a survivor can walk to right now: in the Portrait Corridor, within reach. */

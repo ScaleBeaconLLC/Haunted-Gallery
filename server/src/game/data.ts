@@ -14,7 +14,7 @@
  * bedrooms north of the Curator's Study and the Hall of Mirrors.
  */
 export type RoomId = "portrait" | "sculpture" | "archive" | "conservation" | "study" | "sealed" | "mirrors"
-  | "corridor" | "master_bedroom" | "guest_bedroom" | "spare_bedroom";
+  | "corridor" | "master_bedroom" | "guest_bedroom" | "spare_bedroom" | "guest_bath";
 export type CharacterId =
   | "julian" | "anika" | "marcus" | "mei" | "dev" | "amara" | "alex"
   | "andre" | "rafael" | "simone" | "owen" | "tessa" | "nia";
@@ -60,7 +60,9 @@ export const ROOM_GRAPH: Record<RoomId, RoomId[]> = {
   // serves three bedrooms (each has one door, so hiding there is a real commitment).
   corridor: ["study", "mirrors", "master_bedroom", "guest_bedroom", "spare_bedroom"],
   master_bedroom: ["corridor"],
-  guest_bedroom: ["corridor"],
+  guest_bedroom: ["corridor", "guest_bath"],
+  // The guest suite's bathroom opens only off the Guest Bedroom (Blender-built suite).
+  guest_bath: ["guest_bedroom"],
   spare_bedroom: ["corridor"],
 };
 
@@ -105,6 +107,13 @@ export interface RoomDef {
   refs?: string[];
   /** Open floor where arrivals stand (defaults to a ring around the center); keeps people off beds. */
   openArea?: [number, number, number, number];
+  /**
+   * A Blender-built room model (client/public/models/rooms/<model>.glb) replaces the generated
+   * floor, furniture and cover primitives; its origin sits at world (0, 0, modelOrigin z).
+   */
+  model?: { file: string; origin: Vec2 };
+  /** Furniture footprints [x0, x1, z0, z1] that people cannot walk through (modelled rooms). */
+  obstacles?: [number, number, number, number][];
   /** Surface style for the generated 3D materials. */
   style?: { floor: "parquet" | "herringbone" | "marble" | "planks" | "stone" | "tile"; wall: "walnut" | "olive" | "stone" | "damask" | "nursery" | "red" | "mirror" };
   floorColor: string;
@@ -213,16 +222,47 @@ export const ROOMS: Record<RoomId, RoomDef> = {
       { id: "dressing_screen", label: "Behind the dressing screen", pos: [-24.9, 68.6], pose: "behind", look: 45, cover: { pos: [-23.6, 69.4], size: [2.2, 0.16], height: 1.9, kind: "fscreen" } },
     ],
   },
+  // Guest suite: built in Blender (tools/blender/build_guest_suite.py), 9 x 9 m, with its own
+  // bathroom. Positions below match the model (local origin = world 0, 70.5).
   guest_bedroom: {
     id: "guest_bedroom", name: "Guest Bedroom",
     story: "The blue room, made up for a visitor who was expected to stay.",
-    searchRisk: "The window seat is lit by the moon; the space under the brass bed is not.",
-    refs: ["05_Guest_Bedroom"], style: { floor: "planks", wall: "damask" },
-    rect: [-6, 6, 66, 78], center: [0, 72], openArea: [-4.5, 3.4, 67.2, 72.4], floorColor: "#3a2618", wallColor: "#2c3a5c",
+    searchRisk: "The window seat is lit by the moon; the space under the iron bed is not.",
+    refs: ["05_Guest_Bedroom", "night-mansion-refs/06"], style: { floor: "planks", wall: "damask" },
+    model: { file: "guest_suite", origin: [0, 70.5] },
+    rect: [-4.5, 4.5, 66, 75], center: [0, 70.5], openArea: [-1.8, 2.4, 67.4, 69.6], floorColor: "#3a2618", wallColor: "#2c3a5c",
     hides: [
-      { id: "under_brass_bed", label: "Under the raised brass bed", pos: [-2, 74.6], pose: "under", look: 180, cover: { pos: [-2, 74.6], size: [2.1, 2.5], height: 0.72, kind: "bedbrass" } },
-      { id: "window_seat", label: "Behind the window-seat curtain", pos: [3.6, 77.55], pose: "curtain", look: 180, cover: { pos: [3.6, 76.9], size: [2.4, 0.18], height: 2.7, kind: "curtain" } },
-      { id: "guest_wardrobe", label: "Inside the guest wardrobe", pos: [5.4, 70.5], pose: "inside", look: 270, cover: { pos: [5.4, 70.5], size: [1.1, 2.0], height: 2.3, kind: "wardrobe" } },
+      { id: "under_brass_bed", label: "Under the iron bed", pos: [-1.6, 73.7], pose: "under", look: 90, cover: { pos: [-1.6, 73.7], size: [1.8, 2.2], height: 0.58, kind: "bedbrass" } },
+      { id: "window_seat", label: "Behind the window-seat curtain", pos: [-3.85, 69.9], pose: "curtain", look: 90, cover: { pos: [-3.4, 69.9], size: [0.18, 1.3], height: 2.75, kind: "curtain" } },
+      { id: "guest_wardrobe", label: "Inside the wardrobe", pos: [4.05, 69.7], pose: "inside", look: 270, cover: { pos: [3.99, 69.7], size: [0.7, 1.4], height: 2.3, kind: "wardrobe" } },
+    ],
+    obstacles: [
+      [-2.55, -0.65, 72.55, 74.85],   // iron bed (hiding under it goes through the hide action)
+      [-3.35, -2.45, 74.1, 74.85], [-0.75, 0.15, 74.1, 74.85],   // nightstands
+      [-2.2, -1.0, 71.85, 72.5],      // trunk at the foot of the bed
+      [3.6, 4.35, 68.95, 70.45],      // wardrobe
+      [-4.35, -3.75, 68.9, 71.1],     // window seat
+      [-3.95, -3.05, 68.05, 68.95],   // armchair
+      [-3.35, -1.85, 66.15, 66.75],   // commode
+      [2.2, 2.9, 66.15, 66.7],        // grandfather clock
+      [2.95, 3.75, 66.8, 67.6],       // rocking chair
+    ],
+  },
+  guest_bath: {
+    id: "guest_bath", name: "Guest Bathroom",
+    story: "Tiled and cold, with a clawfoot tub behind a drawn curtain and a linen cupboard.",
+    searchRisk: "A dead end: one door, and the tub curtain moves when anyone breathes behind it.",
+    refs: ["night-mansion-refs/09"], style: { floor: "tile", wall: "damask" },
+    model: { file: "guest_suite", origin: [0, 70.5] },
+    rect: [0.5, 4.5, 76, 80.5], center: [2.5, 78.25], openArea: [1.6, 3.1, 76.5, 78.2], floorColor: "#8a8478", wallColor: "#d8d2c4",
+    hides: [
+      { id: "behind_tub_curtain", label: "In the tub, behind the shower curtain", pos: [1.75, 79.9], pose: "curtain", look: 180, cover: { pos: [1.75, 79.33], size: [1.9, 0.18], height: 2.2, kind: "curtain" } },
+      { id: "linen_cupboard", label: "Inside the linen cupboard", pos: [0.95, 77.3], pose: "inside", look: 90, cover: { pos: [0.95, 77.3], size: [0.6, 1.0], height: 2.2, kind: "wardrobe" } },
+    ],
+    obstacles: [
+      [0.85, 2.65, 79.4, 80.35],      // clawfoot tub
+      [3.75, 4.35, 77.3, 78.3],       // washstand
+      [0.65, 1.25, 76.8, 77.8],       // linen cupboard
     ],
   },
   spare_bedroom: {
@@ -315,6 +355,7 @@ export const CORRIDORS: Corridor[] = [
   straightZ("corridor", "master_bedroom", -17, 62, 66),
   straightZ("corridor", "guest_bedroom", 0, 62, 66),
   straightZ("corridor", "spare_bedroom", 17, 62, 66),
+  straightZ("guest_bedroom", "guest_bath", 3, 75, 76),
 ].map((c, i) => ({ id: `c${i}`, ...c }));
 
 /** The service exit corridor stub south of the Sealed Exhibition Room. */
@@ -419,7 +460,7 @@ export const CLUES: Clue[] = [
     text: "The Winter Reception — 1978: \"Twelve invitations. No departures.\" · A Birthday to Remember — 1996: \"She asked who had arranged the party.\" · The Photographer: \"The light makes them remember. Only for a moment.\" The same host smiles in every frame." },
   { id: "master_letters", room: "master_bedroom", label: "Letters on the bedside", pos: [-14.95, 76.9], nearHide: "under_fourposter", effect: "identity",
     text: "Unsent invitations in Elias's hand, every one addressed to a birthday. \"They always come back to the party room. They always think a friend is still a friend.\"" },
-  { id: "guest_diary", room: "guest_bedroom", label: "A visitor's diary", pos: [2.4, 76.8], nearHide: "window_seat", effect: "route",
+  { id: "guest_diary", room: "guest_bedroom", label: "A visitor's diary", pos: [-3.95, 71.3], nearHide: "window_seat", effect: "route",
     text: "\"The corridor joins the study and the hall of mirrors. From either one, the central exhibition leads to the Garden Gate.\"" },
   { id: "nursery_music_box", room: "spare_bedroom", label: "Music box and nursery note", pos: [12.3, 73.8], nearHide: "under_single_bed", effect: "lore",
     text: "A child's note tucked in the music box: \"The flash made him stop. Only for a moment. Long enough to run.\"" },
@@ -477,6 +518,16 @@ export const TUNING = {
   grabWindupMs: 700,
   biteDelayMs: 3_000,
   searchMs: 1_800,
+  /** Direct steering: stick deflection (0..1) at or above this runs, below it walks. */
+  steerRunThreshold: 0.72,
+  /** A steering command lasts this long unless refreshed (the phone resends ~8x a second). */
+  steerHoldMs: 450,
+  /** How close (m) a survivor must be to a hiding place's open side for "Hide" to be offered. */
+  hideOfferRange: 1.4,
+  /** How close a hunter must be to a hiding place's open side for "Search" to be offered. */
+  searchOfferRange: 1.6,
+  /** Body radius (m) kept clear of walls and furniture when steering. */
+  bodyRadius: 0.25,
   hearWalk: 6,
   hearRun: 13,
   hearSearch: 8,

@@ -206,15 +206,20 @@ export class World {
       root.addChild(node);
       const floor = room.style?.floor ?? 'planks';
       const floorScale = { marble: 3.2, parquet: 2.4, herringbone: 2.6, planks: 3.4, stone: 3, tile: 3 }[floor] ?? 3;
-      this.wbox(node, 'Floor', [(x0 + x1) / 2, 0, (z0 + z1) / 2], [x1 - x0, 0.1, z1 - z0], tmat(floor, { gloss: floor === 'marble' ? 0.7 : 0.45 }), floorScale);
+      // Blender-built rooms bring their own floor, walls' finish, furniture and hiding places.
+      const modelled = !!room.model;
+      if (modelled) this.loadRoomModel(room.model);
+      else this.wbox(node, 'Floor', [(x0 + x1) / 2, 0, (z0 + z1) / 2], [x1 - x0, 0.1, z1 - z0], tmat(floor, { gloss: floor === 'marble' ? 0.7 : 0.45 }), floorScale);
       const light = new pc.Entity(`Light_${id}`);
-      light.addComponent('light', { type: 'omni', color: new pc.Color(1, 0.78, 0.55), intensity: 1.35, range: Math.max(12, Math.hypot(x1 - x0, z1 - z0) * 0.6), castShadows: false });
+      light.addComponent('light', { type: 'omni', color: new pc.Color(1, 0.78, 0.55), intensity: modelled ? 0.9 : 1.35, range: Math.max(12, Math.hypot(x1 - x0, z1 - z0) * 0.6), castShadows: false });
       light.setLocalPosition(room.center[0], 2.8, room.center[1]);
       node.addChild(light);
       this.roomLights[id] = light;
-      this.dressRoom(id, node);
-      this.cornerPlants(id, node);
-      this.hideCovers[id] = room.hides.map(h => this.buildCover(node, h));
+      if (!modelled) {
+        this.dressRoom(id, node);
+        this.cornerPlants(id, node);
+      }
+      this.hideCovers[id] = room.hides.map(h => this.buildCover(node, h, modelled));
     }
     this.buildClues();
     for (const c of CORRIDORS) for (const [x0, x1, z0, z1] of c.rects) {
@@ -381,10 +386,11 @@ export class World {
   }
 
   // ------------------------------------------------------------------ hiding places
-  buildCover(node, h) {
+  buildCover(node, h, modelled = false) {
     const { pos: [x, z], size: [w, d], height, kind } = h.cover;
-    let entity;
-    if (kind === 'table' || kind === 'desk' || kind === 'crates') entity = this.buildUnderCover(node, h);
+    let entity = null;
+    if (modelled) { /* the room model has the real bed / wardrobe / curtain */ }
+    else if (kind === 'table' || kind === 'desk' || kind === 'crates') entity = this.buildUnderCover(node, h);
     else if (kind === 'bed4' || kind === 'bedbrass' || kind === 'bedsingle') entity = this.buildBed(node, h);
     else if (kind === 'wardrobe') entity = this.buildWardrobe(node, h);
     else if (kind === 'fscreen') entity = this.buildFoldingScreen(node, h);
@@ -403,6 +409,31 @@ export class World {
     const marker = this.box(node, `HideMarker_${h.id}`, [fx, 0.075, fz], [0.8, 0.02, 0.8], mat('#111', { emissive: '#8a6d2a', emissiveIntensity: 0.3 }), false);
     marker.enabled = false;
     return { entity, marker, id: h.id };
+  }
+
+  /**
+   * A Blender-built room (client/public/models/rooms/<file>.glb, authored around world
+   * (0, 0, origin z)): one merged mesh plus LIGHT_* marker nodes where lamps and sconces glow.
+   * Shared by every room that uses the same file (the guest suite has bedroom + bathroom).
+   */
+  loadRoomModel({ file, origin }) {
+    this.roomModels ??= new Set();
+    if (this.roomModels.has(file)) return;
+    this.roomModels.add(file);
+    this.propJobs.push(new Promise((resolve, reject) => {
+      const asset = new pc.Asset(`room-${file}`, 'container', { url: `/models/rooms/${file}.glb` });
+      asset.on('load', a => resolve(a.resource)); asset.on('error', reject);
+      this.app.assets.add(asset); this.app.assets.load(asset);
+    }).then(res => {
+      const e = res.instantiateRenderEntity({ castShadows: false, receiveShadows: false });
+      e.setLocalPosition(origin[0], 0, origin[1]);
+      this.root.addChild(e);
+      for (const n of e.find(x => /^LIGHT_/.test(x.name))) {
+        const p = n.getPosition();
+        const sconce = /sconce/.test(n.name);
+        this.practical(this.root, p.x, p.y, p.z, sconce ? 3.4 : 3.0, sconce ? 0.7 : 0.9);
+      }
+    }).catch(err => console.warn('room model unavailable', file, err)));
   }
 
   /** Axis-aligned footprint of a cover as (across, depth) relative to its look direction. */

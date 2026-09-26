@@ -187,6 +187,10 @@ export class GalleryRoom extends Room<{ state: GalleryState; client: GalleryClie
       Object.assign(this.state.seats.get(character)!, { taken: false, displayName: "", connected: false });
     }),
 
+    /** Direct steering from the phone stick: {x, z} direction and s = strength 0..1 (walk/run). */
+    steer: (client: GalleryClient, p: any) => this.play(client, (game, me) => {
+      game.steer(me, Number(p?.x), Number(p?.z), Number(p?.s), this.gameNow());
+    }),
     /** Movement/action intent: the server plans the route and moves the character. */
     intent: (client: GalleryClient, p: any) => this.play(client, (game, me) => {
       const pace = p?.pace === "run" ? "run" : p?.pace === "walk" ? "walk" : undefined;

@@ -1,5 +1,5 @@
 import assert from "assert";
-import { CAST, CharacterId, CORRIDORS, ROOMS, ROOM_GRAPH, ROOM_IDS, RoomId, SCORE, TUNING, Vec2, hideSpot } from "../src/game/data.js";
+import { CAST, CharacterId, CORRIDORS, EXIT_POINT, ROOMS, ROOM_GRAPH, ROOM_IDS, RoomId, SCORE, TUNING, Vec2, frontOf, hideSpot } from "../src/game/data.js";
 import { ActorId, HauntedGame } from "../src/game/engine.js";
 import { blockSpot, planRoute, zoneAt } from "../src/game/nav.js";
 
@@ -333,6 +333,93 @@ describe("Real-time rules", () => {
     g.setIntent(B, { kind: "chase", target: "julian" }, clock.t, "run");
     run(g, clock, () => !!g.get("julian").grabbedBy, 20_000);
     assert.strictEqual(g.get("julian").viewing, null);
+  });
+
+  describe("direct steering (phone stick)", () => {
+    const hold = (g: HauntedGame, clock: { t: number }, id: any, x: number, z: number, st: number, ms: number) => {
+      const end = clock.t + ms;
+      while (clock.t < end && g.phase === "hunt" && g.get(id).status !== "escaped") { g.steer(id, x, z, st, clock.t); advance(g, clock, 100); }
+    };
+    it("a gentle push walks, a strong push runs; walls and furniture stop you, doorways let you through", () => {
+      const { g, clock } = huntStarted(["julian"]);
+      parkOthers(g, ["julian"]);
+      place(g, "julian", [0, 67.6]);
+      hold(g, clock, "julian", 1, 0, 0.4, 1000);
+      const walked = g.get("julian").pos[0];
+      assert.ok(walked > 1.4 && walked < 2.0, `walked ${walked}`);
+      assert.strictEqual(g.get("julian").pace, "walk");
+      place(g, "julian", [0, 67.6]);
+      hold(g, clock, "julian", -1, 0, 1, 1000);
+      assert.ok(g.get("julian").pos[0] < -3.0, "ran further");
+      assert.strictEqual(g.get("julian").pace, "run");
+      // east wall: the wardrobe's footprint stops you short
+      place(g, "julian", [1, 69.7]);
+      hold(g, clock, "julian", 1, 0, 1, 3000);
+      assert.ok(g.get("julian").pos[0] <= 3.6 - TUNING.bodyRadius + 1e-6, "stopped by the wardrobe");
+      // the bed
+      place(g, "julian", [0.5, 73.7]);
+      hold(g, clock, "julian", -1, 0, 1, 3000);
+      assert.ok(g.get("julian").pos[0] >= -0.65 + TUNING.bodyRadius - 1e-6, "stopped by the bed");
+      // south wall away from the door, then through the doorway into the passage and the corridor
+      place(g, "julian", [3, 68]);
+      hold(g, clock, "julian", 0, -1, 1, 3000);
+      assert.strictEqual(g.get("julian").room, "guest_bedroom");
+      assert.ok(g.get("julian").pos[1] >= 66 + TUNING.bodyRadius - 1e-6, "wall");
+      place(g, "julian", [0, 68]);
+      hold(g, clock, "julian", 0, -1, 1, 2500);
+      assert.strictEqual(g.get("julian").room, "corridor", "walked out through the hallway door");
+    });
+
+    it("running is heard from the next room; walking is not", () => {
+      const { g, clock } = huntStarted(["julian", "anika"]);
+      parkOthers(g, ["julian", "anika"]);
+      // Anika waits in the passage outside the door; Julian is out of her sight line, ~8 m away.
+      place(g, "anika", [0, 65.5]);
+      place(g, "julian", [3.5, 73]);
+      assert.ok(!g.perceives(g.get("anika"), g.get("julian")), "out of sight");
+      g.steer("julian", 0, 1, 0.4, clock.t); advance(g, clock, 100);
+      const walkHeard = (g.viewFor("anika", clock.t, names) as any).sounds.length;
+      g.steer("julian", 0, 1, 1, clock.t); advance(g, clock, 100);
+      const runHeard = (g.viewFor("anika", clock.t, names) as any).sounds.map((s: any) => s.kind);
+      assert.strictEqual(walkHeard, 0);
+      assert.ok(runHeard.includes("running"));
+    });
+
+    it("Hide is offered only beside a hiding place; the stick leaves cover first", () => {
+      const { g, clock } = huntStarted(["julian"]);
+      parkOthers(g, ["julian"]);
+      place(g, "julian", ROOMS.guest_bedroom.center);
+      assert.deepStrictEqual((g.viewFor("julian", clock.t, names) as any).options.nearHides, []);
+      place(g, "julian", frontOf(hideSpot("under_brass_bed")!.spot));
+      assert.deepStrictEqual((g.viewFor("julian", clock.t, names) as any).options.nearHides.map((h: any) => h.id), ["under_brass_bed"]);
+      g.setIntent("julian", { kind: "hide", spot: "under_brass_bed" }, clock.t);
+      run(g, clock, () => g.get("julian").hideState === "hidden");
+      g.steer("julian", 1, 0, 0.5, clock.t);
+      assert.strictEqual(g.get("julian").hideState, "leaving");
+      hold(g, clock, "julian", 1, 0, 0.5, TUNING.leaveCoverMs + 800);
+      assert.strictEqual(g.get("julian").hideState, "none");
+      assert.ok(g.get("julian").pos[0] > -1.6, "crawled out and walked away");
+    });
+
+    it("the new Guest Bathroom is reached only through the Guest Bedroom", () => {
+      const { g, clock } = huntStarted(["julian"]);
+      parkOthers(g, ["julian"]);
+      place(g, "julian", [3, 73.5]);
+      hold(g, clock, "julian", 0, 1, 0.5, 2500);
+      assert.strictEqual(g.get("julian").room, "guest_bath");
+      g.setIntent("julian", { kind: "hide", spot: "linen_cupboard" }, clock.t + TUNING.intentCooldownMs);
+      run(g, clock, () => g.get("julian").hideState === "hidden");
+      assert.strictEqual((g.viewFor("julian", clock.t, names) as any).me.pose, "inside");
+    });
+
+    it("walking through the open Garden Gate is the escape", () => {
+      const { g, clock } = huntStarted(["julian"]);
+      parkOthers(g, ["julian"]);
+      place(g, "julian", [0, 23.5]);
+      hold(g, clock, "julian", 0, -1, 1, 3000);
+      assert.strictEqual(g.get("julian").status, "escaped");
+      assert.ok(Math.abs(g.get("julian").pos[1] - EXIT_POINT[1]) < 2);
+    });
   });
 
   it("one 15-minute countdown with intercom warnings at 5:00 and 1:00; the Garden Gate is open from the start", () => {
