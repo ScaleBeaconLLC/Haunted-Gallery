@@ -6,6 +6,7 @@ A 3D mobile browser survival game for a live event: every guest scans one QR cod
 - **Server**: [Colyseus](https://colyseus.io) 0.18 authoritative multiplayer server in `server/`.
 - **Design source**: `PlayCanvas-Handoff/` (build brief, game bible, rescue/SOS rules, voice direction, audio auditions, legacy reference code).
 - **Status and next steps**: see [`PROGRESS.md`](PROGRESS.md).
+- **Multiplayer architecture, reconnection and handoff**: see [`docs/HAUNTED_GALLERY_MULTIPLAYER_HANDOFF.md`](docs/HAUNTED_GALLERY_MULTIPLAYER_HANDOFF.md).
 
 ## Run a local preview (same Wi-Fi)
 
@@ -39,7 +40,7 @@ Open `https://<random>.trycloudflare.com/host.html` and enter the `HOST_KEY` pas
 
 ## Tests
 
-- `server/`: `npm test` runs the real-time rules tests and WebSocket room tests.
+- `server/`: `npm test` runs the real-time rules tests, the WebSocket room tests, and the multiplayer suite (independent SDK clients: same-match join, validated/invalid actions, private-data isolation, drop and reload reconnection, second-tab takeover, match separation, expired sessions).
 - `tools/e2e/scenario.mjs`: a three-phone browser scenario covering room card → travel → cover → first person, a friend approaching, and a secretly infected guest searching. It runs against a **test** server started with `HG_TEST_HOOKS=1 PORT=2570 npx tsx src/index.ts` in `server/`; the hooks never run in production.
 - `tools/e2e/bots.mjs`: 12 WebSocket bots play full matches and check every private view for leaks (`HOST_KEY=... node tools/e2e/bots.mjs <url> 12 1`).
 - `tools/capture-rooms.mjs`: regenerates the room picture cards from the empty scene.

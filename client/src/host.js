@@ -29,6 +29,12 @@ conn.addEventListener('host', async e => {
 });
 conn.addEventListener('state', e => { pub = e.detail; window.__hgHostState = pub?.toJSON?.() ?? pub; render(); });
 conn.addEventListener('status', e => { if (e.detail === 'lost') toast('Connection lost — retrying…'); });
+conn.addEventListener('ended', e => {
+  session?.removeItem('hg.host');
+  $('h-console').hidden = true;
+  $('h-auth').hidden = false;
+  $('h-auth-note').textContent = e.detail;
+});
 
 /** The URL phones should open. On a laptop served as "localhost", use its LAN address. */
 async function playerBase() {

@@ -6,6 +6,8 @@ import { GalleryState, Seat } from "./schema/GalleryState.js";
 import { isRoom, zoneAt } from "../game/nav.js";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+/** Close code sent to a connection whose seat was taken over by a newer connection from the same device. */
+export const CLOSE_SEAT_TAKEN_OVER = 4201;
 const CHARACTER_SET = new Set<string>(CAST.map(c => c.id));
 
 interface UserData {
@@ -86,6 +88,12 @@ export class GalleryRoom extends Room<{ state: GalleryState; client: GalleryClie
       this.hostJoined = true;
       return;
     }
+    // One live connection per device key: the newest takes over (e.g. a reload or second tab);
+    // the older one is told why and is not auto-reconnected by the client.
+    for (const other of this.otherClientsFor(client)) {
+      other.send("replaced", {});
+      other.leave(CLOSE_SEAT_TAKEN_OVER);
+    }
     const character = this.claims.get(auth.playerKey!);
     if (character) {
       const seat = this.state.seats.get(character)!;
@@ -100,7 +108,7 @@ export class GalleryRoom extends Room<{ state: GalleryState; client: GalleryClie
 
   async onDrop(client: GalleryClient) {
     const seat = this.seatOf(client);
-    if (seat) seat.connected = false;
+    if (seat && !this.otherClientsFor(client).length) seat.connected = false;
     const secs = this.state.phase === "lobby" ? TUNING.reconnectLobbySec : TUNING.reconnectMatchSec;
     try {
       await this.allowReconnection(client, secs);
@@ -108,6 +116,12 @@ export class GalleryRoom extends Room<{ state: GalleryState; client: GalleryClie
   }
 
   onReconnect(client: GalleryClient) {
+    // A newer connection already controls this seat: the stale session loses.
+    if (this.otherClientsFor(client).length) {
+      client.send("replaced", {});
+      client.leave(CLOSE_SEAT_TAKEN_OVER);
+      return;
+    }
     const seat = this.seatOf(client);
     if (seat) seat.connected = true;
     client.userData.lastView = undefined;
@@ -118,6 +132,8 @@ export class GalleryRoom extends Room<{ state: GalleryState; client: GalleryClie
     const key = client.userData?.playerKey;
     const character = key ? this.claims.get(key) : undefined;
     if (!character) return;
+    // A replaced (older) connection leaving must not disturb the seat's current controller.
+    if (this.otherClientsFor(client).length) return;
     const seat = this.state.seats.get(character)!;
     seat.connected = false;
     if (this.state.phase === "lobby" && code === CloseCode.CONSENTED) {
@@ -213,7 +229,7 @@ export class GalleryRoom extends Room<{ state: GalleryState; client: GalleryClie
       if (!(process.env.HG_TEST_HOOKS === "1" && process.env.NODE_ENV !== "production")) throw new GameError("Not allowed");
       const g = this.game;
       if (!g) throw new GameError("No match");
-      if (p?.skipOpening && g.phase === "opening") g.startedAt -= TUNING.openingMs + 1000;
+      if (p?.skipOpening) g.fastForwardOpening(this.gameNow());
       if (p?.inertCpu) for (const a of g.actors.values()) if (a.cpu) { a.cpu = false; a.path = []; }
       for (const [id, pos] of Object.entries<any>(p?.place ?? {})) {
         const a = g.get(id as ActorId);
@@ -397,6 +413,12 @@ export class GalleryRoom extends Room<{ state: GalleryState; client: GalleryClie
   private characterOf(c: GalleryClient): CharacterId | undefined {
     const key = c.userData?.playerKey;
     return key ? this.claims.get(key) : undefined;
+  }
+  /** Other live player connections using the same device key as `c`. */
+  private otherClientsFor(c: GalleryClient): GalleryClient[] {
+    const key = c.userData?.playerKey;
+    if (!key) return [];
+    return this.clients.filter(x => x !== c && x.userData?.role === "player" && x.userData?.playerKey === key);
   }
   private seatOf(c: GalleryClient) {
     const ch = this.characterOf(c);

@@ -92,8 +92,16 @@ conn.addEventListener('error', e => { pending = null; toast(e.detail); render();
 conn.addEventListener('reset', () => { view = null; openingFired = new Set(); closeSheet(); $('briefing').hidden = true; render(); });
 conn.addEventListener('status', e => {
   const s = e.detail;
-  $('conn').hidden = s === 'connected' || s === 'idle';
+  $('conn').hidden = s === 'connected' || s === 'idle' || s === 'ended';
   $('conn').textContent = s === 'reconnecting' || s === 'joining' ? 'Reconnecting…' : 'Connection lost — retrying';
+});
+// The session can't be resumed (ended, wrong code, or taken over elsewhere): say so plainly.
+conn.addEventListener('ended', e => {
+  view = null; pub = null;
+  $('hud').hidden = true; $('panel').hidden = true; $('screen-lobby').hidden = true; $('screen-results').hidden = true;
+  $('screen-join').hidden = false;
+  toast(e.detail);
+  $('join-note').textContent = e.detail;
 });
 
 function send(type, payload, label) {

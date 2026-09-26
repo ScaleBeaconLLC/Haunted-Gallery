@@ -273,6 +273,13 @@ export class HauntedGame {
     this.checkEnd(now);
   }
 
+  /** Test support: finish the opening now, running its scheduled beats (bite, camera drop). */
+  fastForwardOpening(now: number) {
+    if (this.phase !== "opening") return;
+    for (const s of this.scheduled.splice(0)) s.run();
+    this.startedAt = now - TUNING.openingMs;
+  }
+
   get phaseEndsAt() {
     return this.phase === "opening" ? this.startedAt + TUNING.openingMs : this.phase === "hunt" ? this.huntEndsAt : 0;
   }

@@ -1,6 +1,7 @@
 import assert from "assert";
-import { ColyseusTestServer, boot } from "@colyseus/testing";
+import { ColyseusTestServer } from "@colyseus/testing";
 import appConfig from "../src/app.config.js";
+import { testServer } from "./helpers/server.js";
 
 type Inbox = { type: string; payload: any }[];
 
@@ -20,8 +21,7 @@ const lastView = (inbox: Inbox) => [...inbox].reverse().find(m => m.type === "vi
 
 describe("GalleryRoom over WebSockets", () => {
   let colyseus: ColyseusTestServer<typeof appConfig>;
-  before(async () => { delete process.env.HOST_KEY; colyseus = await boot(appConfig); });
-  after(async () => colyseus.shutdown());
+  before(async () => { colyseus = await testServer(); });
   beforeEach(async () => colyseus.cleanup());
 
   it("counts a guest who claims after joining, so the host can start", async () => {
@@ -69,7 +69,7 @@ describe("GalleryRoom over WebSockets", () => {
     assert.ok(!["julian", "anika", "marcus"].includes(server.state.birthday));
 
     // Skip the cinematic.
-    server.game.startedAt -= 30_000;
+    server.game.fastForwardOpening(server.gameNow());
     await until(() => server.state.phase === "hunt");
 
     p3.send("intent", { kind: "hide", spot: "curtain_recess" });

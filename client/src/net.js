@@ -2,6 +2,20 @@
 // reconnection after network drops or device sleep, and server clock sync.
 import { Client } from '@colyseus/sdk';
 
+/** Close code the server uses when a newer connection from this device took over the seat. */
+export const CLOSE_SEAT_TAKEN_OVER = 4201;
+/** Colyseus matchmaking error: no room with that id (expired session or wrong code). */
+const MATCHMAKE_INVALID_ROOM_ID = 522;
+
+/** Errors after which retrying cannot help; the player gets a clear message instead. */
+function terminalReason(e) {
+  const msg = String(e?.message || '');
+  if (e?.code === MATCHMAKE_INVALID_ROOM_ID || /not found|invalid room/i.test(msg)) return 'This game session has ended, or the code is wrong. Ask the host for the current QR code.';
+  if (/already started/i.test(msg)) return 'This match has already started without you. Wait for the host to reset it.';
+  if (/Not authorized/i.test(msg)) return 'This host session is no longer valid. Create a new session.';
+  return null;
+}
+
 export function serverUrl() {
   if (import.meta.env.VITE_SERVER_URL) return import.meta.env.VITE_SERVER_URL;
   // `npm run dev` serves the page from Vite (5173) and the game server runs on 2567.
@@ -46,6 +60,11 @@ export class Connection extends EventTarget {
   _emit(type, detail) { this.dispatchEvent(new CustomEvent(type, { detail })); }
   _setStatus(s) { this.status = s; this._emit('status', s); }
 
+  /**
+   * Join a match by its code. After a page reload the stored reconnection token (kept in
+   * sessionStorage for this tab only, never in links) resumes the same session within the
+   * server's recovery window; otherwise the device key returns this phone to its own seat.
+   */
   async joinPlayer(code, name) {
     this._joinArgs = { kind: 'player', code, name };
     const saved = session?.getItem(`hg.reconnect.${code}`);
@@ -73,10 +92,22 @@ export class Connection extends EventTarget {
       if (a.kind === 'player') await this.joinPlayer(a.code, a.name);
       else if (a.kind === 'host') await this.joinHost(a.code, a.hostToken);
     } catch (e) {
+      const terminal = terminalReason(e);
+      if (terminal) return this._end(terminal);
       this._setStatus('lost');
       this._emit('error', e?.message || String(e));
       setTimeout(() => { if (this.status === 'lost' && document.visibilityState === 'visible') this.rejoin(); }, 4000);
     }
+  }
+
+  /** Stop reconnecting and tell the player why (session over, seat taken over, …). */
+  _end(reason) {
+    const code = this._joinArgs?.code;
+    if (code) session?.removeItem(`hg.reconnect.${code}`);
+    this._joinArgs = null;
+    this.room = null;
+    this._setStatus('ended');
+    this._emit('ended', reason);
   }
 
   _attach(room) {
@@ -98,10 +129,12 @@ export class Connection extends EventTarget {
       session?.setItem(`hg.reconnect.${code}`, room.reconnectionToken);
       room.send('hello');
     });
-    room.onLeave((code) => {
+    room.onLeave((closeCode) => {
       if (this.room !== room) return;
+      if (closeCode === CLOSE_SEAT_TAKEN_OVER) return this._end('This guest is now being played from another tab or device.');
       this._setStatus('lost');
-      if (code !== 1000 && code !== 4000) setTimeout(() => this.rejoin(), 1500);
+      // Deliberate leaves (1000/4000) stay closed; anything else tries the reload path.
+      if (closeCode !== 1000 && closeCode !== 4000) setTimeout(() => this.rejoin(), 1500);
     });
     room.onError((code, message) => this._emit('error', message || `Error ${code}`));
     room.send('hello');
