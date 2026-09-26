@@ -1,0 +1,17 @@
+{
+  "name": "haunted-gallery",
+  "private": true,
+  "version": "0.2.0",
+  "description": "Haunted Gallery: PlayCanvas phone client + authoritative Colyseus server. Root build for Colyseus Cloud.",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "npm --prefix client ci --include=dev --no-audit --no-fund && npm --prefix client run build",
+    "build:server": "npm --prefix server ci --include=dev --no-audit --no-fund && npm --prefix server run build",
+    "start": "node server/build/index.js",
+    "test": "npm --prefix server test"
+  },
+  "license": "UNLICENSED"
+}
