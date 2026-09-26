@@ -132,3 +132,8 @@ details summary { cursor: pointer; color: var(--gold); }
 #panel.slim .row .btn { padding: 10px 8px; }
 #hud-clock { font-size: 11px; color: var(--muted); letter-spacing: .06em; }
 #hud-timer.urgent { color: #ff6a5a; }
+
+/* View Gallery: the work being looked at and its plaque */
+.gallery-work { background: rgba(176, 138, 58, 0.12); border: 1px solid rgba(176, 138, 58, 0.45); border-radius: 10px; padding: 8px 12px; margin: 6px 0; }
+.gallery-work b { color: var(--gold); }
+.gallery-work p { margin: 4px 0 0; font-style: italic; }

@@ -1,6 +1,6 @@
 // Phone client: join by QR code, pick a guest, then play. Every action is an intent;
 // the server's private "view" (what your character can perceive) is the only truth.
-import { CAST, OPENING_BEATS, ROOMS, SOS_PRESETS, TUNING } from '@game/data.ts';
+import { CAST, GALLERY, OPENING_BEATS, ROOMS, SOS_PRESETS, TUNING } from '@game/data.ts';
 import * as pc from 'playcanvas';
 import { Connection, local } from './net.js';
 import { Game3D } from './game3d.js';
@@ -431,6 +431,18 @@ function renderPanel() {
       if (expanded === '__leave') html.push(roomChooser(true));
       setHtml(p, html.join('')); return;
     }
+    // View Gallery: standing at the wall. The clock runs and the character stays in the open.
+    if (m.viewing && !m.moving) {
+      const st = GALLERY.find(g => g.id === m.viewing);
+      const i = Math.max(0, Math.min(st.portraits.length - 1, game.galleryIndex ?? 1));
+      const work = st.portraits[i];
+      html.push(`<h3>View Gallery · ${esc(st.label)}</h3>
+        <div class="gallery-work"><b>${esc(work.title)}</b><p>“${esc(work.plaque)}”</p></div>
+        <div class="row">${btn('gal-step', '‹ Previous', { disabled: i === 0, data: { step: -1 } })}${btn('gal-step', 'Next ›', { disabled: i === st.portraits.length - 1, data: { step: 1 } })}</div>
+        <p class="plan">The clock keeps running, and anyone passing can see you here.</p>
+        <div class="row">${btn('gal-back', 'Back to Game', { cls: 'primary' })}${sosButton()}</div>`);
+      setHtml(p, html.join('')); return;
+    }
     // While travelling, keep the panel slim so the journey stays visible.
     if (m.moving && expanded !== '__change') {
       html.push(`<div class="row">${btn('change', 'Change destination')}${btn('stop', 'Stop here')}${photo}</div><div class="row">${paceToggle()}</div>`);
@@ -446,6 +458,7 @@ function renderPanel() {
     if (cam.mine) extra.push(btn('give-open', '📷 Hand over the camera', { disabled: !view.options.passTo?.length }));
     if (cam.mine) extra.push(btn('drop', 'Drop camera'));
     if (m.snares) extra.push(btn('snare', '🪢 Rig snare here'));
+    for (const g of view.options.gallery ?? []) extra.push(btn('gallery', `🖼 View Gallery: ${esc(g.label)}`, { data: { station: g.id } }));
     const clue = view.options.inspect?.[0];
     if (clue) extra.push(btn('inspect', `🔎 Inspect ${esc(clue.label)}`, { data: { clue: clue.id } }));
     extra.push(sosButton());
@@ -500,6 +513,9 @@ $('panel').addEventListener('click', e => {
     case 'go': expanded = null; intent({ kind: 'room', room: d.room }, `to the ${roomName(d.room)}`); break;
     case 'hide': expanded = null; intent({ kind: 'hide', spot: d.spot }, 'to cover'); break;
     case 'exit': intent({ kind: 'exit' }, 'to the exit'); break;
+    case 'gallery': game.galleryIndex = 1; intent({ kind: 'gallery', station: d.station }, 'to the portrait wall'); break;
+    case 'gal-step': game.galleryIndex = (game.galleryIndex ?? 1) + Number(d.step); render(); break;
+    case 'gal-back': intent({ kind: 'idle' }, 'back to the game'); break;
     case 'pickup': intent({ kind: 'pickup' }, 'to the camera'); break;
     case 'stop': expanded = null; intent({ kind: 'idle' }, 'stop'); break;
     case 'change': expanded = '__change'; render(); break;

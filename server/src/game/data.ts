@@ -364,6 +364,35 @@ export function standingSpot(room: RoomId, index: number): Vec2 {
 // Clues and the snare defence.
 // ---------------------------------------------------------------------------
 export type ClueEffect = "camera" | "route" | "snare" | "exit" | "identity" | "lore";
+/**
+ * "View Gallery" (spec §22): a curated portrait wall along the Portrait Corridor. Three
+ * sections, each a physical inspection point on the north wall; reaching another section
+ * means walking there. Discovery in three layers: old celebrations -> the same unchanged
+ * host and guests who never left -> the frame that matches tonight's birthday gift.
+ * Nothing here names or tracks current players.
+ */
+export interface GalleryPortrait { id: string; art: string; title: string; plaque: string }
+export interface GalleryStation { id: string; label: string; pos: Vec2; look: number; wallX: number; portraits: GalleryPortrait[] }
+export const GALLERY: GalleryStation[] = [
+  { id: "receptions", label: "The receptions", pos: [-22.5, 60.7], look: 0, wallX: -22.5, portraits: [
+    { id: "new_year_1931", art: "newyear", title: "New Year's Eve — 1931", plaque: "Champagne for everyone. The coats were never collected." },
+    { id: "winter_1978", art: "winter", title: "The Winter Reception — 1978", plaque: "Twelve invitations. No departures." },
+    { id: "garden_1953", art: "garden", title: "Garden Party — 1953", plaque: "The lanterns were lit at eleven. The gate stayed shut." },
+  ] },
+  { id: "host", label: "The host", pos: [8.5, 60.7], look: 0, wallX: 8.5, portraits: [
+    { id: "curator_1902", art: "curator", title: "The Curator — 1902", plaque: "E. V., upon the opening of the collection." },
+    { id: "birthday_1996", art: "birthday", title: "A Birthday to Remember — 1996", plaque: "She asked who had arranged the party." },
+    { id: "anniversary_2011", art: "anniversary", title: "The Anniversary Dinner — 2011", plaque: "Seated as arranged. The host stands, as he always has." },
+  ] },
+  { id: "collection", label: "The collection", pos: [22, 60.7], look: 0, wallX: 22, portraits: [
+    { id: "photographer", art: "photographer", title: "The Photographer", plaque: "The light makes them remember. Only for a moment." },
+    { id: "reserved_frame", art: "empty", title: "Frame No. 13 — reserved", plaque: "Gilt, carved, empty. The same pattern as the frame unwrapped tonight." },
+    { id: "the_twelve", art: "twelve", title: "The Twelve — undated", plaque: "Every face is turned toward the door." },
+  ] },
+];
+/** How close to a section a survivor must stand (in the corridor) to be offered it. */
+export const GALLERY_REACH = 7;
+
 export interface Clue { id: string; room: RoomId; label: string; pos: Vec2; nearHide: string; effect: ClueEffect; text: string }
 
 /**

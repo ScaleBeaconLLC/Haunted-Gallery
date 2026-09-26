@@ -6,7 +6,7 @@
 // Geometry is authored from primitives with generated textures: real walkable 3D,
 // but still placeholder art compared with modelled, textured production assets.
 import * as pc from 'playcanvas';
-import { CORRIDORS, EXIT_CORRIDOR, EXIT_POINT, ROOMS, ROOM_IDS, CAMERA_START, CLUES, frontOf } from '@game/data.ts';
+import { CORRIDORS, EXIT_CORRIDOR, EXIT_POINT, ROOMS, ROOM_IDS, CAMERA_START, CLUES, GALLERY, frontOf } from '@game/data.ts';
 import { texture } from './textures.js';
 
 const WALL_H = 3.2;
@@ -521,14 +521,19 @@ export class World {
   // ------------------------------------------------------------------ set dressing
   // Every placement below keeps doorways (2 m gaps) and each hiding place's open side clear.
   rug(p, x, z, w, d, color = '#6e1c24') { this.wbox(p, 'Rug', [x, 0.058, z], [w, 0.012, d], tmat('rug', { args: [color], gloss: 0.1 }), w, d); }
+  /** A frame for wall decor: nudged off the wall so it sits on the surface (walls are 0.3 m thick, centred on the room edge). */
+  onWall(p, name, x, z, yaw, out) {
+    const a = yaw * Math.PI / 180;
+    return this.grp(p, name, x + Math.sin(a) * out, z + Math.cos(a) * out, yaw);
+  }
   windowAt(p, x, z, yaw, w = 1.6) {
-    const g = this.grp(p, 'Window', x, z, yaw);
+    const g = this.onWall(p, 'Window', x, z, yaw, 0.07);
     this.wbox(g, 'Glass', [0, 1.75, 0.04], [w, 2.1, 0.04], tmat('window', { emit: 0.7 }), w, 2.1);
     for (const s of [-1, 1]) this.wbox(g, 'Drape', [s * (w / 2 + 0.22), 1.6, 0.12], [0.4, 2.8, 0.12], tmat('velvet', { args: ['#5e1420'] }), 1, 2.8);
     this.box(g, 'Pelmet', [0, 3.0, 0.12], [w + 1, 0.2, 0.14], mat('#6d5320', { metalness: 0.5 }));
   }
   portraitAt(p, x, z, yaw, w = 1.3, h = 1.7, variant = 0, y = 1.75) {
-    const g = this.grp(p, 'Portrait', x, z, yaw);
+    const g = this.onWall(p, 'Portrait', x, z, yaw, 0.11);
     this.box(g, 'Gilt', [0, y, 0.04], [w + 0.14, h + 0.14, 0.07], mat('#8a6a2a', { metalness: 0.7, gloss: 0.6 }));
     this.wbox(g, 'Canvas', [0, y, 0.085], [w, h, 0.02], tmat('portrait', { args: [variant] }), w, h);
   }
@@ -762,12 +767,14 @@ export class World {
       const doorXs = { north: [-17, 0, 17], south: [-20, 20] };
       let v = 0;
       for (let px = -24.5; px <= 24; px += 2.5) {
-        if (doorXs.north.every(dx => Math.abs(px - dx) > 1.6) && Math.abs(px + 8) > 1.4 && px < 23) this.portraitAt(node, px, z1 - 0.05, S, 1.2, 1.6, v++);
+        const curated = GALLERY.some(g => Math.abs(px - g.wallX) < 2.6);
+        if (!curated && doorXs.north.every(dx => Math.abs(px - dx) > 1.6) && Math.abs(px + 8) > 1.4 && px < 23) this.portraitAt(node, px, z1 - 0.05, S, 1.2, 1.6, v++);
         if (doorXs.south.every(dx => Math.abs(px - dx) > 1.6) && px < 23) {
           if (Math.round(px / 2.5) % 3 === 0) this.windowAt(node, px, z0 + 0.1, N, 1.2);
           else this.portraitAt(node, px, z0 + 0.05, N, 1.0, 1.3, v++);
         }
       }
+      this.buildGallery(node, z1);
       this.wbox(node, 'Runner', [0, 0.06, 60], [48, 0.012, 1.8], tmat('rug', { args: ['#5a1618'] }), 4, 1.8);
       for (const bx of [-12, 8, -24]) this.benchAt(node, bx, 61.2, 180, 1.2);
       for (let sx = -22; sx <= 22; sx += 11) this.sconceAt(node, sx, z1 - 0.15, 2.3);
@@ -810,6 +817,35 @@ export class World {
       this.armchairAt(node, 10.4, 67.6, 45, '#4a3a2a');
       this.rug(node, 17, 71.5, 5, 4, '#233054');
       this.portraitAt(node, x1 - 0.05, 75.5, E, 0.8, 1.0, 0);
+    }
+  }
+
+  /**
+   * View Gallery (spec §22): three curated sections on the corridor's north wall, each with
+   * three works in aged gilt frames, an engraved plaque under each and a picture light.
+   * `galleryFocus` gives the camera the world position of every work, by station.
+   */
+  buildGallery(node, wallZ) {
+    this.galleryFocus = {};
+    const frames = ['#8a6a2a', '#6d5320', '#a07c30'];
+    for (const st of GALLERY) {
+      const g = this.grp(node, `Gallery_${st.id}`, st.wallX, wallZ - WALL_T / 2 - 0.005, 180);
+      this.galleryFocus[st.id] = [];
+      st.portraits.forEach((p, i) => {
+        const x = (i - 1) * 1.45, w = 1.15, h = p.art === 'curator' ? 1.55 : 1.3, y = 1.8;
+        const frameMat = mat(frames[(i + st.portraits.length) % 3], { metalness: 0.75, gloss: p.art === 'empty' ? 0.75 : 0.55 });
+        this.box(g, 'GalleryFrame', [x, y, 0.04], [w + 0.2, h + 0.2, 0.08], frameMat);
+        if (p.art === 'empty') {
+          // The reserved frame: carved like tonight's gift, nothing inside yet.
+          for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) this.prim(g, 'sphere', 'Rosette', [x + dx * (w / 2 + 0.06), y + dy * (h / 2 + 0.06), 0.1], [0.12, 0.12, 0.06], frameMat);
+        }
+        this.wbox(g, 'GalleryWork', [x, y, 0.09], [w, h, 0.02], tmat('gallery', { args: [p.art], gloss: p.art === 'curator' || p.art === 'twelve' ? 0.45 : 0.2 }), w, h);
+        this.wbox(g, 'Plaque', [x, 0.98, 0.06], [0.62, 0.14, 0.02], tmat('plaque', { args: [p.title], metalness: 0.6, gloss: 0.6 }), 0.62, 0.14);
+        const world = g.getWorldTransform().transformPoint(new pc.Vec3(x, y, 0.1));
+        this.galleryFocus[st.id].push([world.x, world.y, world.z]);
+      });
+      this.box(g, 'PictureLight', [0, 2.72, 0.14], [3.9, 0.05, 0.08], mat('#b08a3a', { metalness: 0.9, emissive: '#ffdca0', emissiveIntensity: 0.5 }));
+      this.practical(g, 0, 2.5, 0.8, 3.6, 0.9);
     }
   }
 

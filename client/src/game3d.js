@@ -7,7 +7,7 @@
 //  - Smooth transitions between the two. Only people the server says you can perceive
 //    are ever rendered, so no camera angle can reveal anyone else.
 import * as pc from 'playcanvas';
-import { CAMERA_START, ROOMS, TUNING, hideSpot } from '@game/data.ts';
+import { CAMERA_START, GALLERY, ROOMS, TUNING, hideSpot } from '@game/data.ts';
 import { World, mat, walkRects } from './world.js';
 import { ActorView, castInfo, setScenePhase } from './actors.js';
 
@@ -171,7 +171,9 @@ export class Game3D {
 
     // Camera mode follows the character's real state.
     const hiddenNow = me && (me.hideState === 'hidden') && view.status === 'alive';
-    const next = this.phase === 'opening' ? 'opening' : view?.status === 'escaped' ? 'escaped' : hiddenNow ? 'fp' : me ? 'overhead' : 'menu';
+    const viewing = me?.viewing && view.status === 'alive' && !me.caught;
+    const next = this.phase === 'opening' ? 'opening' : view?.status === 'escaped' ? 'escaped' : hiddenNow ? 'fp' : viewing ? 'gallery' : me ? 'overhead' : 'menu';
+    if (next === 'gallery' && (this.mode !== 'gallery' || this.galleryStation !== me.viewing)) { this.galleryStation = me.viewing; this.galleryIndex = 1; }
     if (next === 'fp' && this.mode !== 'fp') { this.view.fpYaw = 0; this.view.fpPitch = me.pose === 'under' ? 6 : 0; }
     this.mode = next;
   }
@@ -204,7 +206,22 @@ export class Game3D {
       const target = new pc.Vec3(pos.x + Math.sin(yaw) * Math.cos(pitch), pos.y + Math.sin(pitch), pos.z + Math.cos(yaw) * Math.cos(pitch));
       return { pos, target, near: 0.05, fov: pose.fov };
     }
-    if ((this.mode === 'overhead') && me?.pos) {
+    if (this.mode === 'gallery' && my?.viewing && me?.pos) {
+      // View Gallery: a close look at the actual wall from where the character stands (not a
+      // menu). Choosing another work in this section turns the view; other sections mean walking.
+      const works = this.world.galleryFocus?.[my.viewing] ?? [];
+      const f = works[Math.max(0, Math.min(works.length - 1, this.galleryIndex ?? 1))];
+      if (f) {
+        // Stand back far enough that the whole work, its frame and plaque fit this screen.
+        const vfov = 50, tv = Math.tan(vfov * Math.PI / 360);
+        const aspect = this.app.graphicsDevice.width / Math.max(1, this.app.graphicsDevice.height);
+        const d = Math.max(1.2, Math.min(3.4, Math.max(0.85 / (tv * aspect), 0.95 / tv) + 0.1));
+        const look = (GALLERY.find(g => g.id === my.viewing)?.look ?? 0) * Math.PI / 180;
+        const pos = new pc.Vec3(f[0] - Math.sin(look) * d, 1.55, f[2] - Math.cos(look) * d);
+        return { pos, target: new pc.Vec3(f[0], 1.48, f[2]), near: 0.05, fov: vfov };
+      }
+    }
+    if ((this.mode === 'overhead' || this.mode === 'gallery') && me?.pos) {
       // Follow behind the direction of travel; ease slowly so corners don't whip the view.
       if (me.moving) {
         let dy = ((me.yaw - v.followYaw + 540) % 360) - 180;
@@ -233,7 +250,7 @@ export class Game3D {
     for (const a of this.actors.values()) if (a.entity.enabled) a.update(dt);
     const me = this.me && this.actors.get(this.me);
     // In first person you don't see your own body.
-    if (me) me.entity.enabled = this.visible?.has(this.me) && this.mode !== 'fp';
+    if (me) me.entity.enabled = this.visible?.has(this.me) && this.mode !== 'fp' && this.mode !== 'gallery';
     this.world.updateLights(dt);
     this.world.updateDoors(dt, [...this.actors.values()].filter(a => a.entity.enabled && a.pos).map(a => a.pos));
 

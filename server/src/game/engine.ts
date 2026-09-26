@@ -12,7 +12,7 @@
  * camera is NOT required to use the exit.
  */
 import {
-  CAMERA_START, CAST, CLUES, CharacterId, DOORWAYS, EXIT_POINT, EXIT_ROOM, MAX_ACTIVE_SURVIVORS, ROOMS, ROOM_GRAPH,
+  CAMERA_START, CAST, CLUES, CharacterId, DOORWAYS, EXIT_POINT, EXIT_ROOM, GALLERY, GALLERY_REACH, GalleryStation, MAX_ACTIVE_SURVIVORS, ROOMS, ROOM_GRAPH,
   RoomId, SCORE, SOS_PRESETS, SosPreset, SosReply, TUNING, Vec2, frontOf, hideIds, hideSpot, standingSpot,
 } from "./data.js";
 import {
@@ -33,7 +33,8 @@ export type Intent =
   | { kind: "search"; spot: string }
   | { kind: "block"; door: string }
   | { kind: "chase"; target: ActorId }
-  | { kind: "goto"; zone: ZoneId; p: Vec2 };
+  | { kind: "goto"; zone: ZoneId; p: Vec2 }
+  | { kind: "gallery"; station: string };
 
 type HideState = "none" | "entering" | "hidden" | "leaving";
 
@@ -69,6 +70,8 @@ export interface Actor {
   biteAt: number;
   searching: { spot: string; until: number } | null;
   blocking: string | null;
+  /** Standing at a View Gallery section, looking at the wall (open, visible, vulnerable). */
+  viewing: string | null;
   snares: number;
   clues: Set<string>;
   clueNotes: Map<string, string>;
@@ -197,7 +200,7 @@ export class HauntedGame {
       id, status, active, birthday, cpu, score: 0, pos: [...pos] as Vec2, zone: "portrait", room: "portrait", yaw: 90,
       path: [], pace: "walk", intent: { kind: "idle" }, intentSeq: 0, intentState: "done", intentReason: null, lastIntentAt: -Infinity,
       hide: null, hideState: "none", hideTimer: 0, afterLeave: null, peeking: false,
-      stunnedUntil: 0, stunKind: null, snareImmuneUntil: 0, grabbedBy: null, grabbing: null, biteAt: 0, searching: null, blocking: null,
+      stunnedUntil: 0, stunKind: null, snareImmuneUntil: 0, grabbedBy: null, grabbing: null, biteAt: 0, searching: null, blocking: null, viewing: null,
       snares: 0, clues: new Set(), clueNotes: new Map(),
       ai: { nextThinkAt: 0, sawHide: [], heard: null, hideUntil: 0, blockUntil: 0, lastSeen: null, lastSearched: new Map(), replanAt: 0, guardUntil: 0, nextGuardAt: Infinity, committedUntil: 0, chaseUntil: 0, ignore: new Map(), windup: null },
     };
@@ -379,6 +382,12 @@ export class HauntedGame {
         if (!t || t.status === "infected" || !this.perceives(a, t)) throw new GameError("You can't see them");
         break;
       }
+      case "gallery": {
+        if (hunter) throw new GameError("Hunters don't browse the gallery");
+        const st = GALLERY.find(g => g.id === intent.station);
+        if (!st || !this.galleryStations(a).includes(st)) throw new GameError("Walk along the Portrait Corridor to view that part of the gallery");
+        break;
+      }
       case "goto":
         // Internal: CPU players investigating a sound or a last-seen position.
         if (!a.cpu) throw new GameError("Unknown action");
@@ -396,6 +405,7 @@ export class HauntedGame {
     a.intentState = "accepted";
     a.intentReason = null;
     a.searching = null;
+    a.viewing = null;
     if (a.blocking) { a.blocking = null; }
     a.peeking = false;
     // Leaving cover takes a moment; the journey starts once the character is out.
@@ -440,6 +450,7 @@ export class HauntedGame {
         break;
       }
       case "goto": dest = { zone: intent.zone, p: intent.p }; break;
+      case "gallery": dest = { zone: "corridor", p: GALLERY.find(g => g.id === intent.station)!.pos }; break;
     }
     const route = dest && planRoute(a.pos, a.zone, dest);
     if (!route) return this.interrupt(a, "No route");
@@ -594,6 +605,13 @@ export class HauntedGame {
         this.emit({ type: "searching", to: this.witnessesOf(a, ...this.actorsHiddenAt(intent.spot)), id: a.id, spot: intent.spot });
         return;
       }
+      case "gallery": {
+        // Stop at the wall and look at it. The timer keeps running and the viewer stays in the open.
+        const st = GALLERY.find(g => g.id === intent.station)!;
+        a.viewing = st.id;
+        a.yaw = st.look;
+        return this.complete(a);
+      }
       case "block":
         a.blocking = intent.door;
         a.intentState = "done";
@@ -643,7 +661,7 @@ export class HauntedGame {
       if (now - h.ai.windup.since < TUNING.grabWindupMs) continue;
       h.ai.windup = null;
       h.grabbing = v.id; h.biteAt = now + TUNING.biteDelayMs; h.path = []; h.blocking = null;
-      v.grabbedBy = h.id; v.path = []; v.peeking = false;
+      v.grabbedBy = h.id; v.path = []; v.peeking = false; v.viewing = null;
       if (v.hideState !== "none") { v.hideState = "none"; v.hide = null; v.afterLeave = null; }
       v.intentState = "interrupted"; v.intentReason = "Caught";
       this.emit({ type: "grabbed", to: this.witnessesOf(h, v), victim: v.id, hunter: h.id });
@@ -1084,7 +1102,7 @@ export class HauntedGame {
       running: o.pace === "run" && o.path.length > 0,
       revealed: this.revealed(me, o, now),
       stunned: this.stunned(o, now) ? o.stunKind : null,
-      action: o.grabbing ? "grabbing" : o.grabbedBy ? "grabbed" : o.searching ? "searching" : o.blocking ? "blocking"
+      action: o.grabbing ? "grabbing" : o.grabbedBy ? "grabbed" : o.searching ? "searching" : o.blocking ? "blocking" : o.viewing ? "viewing"
         : o.hideState === "entering" ? "entering_cover" : o.peeking ? "peeking" : null,
       // Onlookers see HOW someone gets into cover (crawling under a bed, stepping into a wardrobe).
       coverPose: o.hideState === "entering" && o.hide ? hideSpot(o.hide)?.spot.pose ?? null : null,
@@ -1106,7 +1124,7 @@ export class HauntedGame {
         intent: { seq: me.intentSeq, kind: me.intent.kind, target: (me.intent as any).room ?? (me.intent as any).spot ?? (me.intent as any).door ?? (me.intent as any).target ?? null, state: me.intentState, reason: me.intentReason },
         caught: !!me.grabbedBy, caughtBy: me.grabbedBy, grabbing: me.grabbing,
         stunned: this.stunned(me, now) ? me.stunKind : null,
-        searching: me.searching?.spot ?? null, blocking: me.blocking,
+        searching: me.searching?.spot ?? null, blocking: me.blocking, viewing: me.viewing,
         snares: me.snares,
       },
       actors,
@@ -1131,6 +1149,7 @@ export class HauntedGame {
         exit: rooms.includes(EXIT_ROOM) || me.zone === "exit",
         inspect: this.cluesInReach(me).map(c => ({ id: c, label: CLUES.find(x => x.id === c)!.label, read: me.clues.has(c) })),
         passTo: actors.filter(x => x.id !== "elias" && !x.revealed && dist(this.get(x.id).pos, me.pos) <= TUNING.passReach).map(x => x.id),
+        gallery: this.galleryStations(me).map(g => ({ id: g.id, label: g.label })),
       };
       view.clues = [...me.clueNotes].map(([cid, text]) => ({ id: cid, label: CLUES.find(c => c.id === cid)!.label, text }));
       view.sos = this.sosViewFor(me, now, names);
@@ -1145,6 +1164,12 @@ export class HauntedGame {
       };
     }
     return view;
+  }
+
+  /** Gallery sections a survivor can walk to right now: in the Portrait Corridor, within reach. */
+  private galleryStations(a: Actor): GalleryStation[] {
+    if (a.zone !== "corridor" || a.status !== "alive" || a.grabbedBy) return [];
+    return GALLERY.filter(g => dist(g.pos, a.pos) <= GALLERY_REACH);
   }
 
   private sosViewFor(me: Actor, now: number, names: (id: ActorId) => string) {

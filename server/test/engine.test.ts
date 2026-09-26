@@ -294,6 +294,47 @@ describe("Real-time rules", () => {
     assert.ok(j[1] < 74.65, "pulled out from under the bed (south of the frame)");
   });
 
+  it("View Gallery: walk to a section of the portrait wall, stay visible and vulnerable, leave by moving", () => {
+    const { g, clock } = huntStarted(["julian", "anika"]);
+    parkOthers(g, ["julian", "anika"]);
+    place(g, "julian", ROOMS.study.center);
+    assert.throws(() => g.setIntent("julian", { kind: "gallery", station: "receptions" }, clock.t), /Portrait Corridor/, "only from the corridor");
+    place(g, "julian", [-20, 60]);
+    const opts = (g.viewFor("julian", clock.t, names) as any).options.gallery.map((x: any) => x.id);
+    assert.deepStrictEqual(opts, ["receptions"], "only the section within reach is offered");
+    assert.throws(() => g.setIntent("julian", { kind: "gallery", station: "collection" }, clock.t), /Portrait Corridor/, "another section means walking there");
+    g.setIntent("julian", { kind: "gallery", station: "receptions" }, clock.t);
+    run(g, clock, () => g.get("julian").viewing === "receptions");
+    const me = (g.viewFor("julian", clock.t, names) as any).me;
+    assert.strictEqual(me.viewing, "receptions");
+    assert.strictEqual(me.hideState, "none", "viewing is not hiding");
+    // Anyone nearby sees them standing at the wall.
+    place(g, "anika", [-19, 60]);
+    const seen = (g.viewFor("anika", clock.t, names) as any).actors.find((x: any) => x.id === "julian");
+    assert.strictEqual(seen?.action, "viewing");
+    // The timer keeps running while viewing.
+    const left = g.huntEndsAt - clock.t;
+    advance(g, clock, 3000);
+    assert.ok(g.huntEndsAt - clock.t < left);
+    // Any movement ends the viewing.
+    clock.t += TUNING.intentCooldownMs;
+    g.setIntent("julian", { kind: "room", room: "study" }, clock.t);
+    assert.strictEqual(g.get("julian").viewing, null);
+    // Hunters can't use it.
+    const B = g.birthday;
+    place(g, B, [-21, 60]);
+    assert.throws(() => g.setIntent(B, { kind: "gallery", station: "receptions" }, clock.t), /Hunters/);
+    // A grab interrupts viewing.
+    place(g, "julian", [-22.5, 60.7]);
+    clock.t += TUNING.intentCooldownMs;
+    g.setIntent("julian", { kind: "gallery", station: "receptions" }, clock.t);
+    run(g, clock, () => g.get("julian").viewing === "receptions");
+    advance(g, clock, TUNING.lockdownGraceMs);
+    g.setIntent(B, { kind: "chase", target: "julian" }, clock.t, "run");
+    run(g, clock, () => !!g.get("julian").grabbedBy, 20_000);
+    assert.strictEqual(g.get("julian").viewing, null);
+  });
+
   it("one 15-minute countdown with intercom warnings at 5:00 and 1:00; the Garden Gate is open from the start", () => {
     const { g, clock } = huntStarted(["julian"]);
     assert.strictEqual(g.huntEndsAt - g.huntStartedAt, 15 * 60_000);

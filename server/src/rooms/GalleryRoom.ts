@@ -200,6 +200,7 @@ export class GalleryRoom extends Room<{ state: GalleryState; client: GalleryClie
         case "search": intent = { kind: "search", spot: String(p.spot) }; break;
         case "block": intent = { kind: "block", door: String(p.door) }; break;
         case "chase": intent = { kind: "chase", target: this.actorArg(p.target) }; break;
+        case "gallery": intent = { kind: "gallery", station: String(p.station) }; break;
         default: throw new GameError("Unknown action");
       }
       game.setIntent(me, intent, this.gameNow(), pace);
@@ -233,7 +234,7 @@ export class GalleryRoom extends Room<{ state: GalleryState; client: GalleryClie
       if (p?.inertCpu) for (const a of g.actors.values()) if (a.cpu) { a.cpu = false; a.path = []; }
       for (const [id, pos] of Object.entries<any>(p?.place ?? {})) {
         const a = g.get(id as ActorId);
-        a.pos = [pos[0], pos[1]]; a.path = []; a.hide = null; a.hideState = "none";
+        a.pos = [pos[0], pos[1]]; a.path = []; a.hide = null; a.hideState = "none"; a.viewing = null;
         const z = zoneAt(a.pos); if (z) { a.zone = z; if (isRoom(z)) a.room = z; }
       }
       for (const id of p?.infect ?? []) {
