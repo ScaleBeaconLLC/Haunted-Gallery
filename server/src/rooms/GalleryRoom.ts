@@ -1,8 +1,9 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { Room, Client, CloseCode, ServerError } from "colyseus";
 import { CAST, CharacterId, MAX_ACTIVE_SURVIVORS, ROOM_IDS, RoomId, SOS_PRESETS, SosPreset, TUNING } from "../game/data.js";
-import { ActorId, GameError, GameEvent, HauntedGame } from "../game/engine.js";
+import { ActorId, GameError, GameEvent, HauntedGame, Intent } from "../game/engine.js";
 import { GalleryState, Seat } from "./schema/GalleryState.js";
+import { isRoom, zoneAt } from "../game/nav.js";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const CHARACTER_SET = new Set<string>(CAST.map(c => c.id));
@@ -170,19 +171,27 @@ export class GalleryRoom extends Room<{ state: GalleryState; client: GalleryClie
       Object.assign(this.state.seats.get(character)!, { taken: false, displayName: "", connected: false });
     }),
 
-    choose: (client: GalleryClient, p: any) => this.play(client, (game, me) => {
-      const action = p?.action;
-      if (action === "move") game.choose(me, { action, to: this.roomArg(p.to) });
-      else if (action === "hide") game.choose(me, { action, spot: String(p.spot) });
-      else if (action === "stay" || action === "exit") game.choose(me, { action });
-      else throw new GameError("Unknown choice");
-      game.maybeFinishChoicesEarly(this.gameNow(), this.humanCharacters());
+    /** Movement/action intent: the server plans the route and moves the character. */
+    intent: (client: GalleryClient, p: any) => this.play(client, (game, me) => {
+      const pace = p?.pace === "run" ? "run" : p?.pace === "walk" ? "walk" : undefined;
+      let intent: Intent;
+      switch (p?.kind) {
+        case "idle": intent = { kind: "idle" }; break;
+        case "room": intent = { kind: "room", room: this.roomArg(p.room) }; break;
+        case "hide": intent = { kind: "hide", spot: String(p.spot) }; break;
+        case "exit": intent = { kind: "exit" }; break;
+        case "pickup": intent = { kind: "pickup" }; break;
+        case "search": intent = { kind: "search", spot: String(p.spot) }; break;
+        case "block": intent = { kind: "block", door: String(p.door) }; break;
+        case "chase": intent = { kind: "chase", target: this.actorArg(p.target) }; break;
+        default: throw new GameError("Unknown action");
+      }
+      game.setIntent(me, intent, this.gameNow(), pace);
     }),
-    hunt: (client: GalleryClient, p: any) => this.play(client, (game, me) => {
-      game.chooseHunt(me, this.roomArg(p?.to), p?.search == null ? null : String(p.search));
-      game.maybeFinishChoicesEarly(this.gameNow(), this.humanCharacters());
-    }),
-    pickup: (client: GalleryClient) => this.play(client, (game, me) => game.pickUpCamera(me, this.gameNow())),
+    pace: (client: GalleryClient, p: any) => this.play(client, (game, me) => game.setPace(me, p?.pace === "run" ? "run" : "walk")),
+    peek: (client: GalleryClient, p: any) => this.play(client, (game, me) => game.peek(me, !!p?.on)),
+    inspect: (client: GalleryClient, p: any) => this.play(client, (game, me) => { game.inspect(me, String(p?.clue), this.gameNow()); }),
+    snare: (client: GalleryClient) => this.play(client, (game, me) => game.placeSnare(me, this.gameNow())),
     give: (client: GalleryClient, p: any) => this.play(client, (game, me) => game.giveCamera(me, this.characterArg(p?.to))),
     drop: (client: GalleryClient) => this.play(client, (game, me) => game.dropCamera(me)),
     flash: (client: GalleryClient) => this.play(client, (game, me) => game.flash(me, this.gameNow())),
@@ -196,6 +205,29 @@ export class GalleryRoom extends Room<{ state: GalleryState; client: GalleryClie
     "sos:update": (client: GalleryClient, p: any) => this.play(client, (game, me) => game.updateSos(me, String(p?.id), this.gameNow())),
     "sos:cancel": (client: GalleryClient, p: any) => this.play(client, (game, me) => game.cancelSos(me, String(p?.id))),
 
+    /**
+     * Test hooks for automated multi-client scenarios. Only active when the server runs
+     * with HG_TEST_HOOKS=1 outside production; never on the live preview.
+     */
+    "test:setup": (client: GalleryClient, p: any) => this.guard(client, "host", () => {
+      if (!(process.env.HG_TEST_HOOKS === "1" && process.env.NODE_ENV !== "production")) throw new GameError("Not allowed");
+      const g = this.game;
+      if (!g) throw new GameError("No match");
+      if (p?.skipOpening && g.phase === "opening") g.startedAt -= TUNING.openingMs + 1000;
+      if (p?.inertCpu) for (const a of g.actors.values()) if (a.cpu) { a.cpu = false; a.path = []; }
+      for (const [id, pos] of Object.entries<any>(p?.place ?? {})) {
+        const a = g.get(id as ActorId);
+        a.pos = [pos[0], pos[1]]; a.path = []; a.hide = null; a.hideState = "none";
+        const z = zoneAt(a.pos); if (z) { a.zone = z; if (isRoom(z)) a.room = z; }
+      }
+      for (const id of p?.infect ?? []) {
+        const a = g.get(id as ActorId);
+        a.status = "infected"; a.hide = null; a.hideState = "none";
+        g.infectionLog.push({ victim: a.id, by: "elias", room: a.room, atSec: 0 });
+        this.game!["emit"]({ type: "you_turned", to: [a.id], by: "elias" });
+      }
+      if (p?.exitOpenNow) g.exitOpensAt = 0;
+    }),
     "host:cpuFill": (client: GalleryClient, p: any) => this.guard(client, "host", () => {
       if (this.state.phase !== "lobby") throw new GameError("Change CPU fill in the lobby");
       this.state.cpuFill = !!p?.on;
@@ -251,8 +283,8 @@ export class GalleryRoom extends Room<{ state: GalleryState; client: GalleryClie
   private resetToLobby() {
     this.game = null;
     this.state.phase = "lobby";
-    Object.assign(this.state, { round: 0, phaseEndsAt: 0, exitOpen: false, teamScore: 0, escapedCount: 0,
-      infectedCount: 0, aliveCount: 0, birthday: "", photographer: "", results: "", paused: false });
+    Object.assign(this.state, { phaseEndsAt: 0, exitOpen: false, teamScore: 0, escapedCount: 0,
+      insideCount: 0, birthday: "", photographer: "", results: "", paused: false });
     const claimed = new Set(this.claims.values());
     for (const seat of this.state.seats.values()) {
       seat.status = ""; seat.birthday = false;
@@ -302,14 +334,15 @@ export class GalleryRoom extends Room<{ state: GalleryState; client: GalleryClie
     if (!g) { this.updateCounts(); return; }
     const s = this.state;
     s.phase = g.phase;
-    s.round = g.round;
     s.phaseEndsAt = g.phase === "ended" ? 0 : g.phaseEndsAt + this.pausedTotal;
     s.exitOpen = g.exitOpen;
     s.teamScore = g.teamScore;
     for (const a of g.actors.values()) {
       if (a.id === "elias") continue;
       const seat = s.seats.get(a.id);
-      if (seat && (a.active || a.birthday) && seat.status !== a.status) seat.status = a.status;
+      // Public status is only "inside" or "escaped": who has turned is never broadcast.
+      const pub = a.status === "escaped" ? "escaped" : "inside";
+      if (seat && (a.active || a.birthday) && seat.status !== pub) seat.status = pub;
     }
     this.updateCounts();
     if (g.phase === "ended" && !s.results) s.results = JSON.stringify(g.results());
@@ -321,8 +354,7 @@ export class GalleryRoom extends Room<{ state: GalleryState; client: GalleryClie
     if (!this.game) return;
     const active = [...this.game.actors.values()].filter(a => a.active);
     s.escapedCount = active.filter(a => a.status === "escaped").length;
-    s.aliveCount = active.filter(a => a.status === "alive").length;
-    s.infectedCount = active.filter(a => a.status === "infected").length;
+    s.insideCount = active.filter(a => a.status !== "escaped").length;
   }
 
   /** Send each phone its own private view, only when it changed. */
@@ -352,7 +384,7 @@ export class GalleryRoom extends Room<{ state: GalleryState; client: GalleryClie
       if (x && typeof x === "object") {
         const o: any = {};
         for (const [k, val] of Object.entries(x)) {
-          o[k] = ["readyAt", "sentAt", "updatedAt", "repliedAt", "until"].includes(k) && typeof val === "number" ? val + off : walk(val);
+          o[k] = ["readyAt", "sentAt", "updatedAt", "repliedAt", "until", "huntEndsAt"].includes(k) && typeof val === "number" ? val + off : walk(val);
         }
         return o;
       }
@@ -370,13 +402,13 @@ export class GalleryRoom extends Room<{ state: GalleryState; client: GalleryClie
     const ch = this.characterOf(c);
     return ch ? this.state.seats.get(ch) : undefined;
   }
-  private humanCharacters(): ActorId[] {
-    const connected = new Set(this.clients.map(c => this.characterOf(c)).filter(Boolean));
-    return [...this.claims.values()].filter(c => connected.has(c));
-  }
   private roomArg(r: unknown): RoomId {
     if (!ROOM_IDS.includes(r as RoomId)) throw new GameError("Unknown room");
     return r as RoomId;
+  }
+  private actorArg(c: unknown): ActorId {
+    if (c === "elias") return "elias";
+    return this.characterArg(c);
   }
   private characterArg(c: unknown): CharacterId {
     if (!CHARACTER_SET.has(String(c))) throw new GameError("Unknown guest");

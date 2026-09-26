@@ -69,10 +69,10 @@ describe("GalleryRoom over WebSockets", () => {
     assert.ok(!["julian", "anika", "marcus"].includes(server.state.birthday));
 
     // Skip the cinematic.
-    server.game.phaseEndsAt = 0;
-    await until(() => server.state.phase === "choice");
+    server.game.startedAt -= 30_000;
+    await until(() => server.state.phase === "hunt");
 
-    p3.send("choose", { action: "hide", spot: "curtain_recess" });
+    p3.send("intent", { kind: "hide", spot: "curtain_recess" });
     p1.send("sos:send", { to: "anika", preset: "come_get_me" });
     await until(() => lastView(inboxes[1])?.sos?.inbox?.length === 1);
     const card = lastView(inboxes[1]).sos.inbox[0];
@@ -86,7 +86,8 @@ describe("GalleryRoom over WebSockets", () => {
     assert.ok(!marcusTraffic.includes(card.id), "SOS leaked to a third guest");
     assert.ok(!marcusTraffic.includes("Come get me"));
     // Public state never includes rooms or hiding places.
-    assert.ok(!JSON.stringify(host.state.toJSON()).match(/curtain_recess|portrait|sos/));
+    const pub = JSON.stringify(host.state.toJSON());
+    assert.ok(!pub.match(/curtain_recess|portrait|sos|infected|alive/), "public state leaks nothing private");
 
     p2.send("sos:reply", { id: card.id, reply: "coming" });
     await until(() => lastView(inboxes[0])?.sos?.outbox?.[0]?.reply === "coming");
@@ -102,7 +103,7 @@ describe("GalleryRoom over WebSockets", () => {
 
     host.send("host:pause");
     await until(() => server.state.paused === true);
-    back.send("choose", { action: "stay" });
+    back.send("intent", { kind: "room", room: "sealed" });
     await until(() => backInbox.some(m => m.type === "error" && /paused/.test(m.payload.message)));
     host.send("host:resume");
     host.send("host:reset");

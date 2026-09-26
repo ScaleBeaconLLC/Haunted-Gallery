@@ -11,7 +11,7 @@ export const Seat = schema({
   taken: t.boolean().default(false),
   isCpu: t.boolean().default(false),
   connected: t.boolean().default(false),
-  /** "" in the lobby, then alive | infected | escaped (publicly visible per the design). */
+  /** "" in the lobby, then "inside" or "escaped". Infection is secret and never appears here. */
   status: t.string().default(""),
   birthday: t.boolean().default(false),
 });
@@ -19,18 +19,17 @@ export type Seat = SchemaType<typeof Seat>;
 
 export const GalleryState = schema({
   joinCode: t.string().default(""),
-  /** lobby | opening | choice | travel | encounter | ended */
+  /** lobby | opening | hunt | ended */
   phase: t.string().default("lobby"),
   paused: t.boolean().default(false),
-  round: t.number().default(0),
   /** Server epoch ms when the current phase ends (0 while paused or in the lobby). */
   phaseEndsAt: t.number().default(0),
   exitOpen: t.boolean().default(false),
   cpuFill: t.boolean().default(true),
   teamScore: t.number().default(0),
   escapedCount: t.number().default(0),
-  infectedCount: t.number().default(0),
-  aliveCount: t.number().default(0),
+  /** Active guests still in the mansion (survivors and turned alike). */
+  insideCount: t.number().default(0),
   humanCount: t.number().default(0),
   birthday: t.string().default(""),
   photographer: t.string().default(""),

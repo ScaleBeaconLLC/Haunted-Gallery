@@ -3,7 +3,7 @@
 // service exit, 14 hiding covers and simple set dressing. This is a performant
 // mobile BLOCKOUT (primitives), not final art.
 import * as pc from 'playcanvas';
-import { CORRIDORS, EXIT_CORRIDOR, EXIT_POINT, ROOMS, ROOM_IDS, CAMERA_START } from '@game/data.ts';
+import { CORRIDORS, EXIT_CORRIDOR, EXIT_POINT, ROOMS, ROOM_IDS, CAMERA_START, CLUES } from '@game/data.ts';
 
 const WALL_H = 3.2;
 const WALL_T = 0.3;
@@ -135,6 +135,7 @@ export class World {
       this.dressRoom(id, node);
       this.hideCovers[id] = room.hides.map(h => this.buildCover(node, h));
     }
+    this.buildClues();
     for (const c of CORRIDORS) for (const [x0, x1, z0, z1] of c.rects) {
       box(app, root, 'CorridorFloor', [(x0 + x1) / 2, 0.005, (z0 + z1) / 2], [x1 - x0, 0.1, z1 - z0], mat('#231c1a'), g);
     }
@@ -208,6 +209,7 @@ export class World {
 
   buildCover(node, h) {
     const { pos: [x, z], size: [w, d], height, kind } = h.cover;
+    if (kind === 'table' || kind === 'desk' || kind === 'crates') return this.buildUnderCover(node, h);
     const colors = { curtain: '#5e1420', panel: '#3b2a20', plinth: '#8d8a82', screen: '#4d4034', shelf: '#4a3322', cabinet: '#5f6a6a', rack: '#6b5b43', bookcase: '#3d2616', crates: '#6d5536', mirror: '#aab4c0' };
     const m = kind === 'mirror' ? mat(colors.mirror, { metalness: 0.9, gloss: 0.9 }) : mat(colors[kind] ?? '#444');
     const e = box(this.app, node, `Cover_${h.id}`, [x, height / 2, z], [w, height, d], m, this.staticGroup);
@@ -217,6 +219,87 @@ export class World {
     const marker = box(this.app, node, `HideMarker_${h.id}`, [h.pos[0], 0.07, h.pos[1]], [0.8, 0.02, 0.8], mat('#111', { emissive: '#8a6d2a', emissiveIntensity: 0.25 }));
     marker.enabled = false;
     return { entity: e, marker, id: h.id };
+  }
+
+  /**
+   * Covers you get *under*: a tabletop on legs with drapery on every side except the
+   * one the hider looks out of (h.look), or a tunnel of crates. Real geometry, so the
+   * first-person view sees the underside, the floor and whatever is beyond the opening.
+   */
+  buildUnderCover(node, h) {
+    const g = this.staticGroup;
+    const { pos: [x, z], size: [w, d], height, kind } = h.cover;
+    const wood = kind === 'crates' ? mat('#6d5536') : mat(kind === 'desk' ? '#4a2c18' : '#5a3b22', { gloss: 0.45 });
+    const cloth = mat(kind === 'desk' ? '#3a1f2a' : '#5e1420', { gloss: 0.15 });
+    const top = box(this.app, node, `Cover_${h.id}`, [x, height, z], [w, 0.08, d], wood, g);
+    const lookRad = h.look * Math.PI / 180;
+    const lx = Math.sin(lookRad), lz = Math.cos(lookRad);
+    if (kind === 'crates') {
+      // Crates stacked along the two long sides and the back; the open end faces h.look.
+      for (const s of [-1, 1]) {
+        const alongX = w > d;
+        box(this.app, node, 'CrateSide', alongX ? [x, height / 2, z + s * (d / 2 - 0.2)] : [x + s * (w / 2 - 0.2), height / 2, z],
+          alongX ? [w, height, 0.4] : [0.4, height, d], wood, g);
+      }
+      box(this.app, node, 'CrateTop', [x, height + 0.35, z], [w * 0.8, 0.6, d * 0.7], mat('#7b6040'), g);
+    } else {
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+        box(this.app, node, 'Leg', [x + sx * (w / 2 - 0.08), height / 2, z + sz * (d / 2 - 0.08)], [0.08, height, 0.08], wood, g);
+      }
+      // Drapery skirts on the sides that face away from the hider's view.
+      const sides = [[1, 0, w], [-1, 0, w], [0, 1, d], [0, -1, d]];
+      for (const [nx, nz] of sides) {
+        if (nx * lx + nz * lz > 0.5) continue; // leave the viewing side open
+        const cx = x + nx * w / 2, cz = z + nz * d / 2;
+        const len = nx ? d : w;
+        box(this.app, node, 'Drape', [cx, height / 2 + 0.04, cz], nx ? [0.04, height - 0.08, len] : [len, height - 0.08, 0.04], cloth, g);
+      }
+    }
+    const marker = box(this.app, node, `HideMarker_${h.id}`, [h.pos[0] + lx * 0.9, 0.07, h.pos[1] + lz * 0.9], [0.8, 0.02, 0.8], mat('#111', { emissive: '#8a6d2a', emissiveIntensity: 0.25 }));
+    marker.enabled = false;
+    return { entity: top, marker, id: h.id };
+  }
+
+  /** Inspectable clue props (paper, rope coils, a journal) within reach of hiding places. */
+  buildClues() {
+    this.clueProps = {};
+    for (const c of CLUES) {
+      const onTable = ['guest_list', 'floor_plan', 'curator_journal'].includes(c.id);
+      const y = onTable ? 0.95 : 0.35;
+      const e = new pc.Entity(`Clue_${c.id}`);
+      e.addComponent('render', { type: 'box', material: mat('#e8dcc0', { emissive: '#8a7a50', emissiveIntensity: 0.35 }), castShadows: false });
+      e.setLocalPosition(c.pos[0], y, c.pos[1]);
+      e.setLocalScale(0.34, 0.03, 0.26);
+      this.root.addChild(e);
+      if (c.effect === 'snare') {
+        const coil = new pc.Entity('RopeCoil');
+        coil.addComponent('render', { type: 'torus', material: mat('#7a1020'), castShadows: false });
+        coil.setLocalPosition(c.pos[0] + 0.25, y - 0.02, c.pos[1] + 0.1);
+        coil.setLocalScale(0.35, 0.35, 0.35);
+        this.root.addChild(coil);
+        e.coil = coil;
+      }
+      this.clueProps[c.id] = e;
+    }
+  }
+
+  /** Rope snares currently visible to this phone. */
+  syncSnares(list) {
+    this.snareProps = this.snareProps || new Map();
+    const live = new Set();
+    for (const s of list || []) {
+      live.add(s.id);
+      let e = this.snareProps.get(s.id);
+      if (!e) {
+        e = new pc.Entity('Snare');
+        e.addComponent('render', { type: 'torus', material: mat('#7a1020', { emissive: '#300', emissiveIntensity: 0.4 }), castShadows: false });
+        e.setLocalScale(0.9, 0.3, 0.9);
+        this.root.addChild(e);
+        this.snareProps.set(s.id, e);
+      }
+      e.setLocalPosition(s.pos[0], 0.06, s.pos[1]);
+    }
+    for (const [id, e] of this.snareProps) if (!live.has(id)) { e.destroy(); this.snareProps.delete(id); }
   }
 
   dressRoom(id, node) {
@@ -239,13 +322,11 @@ export class World {
       }
     } else if (id === 'archive') {
       for (let i = 0; i < 3; i++) box(app, node, 'Stack', [x0 + 3 + i * 4.5, 1.3, cz - 2], [3, 2.6, 0.6], mat('#3b2616'), g);
-      box(app, node, 'ReadingTable', [cx + 2, 0.45, cz + 3], [2.4, 0.9, 1.2], mat('#5a3b22'), g);
     } else if (id === 'conservation') {
       box(app, node, 'LabTable', [cx, 0.5, cz], [3.2, 1, 1.4], mat('#7f8a8a', { metalness: 0.6, gloss: 0.5 }), g);
       box(app, node, 'Easel', [cx + 4, 1.2, cz - 3], [0.2, 2.4, 1.6], mat('#6b5b43'), g);
       box(app, node, 'Cart', [cx - 4, 0.45, cz + 3], [1.2, 0.9, 0.7], mat('#9aa3a3', { metalness: 0.7 }), g);
     } else if (id === 'study') {
-      box(app, node, 'Desk', [cx + 2, 0.45, cz + 1], [2.6, 0.9, 1.3], mat('#4a2c18', { gloss: 0.5 }), g);
       box(app, node, 'Bookcases', [cx, 1.4, z1 - 0.5], [8, 2.8, 0.6], mat('#3d2616'), g);
       box(app, node, 'Fireplace', [x0 + 0.5, 1, cz + 2.5], [0.6, 2, 2.4], mat('#2a2220', { emissive: '#7a2e0a', emissiveIntensity: 0.4 }), g);
     } else if (id === 'sealed') {
@@ -281,7 +362,8 @@ export class World {
     }
   }
 
-  showHideMarkers(room, show) {
-    for (const [id, covers] of Object.entries(this.hideCovers)) for (const c of covers) c.marker.enabled = show && id === room;
+  /** Highlight only the hiding place this player is heading for. */
+  showHideMarker(spotId) {
+    for (const covers of Object.values(this.hideCovers)) for (const c of covers) c.marker.enabled = c.id === spotId;
   }
 }

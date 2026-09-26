@@ -1,5 +1,5 @@
-// Phone client: join by QR code, pick a guest, then play the 3D hunt. All decisions
-// are sent as intents; the server's private "view" is the only source of truth.
+// Phone client: join by QR code, pick a guest, then play. Every action is an intent;
+// the server's private "view" (what your character can perceive) is the only truth.
 import { CAST, OPENING_BEATS, ROOMS, SOS_PRESETS, TUNING } from '@game/data.ts';
 import { Connection, local } from './net.js';
 import { Game3D } from './game3d.js';
@@ -10,22 +10,33 @@ import { mapSvg } from './map.js';
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const first = id => castInfo(id)?.name.split(' ')[0] ?? id;
+const params = new URLSearchParams(location.search);
+
+// Capture mode renders an empty room from a fixed viewpoint for the room picture cards.
+const captureRoom = params.get('capture');
 
 const conn = new Connection();
 const audio = new GameAudio();
 const game = new Game3D($('stage'), { now: () => conn.now() });
-let pub = null;   // public schema state
-let view = null;  // private view
-let me = null;
+let pub = null, view = null, me = null;
 let openingFired = new Set();
-let lastPhaseKey = '';
 let sheetOpen = null;
 let wakeLock = null;
+let pending = null;       // { label, at } an intent sent but not yet reflected by the server
+let lastIntentSeq = 0;
+let lastInterrupted = null;
+let expanded = null;      // room card expanded to show its hiding places
+let pace = local?.getItem('hg.pace') === 'run' ? 'run' : 'walk';
 
-const params = new URLSearchParams(location.search);
-$('join-code').value = (params.get('code') || '').toUpperCase();
-$('join-name').value = local?.getItem('hg.name') || '';
-if (params.get('debug')) $('debug').hidden = false;
+if (captureRoom) {
+  document.body.classList.add('capture');
+  game.setCapture(captureRoom);
+  setTimeout(() => { window.__captureReady = true; }, 1500);
+} else {
+  $('join-code').value = (params.get('code') || '').toUpperCase();
+  $('join-name').value = local?.getItem('hg.name') || '';
+  if (params.get('debug')) { $('debug').hidden = false; window.__hgGame = game; }
+}
 
 // ------------------------------------------------------------------ join
 $('join-go').addEventListener('click', async () => {
@@ -49,71 +60,82 @@ $('join-go').addEventListener('click', async () => {
     $('join-go').disabled = false;
   }
 });
-// iOS needs a gesture to start audio; any tap will do after a reconnect/reload.
 document.addEventListener('pointerdown', () => audio.unlock(), { passive: true });
-
-async function requestWakeLock() {
-  try { wakeLock = await navigator.wakeLock?.request('screen'); } catch { /* not supported or not HTTPS */ }
-}
+async function requestWakeLock() { try { wakeLock = await navigator.wakeLock?.request('screen'); } catch { /* unsupported */ } }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && conn.room) requestWakeLock(); });
 
-// ------------------------------------------------------------------ network events
+// ------------------------------------------------------------------ network
 conn.addEventListener('state', e => { pub = e.detail; render(); });
 conn.addEventListener('hello', e => { me = e.detail.character; game.setMe(me); render(); });
 conn.addEventListener('view', e => {
-  const prevHide = view?.hide ?? null;
+  const prev = view;
   view = e.detail;
-  // Settling into cover: the character's quiet line, on this phone only and softly.
-  if (view?.hide && view.hide !== prevHide && view.status === 'alive') {
-    const spot = ROOMS[view.room]?.hides.find(h => h.id === view.hide)?.pos;
-    if (spot) setTimeout(() => audio.voice(view.id, 'quiet', spot), 400);
-  }
+  window.__hgView = view; // this phone's own view (used by automated tests)
   const mine = view?.id ?? view?.character ?? null;
   if (mine !== me) { me = mine; game.setMe(me); }
   game.applyView(view, pub);
+  const intent = view?.me?.intent;
+  if (intent && intent.seq !== lastIntentSeq) { lastIntentSeq = intent.seq; pending = null; }
+  if (intent?.state === 'interrupted' && intent.reason && lastInterrupted !== `${intent.seq}:${intent.reason}`) {
+    lastInterrupted = `${intent.seq}:${intent.reason}`;
+    caption(intent.reason, true);
+  }
+  if (prev?.me?.hideState !== 'hidden' && view?.me?.hideState === 'hidden') {
+    // Settled into cover: this character's quiet line, on this phone only.
+    audio.voice(view.id, 'quiet', view.me.hidePos);
+    game.setPeek(false);
+  }
   render();
 });
 conn.addEventListener('fx', e => onFx(e.detail));
-conn.addEventListener('error', e => toast(e.detail));
-conn.addEventListener('reset', () => { view = null; openingFired = new Set(); closeSheet(); render(); });
+conn.addEventListener('error', e => { pending = null; toast(e.detail); render(); });
+conn.addEventListener('reset', () => { view = null; openingFired = new Set(); closeSheet(); $('briefing').hidden = true; render(); });
 conn.addEventListener('status', e => {
   const s = e.detail;
   $('conn').hidden = s === 'connected' || s === 'idle';
   $('conn').textContent = s === 'reconnecting' || s === 'joining' ? 'Reconnecting…' : 'Connection lost — retrying';
 });
 
-// ------------------------------------------------------------------ effects
-function actorPos(id) { return game.actors.get(id)?.pos ?? [0, 0]; }
+function send(type, payload, label) {
+  if (label) { pending = { label, at: Date.now() }; render(); }
+  conn.send(type, payload);
+}
+function intent(payload, label) { send('intent', { ...payload, pace }, label); }
+
+// ------------------------------------------------------------------ effects (each only reaches phones that perceive it)
+function actorPos(id) { return (id === me ? view?.me?.pos : null) ?? game.actors.get(id)?.pos ?? view?.me?.pos ?? [0, 0]; }
 
 function onFx(fx) {
   switch (fx.type) {
-    case 'discovered':
-      audio.zombieCue(actorPos(fx.hunter));
-      audio.voice(fx.victim, 'discovery', actorPos(fx.victim));
-      caption(fx.victim === me ? `${first(fx.hunter)} found you!` : `${first(fx.hunter)} found ${first(fx.victim)}!`, true);
-      if (fx.victim === me) buzz([120, 60, 120]);
-      game.actors.get(fx.hunter)?.moveTo(nearby(actorPos(fx.victim)));
-      break;
     case 'grabbed':
+      audio.zombieCue(actorPos(fx.hunter));
       audio.voice(fx.victim, 'grabbed', actorPos(fx.victim));
-      game.actors.get(fx.hunter)?.moveTo(nearby(actorPos(fx.victim), 0.7));
-      if (fx.victim === me) buzz([300]);
-      caption(fx.victim === me ? 'GRABBED! Break free — someone use the camera!' : `${first(fx.victim)} is grabbed!`, true);
+      if (fx.victim === me) { buzz([300]); caption('CAUGHT! Someone with the camera or a snare can still save you.', true); }
       break;
     case 'bite':
       audio.voice(fx.victim, 'bite', actorPos(fx.victim));
       audio.biteFoley(actorPos(fx.victim));
-      if (!fx.opening) caption(fx.victim === me ? 'You were bitten. You hunt for Elias now.' : `${first(fx.victim)} was bitten.`, true);
       if (fx.victim === me) buzz([500, 100, 500]);
       break;
-    case 'turned':
-      if (fx.id !== me) caption(`${first(fx.id)} has turned.`);
+    case 'you_turned':
+      showBriefing(fx.by);
+      break;
+    case 'search_done':
+      if (fx.found?.includes(me)) { audio.voice(me, 'discovery', actorPos(me)); buzz([120, 60, 120]); caption('Found!', true); }
+      break;
+    case 'searching':
+      if (view?.me?.hide === fx.spot) buzz([40]);
       break;
     case 'flash':
       flashScreen();
       game.flashAt(actorPos(fx.by));
       audio.flash(actorPos(fx.by));
-      caption(fx.by === me ? `Flash! ${fx.frozen.length} frozen for 5 seconds — move!` : `${first(fx.by)}'s flash freezes the hunters!`, true);
+      if (fx.by === me) caption(fx.frozen.length ? 'Flash! They freeze for five seconds — move!' : 'Flash! Nothing froze.', true);
+      break;
+    case 'snared':
+      caption('Tangled in the rope snare!', true);
+      break;
+    case 'recovered':
       break;
     case 'escape':
       caption(fx.id === me ? 'You escaped alive! +100' : `${first(fx.id)} escaped the mansion.`, true);
@@ -122,13 +144,15 @@ function onFx(fx) {
       if (fx.helper === me) caption(`${first(fx.victim)} escaped — your rescue counts! +150`, true);
       break;
     case 'camera_pickup':
-      caption(fx.by === me ? 'You picked up the antique camera.' : `${first(fx.by)} picked up the camera.`);
+      caption(fx.by === me ? 'You have the antique camera.' : `${first(fx.by)} picked up the camera.`);
       break;
     case 'camera_pass':
-      caption(fx.recipient === me ? `${first(fx.from)} handed you the camera.` : `${first(fx.from)} passed the camera to ${first(fx.recipient)}.`);
+      caption(fx.recipient === me ? `${first(fx.from)} handed you the camera.` : `${first(fx.from)} passed the camera.`);
       break;
     case 'camera_drop':
       if (!fx.opening) caption('The camera hits the floor.');
+      break;
+    case 'blocking':
       break;
     case 'sos':
       audio.ping(); buzz([80, 40, 80]);
@@ -137,40 +161,69 @@ function onFx(fx) {
       audio.ping();
       break;
     case 'exit_open':
-      caption('The rear service exit has unlocked — reach the Sealed Exhibition Room!', true);
+      caption('A buzz from the south: the rear service door has released.', true);
       break;
     case 'phase':
-      if (fx.phase === 'choice' && fx.round === 1) { audio.alarm(); caption('LOCKDOWN. Get out of the gallery!', true); }
+      if (fx.phase === 'hunt') { audio.alarm(); caption('LOCKDOWN. Choose where to go.', true); }
       break;
   }
 }
 
-function nearby([x, z], d = 1.2) { const a = Math.random() * Math.PI * 2; return [x + Math.cos(a) * d, z + Math.sin(a) * d]; }
-function buzz(p) { try { navigator.vibrate?.(p); } catch { /* unsupported */ } }
-function flashScreen() {
-  const f = $('flash'); f.classList.add('on');
-  requestAnimationFrame(() => requestAnimationFrame(() => f.classList.remove('on')));
-}
-let captionTimer = 0;
-function caption(text, big = false) {
-  const c = $('caption');
-  c.textContent = text; c.className = big ? 'big' : ''; c.style.opacity = 1;
-  clearTimeout(captionTimer);
-  captionTimer = setTimeout(() => { c.style.opacity = 0; }, big ? 4200 : 3000);
-}
-let toastTimer = 0;
-function toast(text) {
-  const t = $('toast'); t.textContent = text; t.hidden = false;
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2600);
+function showBriefing(by) {
+  const team = (view?.team || []).map(first).join(', ');
+  $('briefing').innerHTML = `<div class="card"><h2>You've turned.</h2>
+    <p>${by === 'elias' ? 'Elias Voss' : esc(first(by))} bit you. <b>Nobody else has been told.</b> You still look like yourself from a distance — only a close look at your face gives you away.</p>
+    <p>Hunt with Elias${team ? ` (${esc(team)})` : ''}: walk up to survivors to catch them, search hiding places, or stand in a doorway to block it.</p>
+    <p class="fine">Survivors' camera flash freezes you for 5 seconds; rope snares tangle you briefly. You always get back up.</p>
+    <button class="primary" id="briefing-ok">I understand</button></div>`;
+  $('briefing').hidden = false;
+  $('briefing-ok').onclick = () => { $('briefing').hidden = true; };
 }
 
-// ------------------------------------------------------------------ per-frame UI (timer, tags, opening beats)
+function buzz(p) { try { navigator.vibrate?.(p); } catch { /* unsupported */ } }
+function flashScreen() { const f = $('flash'); f.classList.add('on'); requestAnimationFrame(() => requestAnimationFrame(() => f.classList.remove('on'))); }
+let captionTimer = 0;
+function caption(text, big = false) {
+  const c = $('caption'); c.textContent = text; c.className = big ? 'big' : ''; c.style.opacity = 1;
+  clearTimeout(captionTimer); captionTimer = setTimeout(() => { c.style.opacity = 0; }, big ? 4000 : 2800);
+}
+let toastTimer = 0;
+function toast(text) { const t = $('toast'); t.textContent = text; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2600); }
+
+// ------------------------------------------------------------------ per-frame: timer, opening beats, tags, sound cues
+const tagEls = new Map();
+function updateTags(tags) {
+  const live = new Set();
+  for (const t of tags) {
+    live.add(t.id);
+    let el = tagEls.get(t.id);
+    if (!el) { el = document.createElement('div'); el.className = 'tag'; $('tags').appendChild(el); tagEls.set(t.id, el); }
+    if (el.textContent !== t.name) el.textContent = t.name;
+    el.style.transform = `translate(${t.x.toFixed(0)}px, ${t.y.toFixed(0)}px) translate(-50%, -100%)`;
+    el.hidden = false;
+  }
+  for (const [id, el] of tagEls) if (!live.has(id)) el.hidden = true;
+}
+
+function updateSoundCues() {
+  const box = $('sounds');
+  const sounds = view?.sounds || [];
+  if (!sounds.length) { box.innerHTML = ''; return; }
+  const heading = game.heading();
+  const words = { steps: 'footsteps', running: 'running', search: 'rummaging', struggle: 'a struggle' };
+  box.innerHTML = sounds.map(s => {
+    const rel = ((s.bearing - heading + 540) % 360) - 180; // -180..180, 0 = ahead
+    const side = Math.abs(rel) < 35 ? 'ahead' : Math.abs(rel) > 145 ? 'behind' : rel > 0 ? 'right' : 'left';
+    return `<div class="cue ${side} ${s.band}"><span class="arrow" style="transform:rotate(${rel.toFixed(0)}deg)">▲</span>${words[s.kind] ?? 'a sound'} · ${side}${s.band === 'near' ? ' · close' : ''}</div>`;
+  }).join('');
+}
+
 game.onFrame = () => {
-  if (!pub) return;
+  if (!pub || captureRoom) return;
   const now = conn.now();
-  if (pub.phase !== 'lobby' && pub.phase !== 'ended') {
+  if (pub.phase === 'opening' || pub.phase === 'hunt') {
     const left = pub.paused ? null : Math.max(0, Math.ceil((pub.phaseEndsAt - now) / 1000));
-    $('hud-timer').textContent = pub.paused ? 'II' : String(left);
+    $('hud-timer').textContent = pub.paused ? 'II' : pub.phase === 'hunt' ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : String(left);
   }
   if (pub.phase === 'opening' && !pub.paused) {
     const t = (now - (pub.phaseEndsAt - TUNING.openingMs)) / 1000;
@@ -185,65 +238,45 @@ game.onFrame = () => {
       }
     }
   }
-  // Flash button countdown.
   const fb = document.querySelector('[data-act="flash"]');
   if (fb && view?.camera?.mine) {
     const wait = Math.max(0, Math.ceil(((view.camera.readyAt ?? 0) - now) / 1000));
     fb.disabled = wait > 0;
-    fb.textContent = wait > 0 ? `Recharging ${wait}s` : 'FLASH';
+    fb.textContent = wait > 0 ? `📷 Recharging ${wait}s` : '📷 Take Photo';
   }
-  // Name tags.
   updateTags(game.tags());
-  // Listener follows the orbit camera.
+  updateSoundCues();
   const cp = game.camera.getPosition();
-  audio.setListener(cp.x, cp.z, game.orbit.yaw + 180);
+  audio.setListener(cp.x, cp.z, game.heading() + 180);
   if (!$('debug').hidden) {
     const s = game.stats; const mem = performance.memory ? ` heap ${(performance.memory.usedJSHeapSize / 1048576).toFixed(0)}MB` : '';
-    $('debug').textContent = `fps ${s.fps.toFixed(0)} avg ${s.ms.toFixed(1)}ms worst ${(s.worstMs ?? 0).toFixed(0)}ms${mem}\ndpr ${devicePixelRatio} x${game.app.graphicsDevice.maxPixelRatio} ${game.app.graphicsDevice.width}x${game.app.graphicsDevice.height}`;
+    $('debug').textContent = `fps ${s.fps.toFixed(0)} avg ${s.ms.toFixed(1)}ms worst ${(s.worstMs ?? 0).toFixed(0)}ms${mem}\ndpr ${devicePixelRatio} x${game.app.graphicsDevice.maxPixelRatio} ${game.app.graphicsDevice.width}x${game.app.graphicsDevice.height} ${game.mode}`;
   }
 };
-
-// Name tags reuse one element per actor and only move it (no per-frame DOM rebuild).
-const tagEls = new Map();
-function updateTags(tags) {
-  const live = new Set();
-  for (const t of tags) {
-    live.add(t.id);
-    let el = tagEls.get(t.id);
-    if (!el) { el = document.createElement('div'); $('tags').appendChild(el); tagEls.set(t.id, el); }
-    const cls = `tag ${t.me ? 'me' : ''} ${t.id === 'elias' ? 'elias' : t.status === 'infected' ? 'infected' : ''} ${t.stunned ? 'stunned' : ''}`;
-    if (el.className !== cls) el.className = cls;
-    const label = t.me ? 'You' : t.name;
-    if (el.textContent !== label) el.textContent = label;
-    el.style.transform = `translate(${t.x.toFixed(0)}px, ${t.y.toFixed(0)}px) translate(-50%, -100%)`;
-    el.hidden = false;
-  }
-  for (const [id, el] of tagEls) if (!live.has(id)) el.hidden = true;
-}
 
 // ------------------------------------------------------------------ rendering
 function seatName(id) {
   const seat = pub?.seats?.get?.(id);
   return seat?.displayName && !seat.isCpu ? `${first(id)} (${seat.displayName})` : castInfo(id)?.name ?? id;
 }
+const roomName = r => ROOMS[r]?.name ?? r;
+const zoneLabel = m => m.inRoom ? roomName(m.room) : m.zone === 'exit' ? 'Service corridor' : `Corridor off the ${roomName(m.room)}`;
 
 function render() {
-  if (!pub) return;
+  if (captureRoom || !pub) return;
   const joined = $('screen-join').hidden;
   const inLobby = pub.phase === 'lobby';
   $('screen-lobby').hidden = !(inLobby && joined);
   $('hud').hidden = inLobby || !joined;
   if (inLobby) { if (joined) renderLobby(); $('panel').hidden = true; $('inbox').innerHTML = ''; $('screen-results').hidden = true; return; }
-  const phaseKey = `${pub.phase}:${pub.round}`;
-  // Passing the camera is a choice-window action; SOS and the map stay open across phases.
-  if (phaseKey !== lastPhaseKey) { lastPhaseKey = phaseKey; if (pub.phase !== 'choice' && sheetOpen === 'give') closeSheet(); }
   renderHud();
   renderPanel();
   renderInbox();
   renderResults();
-  $('vignette').className = view?.threat ? 'danger' : '';
-  $('threat').hidden = !view?.threat;
-  if (view?.threat) $('threat').textContent = view.threat.grabbed ? 'GRABBED!' : 'FOUND!';
+  const caught = view?.me?.caught;
+  $('vignette').className = caught ? 'v-danger' : view?.me?.hideState === 'hidden' ? 'v-hidden' : '';
+  $('threat').hidden = !caught;
+  if (caught) $('threat').textContent = 'CAUGHT!';
 }
 
 function renderLobby() {
@@ -254,7 +287,7 @@ function renderLobby() {
     const taken = seat?.taken && !mine;
     return `<button class="cast ${mine ? 'mine' : ''} ${taken ? 'taken' : ''}" data-claim="${c.id}" ${taken ? 'disabled' : ''}>
       <div class="n"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</div>
-      <div class="t">${mine ? 'You' : taken ? esc(seat.displayName) : 'Available'}</div></button>`;
+      <div class="t">${mine ? 'You' : taken ? esc(seat.displayName) : 'Available'} · <span class="shoe" style="background:${c.shoes}"></span> shoes</div></button>`;
   }).join('');
   $('lobby-sub').textContent = me ? `You are ${castInfo(me).name}. Tap another guest to switch.` : 'Tap a guest. Each can be chosen once.';
   $('lobby-wait').textContent = `${pub.humanCount} of 12 joined · waiting for the host to start. ${pub.cpuFill ? 'Empty seats will be played by the computer.' : ''}`;
@@ -263,19 +296,44 @@ $('cast-grid').addEventListener('click', e => {
   const b = e.target.closest('[data-claim]');
   if (!b) return;
   conn.send('claim', { character: b.dataset.claim, name: local?.getItem('hg.name') || $('join-name').value });
-  // A guest's voice preview doubles as the audio unlock check.
   audio.voice(b.dataset.claim, 'quiet', [0, 0], { gain: 0.6 });
 });
 
+function statusLine() {
+  if (!view) return '';
+  const m = view.me;
+  if (view.status === 'escaped') return 'Outside — alive';
+  if (!m) return '';
+  if (m.caught) return 'Caught!';
+  if (m.stunned === 'frozen') return 'Frozen by the flash';
+  if (m.stunned === 'tangled') return 'Tangled in a rope snare — recovering';
+  if (m.hideState === 'hidden') return m.peeking ? 'Peeking — you can be seen' : 'Hidden — stay alert';
+  if (m.hideState === 'entering') return 'Getting into cover…';
+  if (m.hideState === 'leaving') return 'Leaving cover…';
+  if (m.searching) return 'Searching…';
+  if (m.blocking) return 'Blocking the doorway';
+  if (m.moving) {
+    const i = m.intent;
+    const verb = m.pace === 'run' ? 'Running' : 'Walking';
+    if (i.kind === 'room') return `${verb} to the ${roomName(i.target)}`;
+    if (i.kind === 'hide') return `${verb} to cover`;
+    if (i.kind === 'exit') return `${verb} to the service exit`;
+    if (i.kind === 'chase') return `Chasing ${first(i.target)}`;
+    if (i.kind === 'search') return `${verb} to search`;
+    if (i.kind === 'block') return `${verb} to the doorway`;
+    if (i.kind === 'pickup') return `${verb} to the camera`;
+    return verb;
+  }
+  return 'Standing in the open';
+}
+
 function renderHud() {
-  const room = view?.room ? ROOMS[view.room].name : view?.status === 'escaped' ? 'Outside — alive' : '—';
-  $('hud-room').textContent = room;
-  const role = !view ? '' : view.status === 'escaped' ? 'Escaped' : view.isHunter ? 'Infected — hunting' : view.hide ? `Survivor · hidden (${ROOMS[view.room].hides.find(h => h.id === view.hide)?.label})` : 'Survivor';
-  $('hud-status').textContent = `${me ? castInfo(me).name + ' · ' : ''}${role}${view?.camera?.mine ? ' · 📷 camera' : ''}`;
-  const label = { opening: 'The Unveiling', choice: `Round ${pub.round} · decide`, travel: 'Moving', encounter: 'The hunt', ended: 'Aftermath' }[pub.phase] ?? pub.phase;
-  $('hud-phase').textContent = pub.paused ? 'Paused by host' : label;
+  const m = view?.me;
+  $('hud-room').textContent = view?.status === 'escaped' ? 'Outside the mansion' : m ? zoneLabel(m) : '—';
+  $('hud-status').textContent = `${me ? castInfo(me).name + ' · ' : ''}${statusLine()}${view?.camera?.mine ? ' · 📷' : ''}${m?.snares ? ` · rope ×${m.snares}` : ''}`;
+  $('hud-phase').textContent = pub.paused ? 'Paused by host' : { opening: 'The Unveiling', hunt: view?.role === 'hunter' ? 'You are infected' : 'Survive', ended: 'Aftermath' }[pub.phase] ?? pub.phase;
   if (pub.phase === 'ended') $('hud-timer').textContent = '';
-  $('hud-team').textContent = `Team ${pub.teamScore} pts · ${pub.escapedCount} escaped · ${pub.aliveCount} still inside · ${pub.infectedCount} turned · exit ${pub.exitOpen ? 'OPEN' : 'locked'}`;
+  $('hud-team').textContent = `${pub.escapedCount} escaped · ${pub.insideCount} still inside · team ${pub.teamScore} pts · exit ${pub.exitOpen ? 'open' : 'locked'}`;
 }
 
 function btn(act, label, { active = false, disabled = false, cls = '', data = {} } = {}) {
@@ -283,97 +341,152 @@ function btn(act, label, { active = false, disabled = false, cls = '', data = {}
   return `<button class="btn ${cls} ${active ? 'active' : ''}" data-act="${act}"${d} ${disabled ? 'disabled' : ''}>${label}</button>`;
 }
 
-function planText(c) {
-  if (!c) return 'No plan yet — you will stay where you are.';
-  if (c.action === 'move') return `Move to <b>${esc(ROOMS[c.to].name)}</b>`;
-  if (c.action === 'hide') return `Hide in the <b>${esc(ROOMS[view.room].hides.find(h => h.id === c.spot)?.label)}</b>`;
-  if (c.action === 'exit') return '<b>Escape</b> through the service exit';
-  return '<b>Stay</b> in this room';
+function roomCard(r, { current = false, selected = false, blocked = false } = {}) {
+  return `<button class="room-card ${current ? 'current' : ''} ${selected ? 'selected' : ''}" data-act="room-card" data-room="${r}">
+    <img src="/rooms/${r}.jpg" alt="" loading="lazy" onerror="this.style.visibility='hidden'" />
+    <span class="rc-name">${esc(roomName(r))}</span>${current ? '<span class="rc-tag">You are here</span>' : ''}${blocked ? '' : ''}</button>`;
+}
+
+function intentBadge() {
+  const i = view?.me?.intent;
+  if (pending && Date.now() - pending.at < 2500) return `<div class="intent pending">Sending: ${esc(pending.label)}…</div>`;
+  if (!i || i.kind === 'idle') return '';
+  if (i.state === 'interrupted') return `<div class="intent interrupted">Stopped: ${esc(i.reason || 'interrupted')}</div>`;
+  if (i.state === 'accepted') return `<div class="intent accepted">On the way</div>`;
+  return '';
+}
+
+function paceToggle() {
+  return `<div class="pace">${btn('pace', 'Walk', { active: pace === 'walk', data: { pace: 'walk' } })}${btn('pace', 'Run', { active: pace === 'run', data: { pace: 'run' } })}</div>`;
 }
 
 function renderPanel() {
   const p = $('panel');
-  if (!view || pub.phase === 'opening' || pub.phase === 'ended' || !view.status) { p.hidden = true; return; }
-  p.hidden = false;
-  const html = [];
-  if (pub.paused) { p.innerHTML = '<h3>Paused</h3><p class="plan">The host paused the game.</p>'; return; }
-
-  if (view.status === 'escaped') {
-    p.innerHTML = `<h3>You escaped</h3><p class="plan">You're out alive with <b>${view.score}</b> points. Watch the team score — others may still get out.</p>`;
+  if (!view || !view.me || pub.phase === 'opening' || pub.phase === 'ended' || view.status === 'escaped') {
+    p.hidden = !(view?.status === 'escaped' && pub.phase !== 'ended');
+    if (!p.hidden) p.innerHTML = `<h3>You escaped</h3><p class="plan">You're out alive with <b>${view.score}</b> points. Others may still get out.</p>`;
     return;
   }
+  p.hidden = false;
+  p.classList.remove('slim');
+  if (pub.paused) { p.innerHTML = '<h3>Paused</h3><p class="plan">The host paused the game.</p>'; return; }
+  const m = view.me;
+  const html = [intentBadge()];
 
-  if (view.status === 'alive') {
-    if (pub.phase === 'choice') {
-      const c = view.choice;
-      html.push(`<div class="group"><h3>Your move · ${esc(ROOMS[view.room].name)}</h3><div class="plan">${planText(c)}</div><div class="row">`);
-      html.push(btn('stay', 'Stay', { active: c?.action === 'stay' }));
-      for (const h of view.options.hides) html.push(btn('hide', `Hide: ${esc(h.label)}`, { active: c?.action === 'hide' && c.spot === h.id, data: { spot: h.id } }));
-      html.push('</div><div class="row" style="margin-top:8px">');
-      for (const r of view.options.moves) html.push(btn('move', `→ ${esc(ROOMS[r].name)}`, { active: c?.action === 'move' && c.to === r, data: { to: r } }));
-      html.push('</div>');
-      if (view.options.canExit) html.push(`<div class="row" style="margin-top:8px">${btn('exit', 'ESCAPE through the service exit', { active: c?.action === 'exit', cls: 'primary' })}</div>`);
-      else if (pub.exitOpen) html.push('<p class="plan">The service exit is open in the Sealed Exhibition Room.</p>');
-      html.push('</div>');
-    } else if (pub.phase === 'travel') {
-      html.push(`<h3>Moving</h3><p class="plan">${planText(view.choice)}</p>`);
-    } else if (pub.phase === 'encounter') {
-      html.push(`<h3>The hunt</h3><p class="plan">${view.threat ? (view.threat.grabbed ? `<b>${esc(first(view.threat.hunter))} has you.</b>` : `<b>${esc(first(view.threat.hunter))} has seen you.</b>`) : view.hide ? 'Hold still. Stay hidden.' : 'Listen…'}</p>`);
-    }
-    // Camera controls.
+  if (view.role === 'survivor') {
     const cam = view.camera || {};
-    if (cam.mine && pub.phase === 'encounter') html.push(`<div class="group">${btn('flash', 'FLASH', { cls: 'flash-btn' })}</div>`);
-    const camRow = [];
-    if (cam.onFloorHere && (pub.phase === 'choice' || pub.phase === 'encounter')) camRow.push(btn('pickup', '📷 Pick up the camera'));
-    if (cam.mine && pub.phase === 'choice') {
-      const here = (view.actors || []).filter(a => a.id !== me && a.status === 'alive' && a.id !== 'elias' && !a.birthday);
-      if (here.length) camRow.push(btn('give-open', '📷 Pass the camera'));
-      camRow.push(btn('drop', 'Drop the camera'));
+    const photo = cam.mine ? btn('flash', '📷 Take Photo', { cls: 'flash-btn' }) : '';
+    if (m.caught) {
+      html.push(`<h3>Caught by ${esc(first(m.caughtBy))}</h3><p class="plan">You can't pull free alone.</p>${photo}`);
+      p.innerHTML = html.join(''); return;
     }
-    if (camRow.length) html.push(`<div class="group"><div class="row">${camRow.join('')}</div></div>`);
-    // SOS.
-    const sos = view.sos;
-    if (sos && pub.phase !== 'opening') {
-      const out = sos.outbox?.[0];
-      if (out) html.push(`<p class="plan">SOS to <b>${esc(out.recipientName)}</b>: “${esc(out.text)}” · ${out.reply === 'coming' ? '<b style="color:var(--ok)">Coming!</b>' : out.reply === 'cant' ? "Can't risk it" : 'no reply yet'}${out.stale ? ` · shows ${esc(out.roomName)} (last seen)` : ''}</p>`);
-      const r = [btn('sos-open', '🆘 Ask for help', { disabled: !sos.canSend })];
-      if (out?.stale) r.push(btn('sos-update', 'Update my location', { data: { id: out.id } }));
-      html.push(`<div class="row">${r.join('')}</div>`);
+    if (m.hideState === 'hidden' || m.hideState === 'entering') {
+      const clue = view.options.inspect?.[0];
+      html.push(`<h3>${m.hideState === 'hidden' ? 'Hidden — stay alert' : 'Getting into cover…'}</h3>
+        <p class="plan">Drag to look around. Hold <b>Peek</b> to lean out (people nearby can see you while you peek).</p>
+        <div class="row">
+          <button class="btn peek" data-hold="peek" ${m.hideState !== 'hidden' ? 'disabled' : ''}>👁 Hold to Peek</button>
+          ${clue ? btn('inspect', `🔎 Inspect ${esc(clue.label)}`, { data: { clue: clue.id } }) : ''}
+          ${m.snares ? btn('snare', '🪢 Rig snare outside') : ''}
+        </div>
+        ${photo ? `<div class="row">${photo}</div>` : ''}
+        <div class="row">${btn('leave', 'Leave hiding…')}${sosButton()}</div>`);
+      if (expanded === '__leave') html.push(roomChooser(true));
+      p.innerHTML = html.join(''); return;
     }
-  } else if (view.isHunter) {
-    if (pub.phase === 'choice' && view.huntOptions) {
-      const h = view.hunt;
-      html.push(`<h3>Hunt · ${esc(ROOMS[view.room].name)}</h3><p class="plan">${h ? `Hunt <b>${esc(ROOMS[h.to].name)}</b>${h.search ? `, search the <b>${esc(ROOMS[h.to].hides.find(x => x.id === h.search)?.label)}</b>` : ''}` : 'Pick a room to hunt and a hiding place to search.'}</p>`);
-      for (const r of view.huntOptions.rooms) {
-        html.push(`<div class="group"><div class="plan">${esc(ROOMS[r.id].name)}${r.id === view.room ? ' (here)' : ''}</div><div class="row">`);
-        html.push(btn('hunt', 'Walk in', { active: h?.to === r.id && !h.search, data: { to: r.id } }));
-        for (const s of ROOMS[r.id].hides) html.push(btn('hunt', `Search ${esc(s.label)}`, { active: h?.to === r.id && h.search === s.id, data: { to: r.id, search: s.id } }));
-        html.push('</div></div>');
-      }
-    } else {
-      html.push(`<h3>Infected</h3><p class="plan">${pub.phase === 'choice' ? 'The lockdown is still sealing the doors.' : 'You hunt with Elias. Find the survivors.'}</p>`);
+    // While travelling, keep the panel slim so the journey stays visible.
+    if (m.moving && expanded !== '__change') {
+      html.push(`<div class="row">${btn('change', 'Change destination')}${btn('stop', 'Stop here')}${photo}</div><div class="row">${paceToggle()}</div>`);
+      p.innerHTML = html.join(''); p.classList.add('slim'); return;
     }
+    html.push(`<h3>Where to? · ${esc(zoneLabel(m))}</h3>`);
+    html.push(roomChooser(false));
+    const extra = [];
+    if (photo) extra.push(photo);
+    if (cam.floor) extra.push(btn('pickup', '📷 Go get the camera'));
+    if (cam.mine && view.options.passTo?.length) extra.push(btn('give-open', '📷 Hand over the camera'));
+    if (cam.mine) extra.push(btn('drop', 'Drop camera'));
+    if (m.snares) extra.push(btn('snare', '🪢 Rig snare here'));
+    const clue = view.options.inspect?.[0];
+    if (clue) extra.push(btn('inspect', `🔎 Inspect ${esc(clue.label)}`, { data: { clue: clue.id } }));
+    extra.push(sosButton());
+    html.push(`<div class="row">${extra.join('')}</div>`);
+    const out = view.sos?.outbox?.[0];
+    if (out) html.push(`<p class="plan">SOS to <b>${esc(out.recipientName)}</b>: “${esc(out.text)}” · ${out.reply === 'coming' ? '<b style="color:var(--ok)">Coming!</b>' : out.reply === 'cant' ? "Can't risk it" : 'no reply yet'}${out.stale ? ` · ${btn('sos-update', 'Update my location', { data: { id: out.id } })}` : ''}</p>`);
+    if (view.clues?.length) html.push(`<details class="clues"><summary>Notes you've found (${view.clues.length})</summary>${view.clues.map(c => `<p><b>${esc(c.label)}:</b> ${esc(c.text)}</p>`).join('')}</details>`);
+    p.innerHTML = html.join(''); return;
   }
+
+  // Hunter controls: move, search, block, chase, wait.
+  const h = view.huntOptions;
+  if (m.grabbing) { html.push(`<h3>You have ${esc(first(m.grabbing))}</h3><p class="plan">Hold on…</p>`); p.innerHTML = html.join(''); return; }
+  if (m.stunned) { html.push(`<h3>${m.stunned === 'frozen' ? 'Frozen by the flash' : 'Tangled in rope'}</h3><p class="plan">You'll recover in a moment.</p>`); p.innerHTML = html.join(''); return; }
+  html.push(`<h3>Hunt · ${esc(zoneLabel(m))}</h3>`);
+  if (h.chase.length) html.push(`<div class="row">${h.chase.map(id => btn('chase', `Go after ${esc(first(id))}`, { cls: 'danger', data: { target: id } })).join('')}</div>`);
+  if (h.searchSpots.length) html.push(`<div class="row">${h.searchSpots.map(s => btn('search', `Search: ${esc(s.label)}`, { active: m.searching === s.id, data: { spot: s.id } })).join('')}</div>`);
+  if (h.doors.length) html.push(`<details class="doors"><summary>Block a doorway</summary><div class="row">${h.doors.map(d => btn('block', esc(d.label), { active: m.blocking === d.key, data: { door: d.key } })).join('')}</div></details>`);
+  html.push(`<div class="cards">${h.rooms.map(r => roomCard(r)).join('')}</div>`);
+  html.push(`<div class="row">${paceToggle()}${btn('wait', 'Wait here')}</div>`);
   p.innerHTML = html.join('');
 }
+
+/** Room picture cards for reachable rooms; tapping one opens its hiding places. */
+function roomChooser(fromCover) {
+  const m = view.me, o = view.options;
+  const cur = o.currentRoom;
+  const rooms = [...(cur ? [cur] : []), ...o.rooms];
+  const sel = expanded && !expanded.startsWith('__') ? expanded : null;
+  const parts = [`<div class="cards">${rooms.map(r => roomCard(r, { current: r === cur, selected: r === sel })).join('')}</div>`];
+  const chosen = sel ?? (fromCover ? cur : null);
+  if (chosen) {
+    const hides = o.hides.filter(h => h.room === chosen && h.id !== m.hide);
+    parts.push(`<div class="row">${chosen !== cur ? btn('go', `Go to the ${esc(roomName(chosen))}`, { cls: 'primary', data: { room: chosen } }) : fromCover ? btn('go', 'Step out here', { data: { room: chosen } }) : ''}
+      ${hides.map(h => btn('hide', `${h.pose === 'under' ? '⬇' : '▮'} Hide: ${esc(h.label)}`, { data: { spot: h.id } })).join('')}</div>`);
+  }
+  if (o.exit) parts.push(`<div class="row">${btn('exit', pub.exitOpen ? '🚪 Run for the service exit' : '🚪 Service exit (locked)', { cls: pub.exitOpen ? 'primary' : '' })}</div>`);
+  parts.push(`<div class="row">${paceToggle()}${btn('map-open', '🗺 Map')}</div>`);
+  return parts.join('');
+}
+
+function sosButton() { return view.sos ? btn('sos-open', '🆘 Ask for help', { disabled: !view.sos.canSend }) : ''; }
 
 $('panel').addEventListener('click', e => {
   const b = e.target.closest('[data-act]');
   if (!b || b.disabled) return;
   const d = b.dataset;
   switch (d.act) {
-    case 'stay': case 'exit': conn.send('choose', { action: d.act }); break;
-    case 'hide': conn.send('choose', { action: 'hide', spot: d.spot }); break;
-    case 'move': conn.send('choose', { action: 'move', to: d.to }); break;
-    case 'hunt': conn.send('hunt', { to: d.to, search: d.search ?? null }); break;
-    case 'flash': conn.send('flash'); break;
-    case 'pickup': conn.send('pickup'); break;
-    case 'drop': conn.send('drop'); break;
+    case 'room-card':
+      if (view.role === 'hunter') { intent({ kind: 'room', room: d.room }, `to the ${roomName(d.room)}`); break; }
+      expanded = expanded === d.room ? (view.me.moving ? '__change' : null) : d.room; render(); break;
+    case 'go': expanded = null; intent({ kind: 'room', room: d.room }, `to the ${roomName(d.room)}`); break;
+    case 'hide': expanded = null; intent({ kind: 'hide', spot: d.spot }, 'to cover'); break;
+    case 'exit': intent({ kind: 'exit' }, 'to the exit'); break;
+    case 'pickup': intent({ kind: 'pickup' }, 'to the camera'); break;
+    case 'stop': expanded = null; intent({ kind: 'idle' }, 'stop'); break;
+    case 'change': expanded = '__change'; render(); break;
+    case 'leave': expanded = expanded === '__leave' ? null : '__leave'; render(); break;
+    case 'pace': pace = d.pace; local?.setItem('hg.pace', pace); send('pace', { pace }); render(); break;
+    case 'flash': send('flash'); break;
+    case 'drop': send('drop'); break;
+    case 'snare': send('snare'); break;
+    case 'inspect': send('inspect', { clue: d.clue }); break;
     case 'give-open': openGiveSheet(); break;
     case 'sos-open': openSosSheet(); break;
-    case 'sos-update': conn.send('sos:update', { id: d.id }); break;
+    case 'sos-update': send('sos:update', { id: d.id }); break;
+    case 'map-open': openMapSheet(); break;
+    case 'chase': intent({ kind: 'chase', target: d.target }, `after ${first(d.target)}`); break;
+    case 'search': intent({ kind: 'search', spot: d.spot }, 'search'); break;
+    case 'block': intent({ kind: 'block', door: d.door }, 'block the doorway'); break;
+    case 'wait': intent({ kind: 'idle' }, 'wait'); break;
   }
 });
+// Peek is press-and-hold.
+const peekOn = e => { const b = e.target.closest('[data-hold="peek"]'); if (!b || b.disabled) return; e.preventDefault(); game.setPeek(true); send('peek', { on: true }); b.classList.add('active'); };
+const peekOff = () => { if (!game.peeking) return; game.setPeek(false); send('peek', { on: false }); document.querySelector('[data-hold="peek"]')?.classList.remove('active'); };
+$('panel').addEventListener('pointerdown', peekOn);
+window.addEventListener('pointerup', peekOff);
+window.addEventListener('pointercancel', peekOff);
+$('panel').addEventListener('contextmenu', e => e.preventDefault());
 
 function renderInbox() {
   const box = $('inbox');
@@ -391,7 +504,7 @@ function renderInbox() {
 $('inbox').addEventListener('click', e => {
   const b = e.target.closest('[data-act]');
   if (!b) return;
-  if (b.dataset.act === 'sos-reply') conn.send('sos:reply', { id: b.dataset.id, reply: b.dataset.reply });
+  if (b.dataset.act === 'sos-reply') send('sos:reply', { id: b.dataset.id, reply: b.dataset.reply });
   if (b.dataset.act === 'sos-map') openMapSheet(b.dataset.id);
 });
 
@@ -408,53 +521,53 @@ $('sheet').addEventListener('click', e => {
   if (d.act === 'sos-send') {
     const to = $('sheet-body').dataset.to;
     if (!to) return toast('Choose who to ask first.');
-    conn.send('sos:send', { to, preset: d.preset });
+    send('sos:send', { to, preset: d.preset });
     closeSheet();
   }
-  if (d.act === 'give') { conn.send('give', { to: d.to }); closeSheet(); }
+  if (d.act === 'give') { send('give', { to: d.to }); closeSheet(); }
 });
 
 function openSosSheet() {
-  const mates = view?.teammates ?? [];
-  if (!mates.length) return toast('No other living guests to ask.');
-  openSheet(`<h3>Ask for help</h3><p class="plan">Private: only the guest you choose sees it, with your current room (${esc(ROOMS[view.room].name)}).</p>
-    <div class="row">${mates.map(id => btn('sos-to', esc(seatName(id)), { data: { to: id } })).join('')}</div>
+  const contacts = view?.sos?.contacts ?? [];
+  if (!contacts.length) return toast('Nobody else is inside.');
+  openSheet(`<h3>Ask for help</h3><p class="plan">Private: only the guest you choose can see it, with your current room (${esc(roomName(view.me.room))}).</p>
+    <div class="row">${contacts.map(id => btn('sos-to', esc(seatName(id)), { data: { to: id } })).join('')}</div>
     <h3 style="margin-top:14px">Message</h3>
     <div class="row">${Object.entries(SOS_PRESETS).map(([k, v]) => btn('sos-send', esc(v), { data: { preset: k } })).join('')}</div>
     ${btn('close', 'Cancel')}`, 'sos');
 }
 
 function openGiveSheet() {
-  const here = (view.actors || []).filter(a => a.id !== me && a.status === 'alive' && a.id !== 'elias' && !a.birthday);
-  openSheet(`<h3>Pass the camera to…</h3><div class="row">${here.map(a => btn('give', esc(seatName(a.id)), { data: { to: a.id } })).join('')}</div>${btn('close', 'Cancel')}`, 'give');
+  openSheet(`<h3>Hand the camera to…</h3><div class="row">${view.options.passTo.map(id => btn('give', esc(seatName(id)), { data: { to: id } })).join('')}</div>${btn('close', 'Cancel')}`, 'give');
 }
 
 function openMapSheet(id) {
-  const s = view?.sos?.inbox?.find(x => x.id === id);
-  if (!s) return;
-  const next = s.route?.[0];
-  openSheet(`<h3>${esc(s.senderName)} · ${esc(s.roomName)}${s.lastSeen ? ' (last seen)' : ''}</h3>
-    <div class="map">${mapSvg({ myRoom: view.room, targetRoom: s.room, route: s.route, exitOpen: pub.exitOpen })}</div>
-    <p class="plan">${!s.route?.length ? 'They are in your room.' : `Next legal step: <b>${esc(ROOMS[next].name)}</b> (${s.route.length} room${s.route.length > 1 ? 's' : ''} away). Choose it in your next decision.`}</p>
-    ${btn('close', 'Close')}`, 'map');
+  const s = id ? view?.sos?.inbox?.find(x => x.id === id) : null;
+  const myRoom = view?.me?.room;
+  const text = s ? (!s.route?.length ? 'They are in your room.' : `Next room on the way: <b>${esc(roomName(s.route[0]))}</b> (${s.route.length} room${s.route.length > 1 ? 's' : ''} away).`)
+    : 'Rooms connect only through their doorways. Only rooms next to yours can be chosen.';
+  openSheet(`<h3>${s ? `${esc(s.senderName)} · ${esc(s.roomName)}${s.lastSeen ? ' (last seen)' : ''}` : 'The mansion'}</h3>
+    <div class="map">${mapSvg({ myRoom, targetRoom: s?.room, route: s?.route ?? [], exitOpen: pub.exitOpen })}</div>
+    <p class="plan">${text}</p>${btn('close', 'Close')}`, 'map');
 }
 
-// ------------------------------------------------------------------ results
+// ------------------------------------------------------------------ results (with the full infection history)
 function renderResults() {
   const box = $('screen-results');
   if (pub.phase !== 'ended' || !pub.results) { box.hidden = true; return; }
   const r = JSON.parse(pub.results);
   const mine = view?.ended ?? null;
   const names = ids => ids.length ? ids.map(id => esc(seatName(id))).join(', ') : 'nobody';
+  const mmss = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   box.hidden = false;
   $('results').innerHTML = `<h2>Aftermath</h2>
     <p class="sub">${r.reason === 'dawn' ? 'Dawn broke with guests still inside.' : 'Every guest has escaped or turned.'} Elias Voss waits for the next unveiling.</p>
     <div class="results-big"><div><b>${r.escaped.length}</b>escaped</div><div><b>${r.teamScore}</b>team points</div><div><b>${mine?.score ?? 0}</b>your points</div></div>
-    <div class="results-list"><p><b>Escaped:</b> ${names(r.escaped)}</p><p><b>Turned:</b> ${names(r.turned)}</p>${r.trapped.length ? `<p><b>Trapped at dawn:</b> ${names(r.trapped)}</p>` : ''}
+    <div class="results-list"><p><b>Escaped:</b> ${names(r.escaped)}</p>${r.trapped.length ? `<p><b>Trapped at dawn:</b> ${names(r.trapped)}</p>` : ''}
+    <p><b>Who turned, and when:</b></p><ol class="timeline">${r.infections.map(i => `<li>${mmss(i.atSec)} · ${esc(seatName(i.victim))} — bitten by ${esc(i.by === 'elias' ? 'Elias Voss' : seatName(i.by))} in the ${esc(roomName(i.room))}</li>`).join('')}</ol>
     <p><b>Verified rescues:</b> ${r.rescues}${mine?.rescues?.length ? ` (you saved ${names(mine.rescues)})` : ''}</p>
     <p><b>The camera ended:</b> ${r.cameraEndedIn === 'escaped' ? 'outside with a survivor' : `in the ${esc(r.cameraEndedIn)}`}</p></div>
     <p class="fine">Waiting for the host to start another match.</p>`;
 }
 
-// When the page is opened directly from a QR code, focus the name field.
-if ($('join-code').value) $('join-name').focus();
+if ($('join-code').value && !captureRoom) $('join-name').focus();

@@ -39,8 +39,10 @@ Open `https://<random>.trycloudflare.com/host.html` and enter the `HOST_KEY` pas
 
 ## Tests
 
-- `server/`: `npm test` runs the rules engine tests (scoring, privacy, camera, infection, 40 CPU matches) and a WebSocket room test (host auth, seats, private SOS delivery, rejoin, pause/reset).
-- `tools/e2e/phones.mjs`: drives a host console plus N phone-sized browsers through a match with screenshots (see the header of the file).
+- `server/`: `npm test` runs the real-time rules tests and WebSocket room tests.
+- `tools/e2e/scenario.mjs`: a three-phone browser scenario covering room card → travel → cover → first person, a friend approaching, and a secretly infected guest searching. It runs against a **test** server started with `HG_TEST_HOOKS=1 PORT=2570 npx tsx src/index.ts` in `server/`; the hooks never run in production.
+- `tools/e2e/bots.mjs`: 12 WebSocket bots play full matches and check every private view for leaks (`HOST_KEY=... node tools/e2e/bots.mjs <url> 12 1`).
+- `tools/capture-rooms.mjs`: regenerates the room picture cards from the empty scene.
 - `tools/audio/validate-audio.mjs`: decodes every voice clip with ffmpeg and checks it against the manifest.
 
 ## Security

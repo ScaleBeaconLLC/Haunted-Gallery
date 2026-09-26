@@ -8,6 +8,7 @@ import { Connection, serverUrl, session } from './net.js';
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const conn = new Connection();
+window.__hgHost = conn; // for automated tests on a test server
 let pub = null;
 let joinUrl = '';
 
@@ -26,7 +27,7 @@ conn.addEventListener('host', async e => {
   // The library sets a fixed pixel size; let CSS scale it as a square.
   Object.assign($('h-qr').style, { width: '100%', height: 'auto' });
 });
-conn.addEventListener('state', e => { pub = e.detail; render(); });
+conn.addEventListener('state', e => { pub = e.detail; window.__hgHostState = pub?.toJSON?.() ?? pub; render(); });
 conn.addEventListener('status', e => { if (e.detail === 'lost') toast('Connection lost — retrying…'); });
 
 /** The URL phones should open. On a laptop served as "localhost", use its LAN address. */
@@ -62,12 +63,14 @@ $('h-roster').addEventListener('click', e => {
 function render() {
   if (!pub) return;
   const lobby = pub.phase === 'lobby';
-  const label = { lobby: 'Lobby', opening: 'Opening cinematic', choice: `Round ${pub.round} · choices`, travel: `Round ${pub.round} · moving`, encounter: `Round ${pub.round} · hunt`, ended: 'Match over' }[pub.phase];
+  const label = { lobby: 'Lobby', opening: 'Opening cinematic', hunt: 'The hunt', ended: 'Match over' }[pub.phase];
   $('h-phase').textContent = pub.paused ? `${label} — PAUSED` : label;
-  const left = pub.phaseEndsAt ? Math.max(0, Math.ceil((pub.phaseEndsAt - conn.now()) / 1000)) : '—';
+  const secs = pub.phaseEndsAt ? Math.max(0, Math.ceil((pub.phaseEndsAt - conn.now()) / 1000)) : null;
+  const left = secs == null ? '—' : `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
   $('h-stats').innerHTML = lobby
     ? `<div><b>${pub.humanCount}</b>joined</div><div><b>${12 - pub.humanCount}</b>open seats</div>`
-    : `<div><b>${pub.aliveCount}</b>inside</div><div><b>${pub.escapedCount}</b>escaped</div><div><b>${pub.infectedCount}</b>turned</div><div><b>${pub.teamScore}</b>team pts</div><div><b>${pub.paused ? 'II' : left}</b>seconds</div>`;
+    // Public numbers only: who has turned is secret until the recap.
+    : `<div><b>${pub.insideCount}</b>still inside</div><div><b>${pub.escapedCount}</b>escaped</div><div><b>${pub.teamScore}</b>team pts</div><div><b>${pub.paused ? 'II' : left}</b>left</div>`;
   $('h-start').disabled = !lobby || pub.humanCount === 0;
   $('h-pause').disabled = lobby || pub.phase === 'ended';
   $('h-pause').textContent = pub.paused ? 'Resume' : 'Pause';
@@ -76,14 +79,16 @@ function render() {
   $('h-roster').innerHTML = CAST.map(c => {
     const s = pub.seats.get(c.id);
     const who = s?.taken ? (s.isCpu ? 'CPU' : esc(s.displayName)) : 'open';
-    const status = s?.birthday ? 'birthday guest' : s?.status || (s?.taken ? (s.connected ? 'ready' : 'disconnected') : '');
+    const status = s?.birthday ? 'birthday guest' : s?.status === 'escaped' ? 'escaped' : s?.status === 'inside' ? (s.isCpu || s.connected ? 'inside' : 'inside · reconnecting') : (s?.taken ? (s.connected ? 'ready' : 'disconnected') : '');
     return `<div class="h-seat ${s?.taken ? '' : 'off'}"><div><div>${esc(c.name)}</div><div class="s">${who}${status ? ' · ' + status : ''}</div></div>
       ${lobby && s?.taken && !s.isCpu ? `<button data-kick="${c.id}">Free</button>` : ''}</div>`;
   }).join('');
   if (pub.phase === 'ended' && pub.results) {
     const r = JSON.parse(pub.results);
     const n = ids => ids.map(id => CAST.find(c => c.id === id)?.name ?? id).join(', ') || 'nobody';
-    $('h-results').innerHTML = `<h3>Results</h3><p>${r.escaped.length} escaped · team ${r.teamScore} pts · ${r.rescues} verified rescue(s)</p><p class="fine">Escaped: ${esc(n(r.escaped))}<br/>Turned: ${esc(n(r.turned))}${r.trapped.length ? `<br/>Trapped at dawn: ${esc(n(r.trapped))}` : ''}</p>`;
+    const mmss = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+    $('h-results').innerHTML = `<h3>Results</h3><p>${r.escaped.length} escaped · team ${r.teamScore} pts · ${r.rescues} verified rescue(s)</p><p class="fine">Escaped: ${esc(n(r.escaped))}${r.trapped.length ? `<br/>Trapped at dawn: ${esc(n(r.trapped))}` : ''}</p>
+      <p class="fine">Infection history:<br/>${r.infections.map(i => `${mmss(i.atSec)} ${esc(n([i.victim]))} ← ${esc(i.by === 'elias' ? 'Elias Voss' : n([i.by]))}`).join('<br/>')}</p>`;
   } else $('h-results').innerHTML = '';
 }
 setInterval(render, 500);
