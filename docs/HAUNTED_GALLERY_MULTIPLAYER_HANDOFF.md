@@ -9,7 +9,7 @@ _Written 2026-09-25, updated 2026-09-26 after the Colyseus Cloud deployment. No 
 | Repository | `https://github.com/ScaleBeaconLLC/Haunted-Gallery` (only remote: `origin`) |
 | Gameplay baseline commit | `6f65621`, "Real-time hide-and-seek upgrade…" (was `main` == `origin/main`) |
 | Baseline checkpoint tag | `checkpoint-gameplay-upgrade` → `6f65621` (earlier: `checkpoint-rounds-v1` → `a2fbac9`) |
-| Working branch | `multiplayer-foundation` (branched from `6f65621`) |
+| Working branch | `multiplayer-foundation` (branched from `6f65621`), then **`mansion-rooms`** (branched from `multiplayer-foundation`: bedroom wing, reference-based room art, 15-minute spec timing; see `docs/MANSION_REFERENCE_MAPPING.md`) |
 | Deployed to Colyseus Cloud? | **Yes**: commit **`fd998c0`** on `multiplayer-foundation` (see below) |
 
 ## Colyseus Cloud deployment (verified)
@@ -189,4 +189,4 @@ Gameplay baseline, re-run on this branch:
 1. **First real-phone test on the Cloud endpoint:** host console at https://us-ord-c6919c4a.colyseus.cloud/host.html, one iPhone and one Android phone scanning the QR, with `&debug=1` for frame rate.
 2. Then the 12-device rehearsal.
 3. Rotate `HOST_KEY`.
-4. Decide whether to merge `multiplayer-foundation` into `main`.
+4. Decide whether to merge `mansion-rooms` (which contains `multiplayer-foundation`) into `main`.

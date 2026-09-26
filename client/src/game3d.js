@@ -7,18 +7,32 @@
 //  - Smooth transitions between the two. Only people the server says you can perceive
 //    are ever rendered, so no camera angle can reveal anyone else.
 import * as pc from 'playcanvas';
-import { CAMERA_START, ROOMS, TUNING } from '@game/data.ts';
+import { CAMERA_START, ROOMS, TUNING, hideSpot } from '@game/data.ts';
 import { World, mat, walkRects } from './world.js';
 import { ActorView, castInfo } from './actors.js';
 
-const WALK_RECTS = walkRects().map(w => w.r);
+const WALK = walkRects();
+const ROOM_RECTS = WALK.filter(w => w.kind === 'room').map(w => w.r);
+const inR = ([x0, x1, z0, z1], x, z) => x >= x0 - 0.05 && x <= x1 + 0.05 && z >= z0 - 0.05 && z <= z1 + 0.05;
+/**
+ * Where the travel camera may sit: over the room you're in, or, in a narrow passage,
+ * over the passage plus the rooms it joins (so the view isn't squeezed between walls).
+ */
 function rectAt(x, z) {
-  return WALK_RECTS.find(([x0, x1, z0, z1]) => x >= x0 - 0.05 && x <= x1 + 0.05 && z >= z0 - 0.05 && z <= z1 + 0.05) ?? null;
+  const room = ROOM_RECTS.find(r => inR(r, x, z));
+  if (room) return room;
+  const passage = WALK.find(w => w.kind !== 'room' && inR(w.r, x, z));
+  if (!passage) return null;
+  const [px0, px1, pz0, pz1] = passage.r;
+  const touching = ROOM_RECTS.filter(([x0, x1, z0, z1]) => x0 <= px1 + 0.1 && x1 >= px0 - 0.1 && z0 <= pz1 + 0.1 && z1 >= pz0 - 0.1);
+  return [passage.r, ...touching].reduce(([a0, a1, b0, b1], [c0, c1, d0, d1]) => [Math.min(a0, c0), Math.max(a1, c1), Math.min(b0, d0), Math.max(b1, d1)]);
 }
 const POSE = {
   under: { height: 0.42, back: 0.35, fov: 72, peekOut: 1.1, peekUp: 0.45, yaw: 115, pitch: [-12, 22] },
   behind: { height: 1.05, back: 0, fov: 64, peekOut: 0.6, peekUp: 0.25, yaw: 125, pitch: [-30, 35] },
   curtain: { height: 1.5, back: 0, fov: 60, peekOut: 0.5, peekUp: 0, yaw: 110, pitch: [-30, 30] },
+  // Standing inside a wardrobe/closet: a narrow view out through the ajar doors.
+  inside: { height: 1.55, back: 0.25, fov: 52, peekOut: 0.75, peekUp: 0, yaw: 40, pitch: [-20, 15] },
 };
 const tmpMat = new pc.Mat4();
 const UP = new pc.Vec3(0, 1, 0);
@@ -126,7 +140,8 @@ export class Game3D {
       const me = this.actor(this.me);
       me.sync({ pos: view.me.pos, yaw: view.me.yaw, moving: view.me.moving, running: view.me.pace === 'run' && view.me.moving,
         revealed: view.status === 'infected', stunned: view.me.stunned,
-        action: view.me.caught ? 'grabbed' : view.me.grabbing ? 'grabbing' : view.me.searching ? 'searching' : view.me.hideState === 'entering' ? 'entering_cover' : null }, now);
+        action: view.me.caught ? 'grabbed' : view.me.grabbing ? 'grabbing' : view.me.searching ? 'searching' : view.me.hideState === 'entering' ? 'entering_cover' : null,
+        coverPose: view.me.hideState === 'entering' ? view.me.pose : null }, now);
       seen.add(this.me);
     }
     for (const v of view?.actors || []) { this.actor(v.id).sync(v, now); seen.add(v.id); }
@@ -176,11 +191,14 @@ export class Game3D {
     if (this.mode === 'fp' && my?.hidePos) {
       const pose = POSE[my.pose] ?? POSE.behind;
       const look = (my.look ?? 0) * Math.PI / 180;
+      // Eye height follows the real clearance of this cover (a bed is lower than a table).
+      const cover = my.hide ? hideSpot(my.hide)?.spot.cover : null;
+      const eye = my.pose === 'under' && cover ? Math.min(pose.height, cover.height * 0.55) : pose.height;
       this.peekAmount += ((this.peeking ? 1 : 0) - this.peekAmount) * Math.min(1, dt * 7);
       const k = this.peekAmount;
       // Sit toward the back of the cover so its edge frames the view (e.g. the tabletop above).
       const out = pose.peekOut * k - pose.back * (1 - k);
-      const pos = new pc.Vec3(my.hidePos[0] + Math.sin(look) * out, pose.height + pose.peekUp * k, my.hidePos[1] + Math.cos(look) * out);
+      const pos = new pc.Vec3(my.hidePos[0] + Math.sin(look) * out, eye + pose.peekUp * k, my.hidePos[1] + Math.cos(look) * out);
       const yaw = look + v.fpYaw * Math.PI / 180, pitch = v.fpPitch * Math.PI / 180;
       const target = new pc.Vec3(pos.x + Math.sin(yaw) * Math.cos(pitch), pos.y + Math.sin(pitch), pos.z + Math.cos(yaw) * Math.cos(pitch));
       return { pos, target, near: 0.05, fov: pose.fov };

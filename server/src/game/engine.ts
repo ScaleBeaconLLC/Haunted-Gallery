@@ -81,6 +81,8 @@ export interface Actor {
     lastSeen: { p: Vec2; zone: ZoneId; at: number } | null;
     lastSearched: Map<string, number>;
     replanAt: number;
+    guardUntil: number;
+    nextGuardAt: number;
     committedUntil: number;
     chaseUntil: number;
     ignore: Map<ActorId, number>;
@@ -179,6 +181,9 @@ export class HauntedGame {
       this.infectionLog.push({ victim: this.birthday, by: "elias", room: "portrait", atSec: 0 });
       this.emit({ type: "bite", to: ["*"], victim: this.birthday, hunter: "elias", opening: true });
     });
+    // After the bite Elias walks (he never teleports) to the intercom at the Garden Gate
+    // and takes up position in its doorway for the announcement.
+    this.schedule(now + 19_000, () => { this.beginIntent(this.get("elias"), { kind: "block", door: "exit" }, now + 19_000); });
     this.schedule(now + 17_500, () => {
       this.camera = { ...this.camera, holder: null, pos: CAMERA_START.pos, zone: "portrait", room: "portrait" };
       this.emit({ type: "camera_drop", to: ["*"], opening: true });
@@ -192,7 +197,7 @@ export class HauntedGame {
       hide: null, hideState: "none", hideTimer: 0, afterLeave: null, peeking: false,
       stunnedUntil: 0, stunKind: null, snareImmuneUntil: 0, grabbedBy: null, grabbing: null, biteAt: 0, searching: null, blocking: null,
       snares: 0, clues: new Set(), clueNotes: new Map(),
-      ai: { nextThinkAt: 0, sawHide: [], heard: null, hideUntil: 0, blockUntil: 0, lastSeen: null, lastSearched: new Map(), replanAt: 0, committedUntil: 0, chaseUntil: 0, ignore: new Map(), windup: null },
+      ai: { nextThinkAt: 0, sawHide: [], heard: null, hideUntil: 0, blockUntil: 0, lastSeen: null, lastSearched: new Map(), replanAt: 0, guardUntil: 0, nextGuardAt: Infinity, committedUntil: 0, chaseUntil: 0, ignore: new Map(), windup: null },
     };
   }
 
@@ -254,6 +259,8 @@ export class HauntedGame {
     while (this.scheduled.length && this.scheduled[0].at <= now) this.scheduled.shift()!.run();
     if (this.phase === "ended") return;
     if (this.phase === "opening") {
+      // Only scripted movement happens during the opening (Elias walking to the gate).
+      for (const a of this.actors.values()) if (a.path.length) this.step(a, now, dt);
       if (now >= this.startedAt + TUNING.openingMs) this.startHunt(now);
       return;
     }
@@ -299,6 +306,10 @@ export class HauntedGame {
     this.exitOpensAt = now + TUNING.exitOpensAfterMs;
     // The Garden Gate is simply open when there is no unlock delay (no "released" event).
     if (TUNING.exitOpensAfterMs <= 0) this.exitOpen = true;
+    const range = ([lo, hi]: number[]) => lo + this.rand() * (hi - lo);
+    const elias = this.get("elias");
+    elias.ai.guardUntil = now + range(TUNING.eliasFirstGuardMs);
+    elias.ai.nextGuardAt = elias.ai.guardUntil + range(TUNING.eliasGuardGapMs);
     for (const a of this.actors.values()) {
       a.ai.nextThinkAt = now + 300 + this.rand() * 1500;
       if (a.status === "infected" && !a.cpu) this.emit({ type: "you_turned", to: [a.id], by: "elias" });
@@ -458,13 +469,15 @@ export class HauntedGame {
   private doorBlockedFor(a: Actor, door: string, now: number): Actor | null {
     if (a.status !== "alive") return null;
     for (const h of this.hunters()) {
-      if (h.blocking === door && !this.stunned(h, now) && !h.path.length) return h;
+      // Blocking is physical: the hunter must actually be standing in that doorway.
+      const d = DOORWAYS.find(x => x.key === door);
+      if (h.blocking === door && !this.stunned(h, now) && !h.path.length && d && dist(h.pos, d.pos) < 1.6) return h;
     }
     return null;
   }
 
   private step(a: Actor, now: number, dt: number) {
-    if (a.status === "escaped" || this.phase !== "hunt") return;
+    if (a.status === "escaped" || this.phase === "ended") return;
     if (this.stunned(a, now)) { a.path = []; return; }
     if (a.stunKind && !this.stunned(a, now)) {
       a.stunKind = null;
@@ -570,11 +583,15 @@ export class HauntedGame {
           return this.complete(a);
         }
         return this.interrupt(a, "The camera isn't here any more");
-      case "search":
+      case "search": {
         a.searching = { spot: intent.spot, until: now + TUNING.searchMs };
+        // Face the hiding place (to look under / behind / into it).
+        const hs = hideSpot(intent.spot);
+        if (hs) a.yaw = (hs.spot.look + 180) % 360;
         a.ai.lastSearched.set(intent.spot, now);
         this.emit({ type: "searching", to: this.witnessesOf(a, ...this.actorsHiddenAt(intent.spot)), id: a.id, spot: intent.spot });
         return;
+      }
       case "block":
         a.blocking = intent.door;
         a.intentState = "done";
@@ -958,6 +975,7 @@ export class HauntedGame {
   private thinkHunter(a: Actor, now: number) {
     if ((a.id === "elias" || a.birthday) && !this.graceOver(now)) return;
     if (a.grabbing || a.searching) return;
+    if (a.id === "elias" && this.guardGate(a, now)) return;
     // 1. Chase a survivor it can actually see — for a while; AI hunters lose interest.
     const prey = this.survivors().filter(s => this.perceives(a, s) && (a.ai.ignore.get(s.id) ?? 0) <= now)
       .sort((x, y) => dist(x.pos, a.pos) - dist(y.pos, a.pos))[0];
@@ -1009,6 +1027,29 @@ export class HauntedGame {
       const rooms = this.allowedRooms(a).filter(x => x !== a.room);
       return this.cpuIntent(a, { kind: "room", room: this.pick(rooms) }, now, "walk");
     }
+  }
+
+  /**
+   * CPU Elias's Garden Gate duty. Returns true when it decided what to do this think.
+   * He only reacts to what he can perceive; anyone close enough gets chased (a lure).
+   */
+  private guardGate(a: Actor, now: number): boolean {
+    const range = ([lo, hi]: number[]) => lo + this.rand() * (hi - lo);
+    if (now >= a.ai.nextGuardAt && now > a.ai.guardUntil) {
+      a.ai.guardUntil = now + range(TUNING.eliasLaterGuardMs);
+      a.ai.nextGuardAt = a.ai.guardUntil + range(TUNING.eliasGuardGapMs);
+    }
+    if (now >= a.ai.guardUntil) return false;
+    const near = this.survivors().filter(s => this.perceives(a, s) && dist(s.pos, a.pos) <= TUNING.guardChaseRadius && (a.ai.ignore.get(s.id) ?? 0) <= now);
+    if (near.length) return false; // normal chase logic takes over (he leaves the doorway)
+    if (a.intent.kind === "chase" && now <= a.ai.chaseUntil) return false;
+    if (a.blocking === "exit" || (a.intent.kind === "block" && a.path.length)) return true;
+    if (isRoom(a.zone) || roomsOf(a.zone).length) {
+      try { this.cpuIntent(a, { kind: "block", door: "exit" }, now, "walk"); } catch { /* retry next think */ }
+      // cpuIntent validates "block" against the current room; walk toward the Sealed room first if needed.
+      if (a.intent.kind !== "block") this.cpuIntent(a, { kind: "goto", zone: EXIT_ROOM, p: blockSpot("exit")! } as Intent, now, "walk");
+    }
+    return true;
   }
 
   /** A human seat stops being controlled by a person (left for good) or comes back. */

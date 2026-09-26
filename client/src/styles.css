@@ -130,3 +130,5 @@ details summary { cursor: pointer; color: var(--gold); }
 .tag { background: rgba(0,0,0,.5); }
 #panel.slim { max-height: 30vh; padding-top: 8px; }
 #panel.slim .row .btn { padding: 10px 8px; }
+#hud-clock { font-size: 11px; color: var(--muted); letter-spacing: .06em; }
+#hud-timer.urgent { color: #ff6a5a; }

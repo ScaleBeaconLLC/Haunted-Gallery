@@ -11,7 +11,7 @@ const { chromium } = await import(process.env.PLAYWRIGHT ? `file://${process.env
 const base = process.argv[2] || 'http://localhost:2567';
 const out = join(dirname(fileURLToPath(import.meta.url)), '..', 'client', 'public', 'rooms');
 mkdirSync(out, { recursive: true });
-const ROOMS = ['portrait', 'sculpture', 'archive', 'conservation', 'study', 'sealed', 'mirrors'];
+const ROOMS = ['portrait', 'sculpture', 'archive', 'conservation', 'study', 'sealed', 'mirrors', 'corridor', 'master_bedroom', 'guest_bedroom', 'spare_bedroom'];
 
 const browser = await chromium.launch({ executablePath: process.env.BROWSER, headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const page = await (await browser.newContext({ viewport: { width: 640, height: 400 }, deviceScaleFactor: 1 })).newPage();

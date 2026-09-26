@@ -308,6 +308,22 @@ describe("Real-time rules", () => {
     assert.deepStrictEqual(g.results().trapped, ["julian"]);
   });
 
+  it("Elias walks (no teleport) to the Garden Gate during the opening and physically guards it", () => {
+    const g = newGame(["julian"]);
+    const clock = { t: 0 };
+    const trail: Vec2[] = [];
+    run(g, clock, () => { if (clock.t % 1000 === 0) trail.push([...g.get("elias").pos] as Vec2); return g.phase === "hunt"; });
+    for (let i = 1; i < trail.length; i++) {
+      assert.ok(Math.hypot(trail[i][0] - trail[i - 1][0], trail[i][1] - trail[i - 1][1]) <= TUNING.eliasSpeed * 1.05 + 0.01, "no jumps");
+    }
+    assert.strictEqual(g.get("elias").blocking, "exit", "at the gate when the hunt starts");
+    // A survivor who dashes straight for the gate is stopped at the doorway.
+    for (const a of g.actors.values()) if (a.id !== "elias") a.cpu = false;
+    g.setIntent("julian", { kind: "exit" }, clock.t, "run");
+    run(g, clock, () => g.get("julian").intentState !== "accepted", 30_000);
+    assert.notStrictEqual(g.get("julian").status, "escaped");
+  });
+
   it("CPU-only matches end, keep one camera, and never leak hidden guests into views", () => {
     for (let seed = 1; seed <= 12; seed++) {
       let n = 0;

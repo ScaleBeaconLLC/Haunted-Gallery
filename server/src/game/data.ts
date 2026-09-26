@@ -400,13 +400,24 @@ export const CLUES: Clue[] = [
 // Rules and tuning (initial values; tune after the 12-phone rehearsal).
 // ---------------------------------------------------------------------------
 export const TUNING = {
-  openingMs: 24_000,
+  /** The opening now includes Elias walking from the party to the Garden Gate intercom. */
+  openingMs: 32_000,
   /** Hunter release: Elias and the first victim hold for these first seconds of the hunt (spec §15; part of the 15 minutes). */
   lockdownGraceMs: 8_000,
   /** The Garden Gate is open from the start: escaping never waits for an unlock (spec §10). */
   exitOpensAfterMs: 0,
   /** One overall countdown: final lockdown at "midnight" (11:45 p.m. + 15 min). Anyone still inside is claimed. */
   huntMaxMs: 15 * 60_000,
+  /**
+   * CPU Elias physically guards the Garden Gate (spec §10: he may pursue or obstruct the
+   * route) for a first stint, then patrols, returning for shorter stints. He leaves the
+   * doorway to chase anyone within guardChaseRadius, so luring, the flash and snares all
+   * create openings.
+   */
+  eliasFirstGuardMs: [60_000, 100_000],
+  eliasLaterGuardMs: [40_000, 60_000],
+  eliasGuardGapMs: [150_000, 210_000],
+  guardChaseRadius: 4,
   /** Public intercom warnings at these remaining times (ms). */
   deadlineWarningsMs: [5 * 60_000, 60_000],
   tickMs: 100,
@@ -489,5 +500,6 @@ export const OPENING_BEATS = [
   { at: 11, id: "photo", caption: "{photographer} raises the antique camera for a birthday photo." },
   { at: 12, id: "freeze", caption: "The flash freezes Elias mid-smile. The group backs away. {birthday} stays to check on him." },
   { at: 17, id: "bite", caption: "Elias bites {birthday}. The camera falls — batteries intact." },
-  { at: 20, id: "lockdown", caption: "Security lockdown. Anyone could be next — and you may not know who has turned." },
+  { at: 20, id: "walk", caption: "Elias straightens his cuffs, steps over the fallen camera and walks calmly toward the Garden Gate." },
+  { at: 28, id: "lockdown", caption: "Elias, over the intercom by the Garden Gate: \"You have fifteen minutes to leave my house. Go on. Find somewhere to hide.\"" },
 ] as const;

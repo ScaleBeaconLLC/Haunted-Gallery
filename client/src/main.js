@@ -146,7 +146,7 @@ function onFx(fx) {
     case 'recovered':
       break;
     case 'escape':
-      caption(fx.id === me ? 'You escaped alive! +100' : `${first(fx.id)} escaped the mansion.`, true);
+      caption(fx.id === me ? 'Through the Garden Gate — you escaped alive! +100' : `${first(fx.id)} escaped through the Garden Gate.`, true);
       break;
     case 'rescue_paid':
       if (fx.helper === me) caption(`${first(fx.victim)} escaped — your rescue counts! +150`, true);
@@ -169,7 +169,11 @@ function onFx(fx) {
       audio.ping();
       break;
     case 'exit_open':
-      caption('A buzz from the south: the rear service door has released.', true);
+      caption('A buzz from the south: the Garden Gate has released.', true);
+      break;
+    case 'deadline_warning':
+      audio.alarm();
+      caption(fx.leftMs >= 60_000 * 2 ? 'Intercom: "Five minutes. The shutters are warming up."' : 'Intercom: "One minute. Choose quickly."', true);
       break;
     case 'phase':
       if (fx.phase === 'hunt') { audio.alarm(); caption('LOCKDOWN. Choose where to go.', true); }
@@ -232,6 +236,12 @@ game.onFrame = () => {
   if (pub.phase === 'opening' || pub.phase === 'hunt') {
     const left = pub.paused ? null : Math.max(0, Math.ceil((pub.phaseEndsAt - now) / 1000));
     $('hud-timer').textContent = pub.paused ? 'II' : pub.phase === 'hunt' ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : String(left);
+    // Fictional mansion clock: 11:45 p.m. when the hunt starts, final lockdown at midnight.
+    if (pub.phase === 'hunt' && left != null) {
+      const minsLeft = Math.ceil(left / 60);
+      $('hud-clock').textContent = left > 0 ? `Final lockdown · 11:${String(60 - minsLeft).padStart(2, '0')} p.m.` : 'Midnight';
+      $('hud-timer').classList.toggle('urgent', left <= 60);
+    } else $('hud-clock').textContent = '';
   }
   if (pub.phase === 'opening' && !pub.paused) {
     const t = (now - (pub.phaseEndsAt - TUNING.openingMs)) / 1000;
@@ -268,7 +278,7 @@ function seatName(id) {
   return seat?.displayName && !seat.isCpu ? `${first(id)} (${seat.displayName})` : castInfo(id)?.name ?? id;
 }
 const roomName = r => ROOMS[r]?.name ?? r;
-const zoneLabel = m => m.inRoom ? roomName(m.room) : m.zone === 'exit' ? 'Service corridor' : `Corridor off the ${roomName(m.room)}`;
+const zoneLabel = m => m.inRoom ? roomName(m.room) : m.zone === 'exit' ? 'Service passage · Garden Gate' : `Passage off the ${roomName(m.room)}`;
 
 function render() {
   if (captureRoom || !pub) return;
@@ -325,7 +335,7 @@ function statusLine() {
     const verb = m.pace === 'run' ? 'Running' : 'Walking';
     if (i.kind === 'room') return `${verb} to the ${roomName(i.target)}`;
     if (i.kind === 'hide') return `${verb} to cover`;
-    if (i.kind === 'exit') return `${verb} to the service exit`;
+    if (i.kind === 'exit') return `${verb} for the Garden Gate`;
     if (i.kind === 'chase') return `Chasing ${first(i.target)}`;
     if (i.kind === 'search') return `${verb} to search`;
     if (i.kind === 'block') return `${verb} to the doorway`;
@@ -341,7 +351,7 @@ function renderHud() {
   $('hud-status').textContent = `${me ? castInfo(me).name + ' · ' : ''}${statusLine()}${view?.camera?.mine ? ' · 📷' : ''}${m?.snares ? ` · rope ×${m.snares}` : ''}`;
   $('hud-phase').textContent = pub.paused ? 'Paused by host' : { opening: 'The Unveiling', hunt: view?.role === 'hunter' ? 'You are infected' : 'Survive', ended: 'Aftermath' }[pub.phase] ?? pub.phase;
   if (pub.phase === 'ended') $('hud-timer').textContent = '';
-  $('hud-team').textContent = `${pub.escapedCount} escaped · ${pub.insideCount} still inside · team ${pub.teamScore} pts · exit ${pub.exitOpen ? 'open' : 'locked'}`;
+  $('hud-team').textContent = `${pub.escapedCount} escaped · ${pub.insideCount} still inside · team ${pub.teamScore} pts · Garden Gate ${pub.exitOpen ? 'open' : 'locked'}`;
 }
 
 function btn(act, label, { active = false, disabled = false, cls = '', data = {} } = {}) {
@@ -451,7 +461,7 @@ function roomChooser(fromCover) {
     parts.push(`<div class="row">${chosen !== cur ? btn('go', `Go to the ${esc(roomName(chosen))}`, { cls: 'primary', data: { room: chosen } }) : fromCover ? btn('go', 'Step out here', { data: { room: chosen } }) : ''}
       ${hides.map(h => btn('hide', `${h.pose === 'under' ? '⬇' : '▮'} Hide: ${esc(h.label)}`, { data: { spot: h.id } })).join('')}</div>`);
   }
-  if (o.exit) parts.push(`<div class="row">${btn('exit', pub.exitOpen ? '🚪 Run for the service exit' : '🚪 Service exit (locked)', { cls: pub.exitOpen ? 'primary' : '' })}</div>`);
+  if (o.exit) parts.push(`<div class="row">${btn('exit', pub.exitOpen ? '🚪 Run for the Garden Gate' : '🚪 Garden Gate (locked)', { cls: pub.exitOpen ? 'primary' : '' })}</div>`);
   parts.push(`<div class="row">${paceToggle()}${btn('map-open', '🗺 Map')}</div>`);
   return parts.join('');
 }
@@ -569,9 +579,9 @@ function renderResults() {
   const mmss = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   box.hidden = false;
   $('results').innerHTML = `<h2>Aftermath</h2>
-    <p class="sub">${r.reason === 'dawn' ? 'Dawn broke with guests still inside.' : 'Every guest has escaped or turned.'} Elias Voss waits for the next unveiling.</p>
+    <p class="sub">${r.reason === 'lockdown' ? 'Midnight. The final shutters closed with guests still inside — they belong to the collection now.' : 'Every guest has escaped or turned before midnight.'} Elias Voss is already writing the next invitation.</p>
     <div class="results-big"><div><b>${r.escaped.length}</b>escaped</div><div><b>${r.teamScore}</b>team points</div><div><b>${mine?.score ?? 0}</b>your points</div></div>
-    <div class="results-list"><p><b>Escaped:</b> ${names(r.escaped)}</p>${r.trapped.length ? `<p><b>Trapped at dawn:</b> ${names(r.trapped)}</p>` : ''}
+    <div class="results-list"><p><b>Escaped:</b> ${names(r.escaped)}</p>${r.trapped.length ? `<p><b>Claimed at midnight:</b> ${names(r.trapped)}</p>` : ''}
     <p><b>Who turned, and when:</b></p><ol class="timeline">${r.infections.map(i => `<li>${mmss(i.atSec)} · ${esc(seatName(i.victim))} — bitten by ${esc(i.by === 'elias' ? 'Elias Voss' : seatName(i.by))} in the ${esc(roomName(i.room))}</li>`).join('')}</ol>
     <p><b>Verified rescues:</b> ${r.rescues}${mine?.rescues?.length ? ` (you saved ${names(mine.rescues)})` : ''}</p>
     <p><b>The camera ended:</b> ${r.cameraEndedIn === 'escaped' ? 'outside with a survivor' : `in the ${esc(r.cameraEndedIn)}`}</p></div>

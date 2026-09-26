@@ -4,7 +4,7 @@
 // face is actually readable from this phone. NO final character models or animation
 // clips exist yet (see PROGRESS.md); swap `build` for imported GLB models later.
 import * as pc from 'playcanvas';
-import { CAST, CURATOR } from '@game/data.ts';
+import { CAST, CURATOR, hideSpot } from '@game/data.ts';
 import { mat } from './world.js';
 
 const SKIN = '#d9b89c';
@@ -91,6 +91,8 @@ export class ActorView {
     this.moving = v.moving;
     this.running = v.running;
     this.action = v.action;
+    this.coverPose = v.coverPose ?? null;
+    this.searchLow = v.action === 'searching' && v.searchSpot ? hideSpot(v.searchSpot)?.spot.pose === 'under' : false;
     if (!this.pos) this.pos = [...v.pos];
     const revealed = !!v.revealed;
     const stunned = v.stunned || null;
@@ -122,13 +124,16 @@ export class ActorView {
     this.arms[0].setLocalEulerAngles(reach || -swing * 0.8, 0, 0);
     this.arms[1].setLocalEulerAngles(reach || swing * 0.8, 0, 0);
     // Bend: crouching into cover, searching low, or the hunch of a visibly turned guest.
-    const goal = this.action === 'searching' ? 80 : this.action === 'entering_cover' ? 45 : this.action === 'grabbed' ? -15
+    // Getting under a bed or table means going nearly flat; into a wardrobe means stepping in upright.
+    const entering = this.action === 'entering_cover';
+    const under = entering && this.coverPose === 'under';
+    const goal = this.action === 'searching' ? (this.searchLow ? 70 : 55) : under ? 84 : entering && this.coverPose === 'inside' ? 5 : entering ? 45 : this.action === 'grabbed' ? -15
       : this.revealed && this.id !== 'elias' ? 16 : this.running ? 10 : 0;
     this.bend += (goal - this.bend) * Math.min(1, dt * 6);
     this.waist.setLocalEulerAngles(this.bend, 0, 0);
     const bob = walking ? Math.abs(Math.sin(this.walk)) * (this.running ? 0.07 : 0.04) : 0;
     // Searching low: drop into a crouch so the face comes down to table height.
-    this.crouch += ((this.action === 'searching' ? 0.5 : this.action === 'entering_cover' ? 0.35 : 0) - this.crouch) * Math.min(1, dt * 5);
+    this.crouch += ((this.action === 'searching' ? (this.searchLow ? 0.75 : 0.3) : under ? 0.8 : entering && this.coverPose !== 'inside' ? 0.35 : 0) - this.crouch) * Math.min(1, dt * 5);
     const shake = this.action === 'grabbed' ? Math.sin(performance.now() / 40) * 0.03 : 0;
     this.entity.setLocalPosition(this.pos[0] + shake, bob - this.crouch, this.pos[1]);
     this.entity.setLocalEulerAngles(0, this.yaw, 0);

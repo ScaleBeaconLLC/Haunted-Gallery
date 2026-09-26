@@ -1,12 +1,38 @@
 # Haunted Gallery: progress log
 
-_Last updated: 2026-09-25 (real-time gameplay, camera and hiding upgrade)_
+_Last updated: 2026-09-26 (mansion rooms from the 15-image reference package, branch `mansion-rooms`)_
 
 This log separates what is **verified**, what is **built but not verified on real phones**, and what is **missing**. It is a playable multiplayer blockout with placeholder characters, not a finished production game.
 
 Recoverable checkpoint of the previous round-based build: git tag **`checkpoint-rounds-v1`** (commit `a2fbac9`).
 
-## What changed in the upgrade
+## Mansion rooms update (branch `mansion-rooms`, 2026-09-26)
+
+The 15 concept images from `Haunted_Gallery_Claude_Complete_Package.zip` (in `references/mansion-package/`) were used as design references for **real walkable 3D rooms**, not backdrops. The image-by-image mapping, hiding places and placeholders are in **`docs/MANSION_REFERENCE_MAPPING.md`**.
+
+- **New bedroom wing:**
+  - the **Portrait Corridor**, joined to the Study and the Hall of Mirrors;
+  - the **Master Bedroom** (four-poster, tall wardrobe, dressing screen);
+  - the **Guest Bedroom** (raised brass bed, window seat, wardrobe);
+  - the **Spare Bedroom** (canopied single bed, folding screen, old closet).
+- **Totals:** 11 rooms, 15 passages, 31 doorways, 25 hiding places (was 14), 11 clues (4 new lore clues). The seven established rooms keep their ids and connections.
+- **New hiding poses:**
+  - **Under a bed:** crawl in; first-person camera at the bed's real clearance.
+  - **Inside a wardrobe:** step in upright and look out through the ajar doors.
+  - When searched, the hunter kneels and looks under the bed, and a found guest is pulled out to the open side.
+- **Art pass on every room:** procedural wood, marble, stone and damask textures, fireplaces with firelight, beds, wardrobes, bookcases, portraits, statues, moonlit windows. All 11 room cards were re-captured from the real scene.
+- **Spec timing (`FULL_GAME_SPECIFICATION.txt`):**
+  - one overall **15:00** countdown, with 5-minute and 1-minute warnings, the mansion clock ("Final lockdown · 11:MM p.m.") and a lockdown ending;
+  - the **Garden Gate** is open from the start.
+  - Instead of a timed exit, CPU **Elias walks to the gate and guards it** in stretches (lure, flash or snare him to get past).
+- **Balance** (40 CPU-only matches): 6.85 of 12 escape, 5.1 turn, about 5.1 min per match, median first escape 103 s.
+- **Tests:**
+  - **27/27 server tests pass** (new: the bedroom wing is reachable only via the corridor, hide under the bed and in the wardrobe then get searched and pulled out, 15-minute countdown and warnings, Elias gate guard).
+  - `tools/e2e/bedrooms.mjs` (desktop + phone-sized browsers) passes all checks.
+  - The 3-phone regression scenario passes.
+  - 12 bots: 0 privacy violations.
+
+## What changed in the (earlier) gameplay upgrade
 
 The game no longer runs global choice countdowns. It is continuous real-time hide-and-seek. Every movement is an **intent** that the server validates, turns into a route through real doorways, and plays out at walking or running speed.
 
@@ -61,7 +87,7 @@ The game no longer runs global choice countdowns. It is continuous real-time hid
 | GitHub `ScaleBeaconLLC/Haunted-Gallery` | Connected | — |
 | Public preview | **Live** via a free Cloudflare quick tunnel from this laptop, in production mode. The first tunnel expired on Cloudflare's side and was replaced, so **the URL changes when that happens**. | Laptop, server and tunnel must stay running. A permanent URL needs a paid host (Colyseus Cloud or similar); that's your decision. |
 | PlayCanvas Editor MCP | Configured in `.mcp.json`; not connected | Open the project in Chrome → MCP → port 52000 → Connect, then restart Claude Code here |
-| Colyseus Cloud | Not set up (paid) | Your decision |
+| Colyseus Cloud | **Live**: https://us-ord-c6919c4a.colyseus.cloud (app `1966-haunted-gallery`) | Deploy tested branches with the CLI (see handoff doc) |
 
 ## Next steps
 
