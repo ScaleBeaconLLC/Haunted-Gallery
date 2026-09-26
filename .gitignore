@@ -25,3 +25,6 @@ references/mansion-package/rooms/*.png
 
 # Downloaded CC0 source assets (re-fetch with tools/assets/fetch-sources.mjs)
 assets-src/
+
+# Blender auto-backups
+*.blend1
