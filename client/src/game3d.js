@@ -234,6 +234,7 @@ export class Game3D {
     const me = this.me && this.actors.get(this.me);
     // In first person you don't see your own body.
     if (me) me.entity.enabled = this.visible?.has(this.me) && this.mode !== 'fp';
+    this.world.updateLights(dt);
     this.world.updateDoors(dt, [...this.actors.values()].filter(a => a.entity.enabled && a.pos).map(a => a.pos));
 
     if (this.cameraHolder && this.actors.get(this.cameraHolder)?.pos) {
@@ -334,6 +335,7 @@ export class Game3D {
     const w = this.world;
     const portrait = ROOMS.portrait;
     if (id === 'arrival') {
+      w.restoreLamps();
       w.setLockdown(false);
       if (w.paintingVeil) w.paintingVeil.enabled = true;
       this.openingCameraHolder = pub.photographer;
@@ -342,6 +344,7 @@ export class Game3D {
     } else if (id === 'freeze') {
       this.flashAt([portrait.rect[1] - 3, portrait.center[1]]);
     } else if (id === 'bite') {
+      w.failLamps();
       this.openingCameraHolder = null;
     } else if (id === 'lockdown') {
       w.setLockdown(true);

@@ -14,7 +14,8 @@
 //   client/public/models/characters/parts/<pack>-<outfit>-<part>.glb   one skinned mesh each
 //   client/public/models/characters/anims.glb      skeleton + all animation clips
 //   client/public/models/characters/manifest.json  outfits, material names, clip list
-import { NodeIO } from '@gltf-transform/core';
+import { NodeIO, VertexLayout } from '@gltf-transform/core';
+import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { prune, dedup, quantize } from '@gltf-transform/functions';
 import { mat4, quat, vec3 } from 'gl-matrix';
 import { mkdirSync, readdirSync, writeFileSync } from 'node:fs';
@@ -22,7 +23,8 @@ import { sample, duration, worldPose, byName } from './pose.mjs';
 
 const OUT = 'client/public/models/characters';
 mkdirSync(OUT, { recursive: true });
-const io = new NodeIO();
+// Interleaved vertices: quantized attributes stay 4-byte aligned (no GPU penalty).
+const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).setVertexLayout(VertexLayout.INTERLEAVED);
 
 // Every source character; each is split into head / body / legs / feet parts that can be
 // mixed per guest (all share one skeleton). Props (pistols, swords, backpacks) are dropped.

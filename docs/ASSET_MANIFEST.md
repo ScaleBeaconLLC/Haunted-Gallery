@@ -31,8 +31,10 @@ These are unchanged by the character work; see `docs/MANSION_REFERENCE_MAPPING.m
 
 | Asset | Status |
 |---|---|
-| Room geometry and furniture | **Placeholder art.** Walkable 3D built from primitive assemblies (boxes, cylinders) with procedural canvas textures. |
-| Lighting | **Placeholder.** Real-time lights; no baked lightmaps. |
+| Decorative furniture | **Usable, needs refinement.** Real models replace the primitive versions: carved bookcases (with a painted books panel), nightstands, dressers, velvet armchairs and chesterfields, standard lamps, potted plants. Source: Quaternius *Ultimate House Interior* and *Ultimate Furniture* packs, **CC0 1.0**, converted from OBJ by `tools/assets/build-props.mjs` into `client/public/models/props/` (2.9 MB). They are fitted and recoloured per room in `client/src/world.js` and batched statically. The primitive version is kept as a fallback. |
+| Hiding covers (beds, wardrobes, screens, tables) | **Primitive assemblies on purpose.** Their clearances and hollow interiors are tuned to the hiding rules and first-person cameras. The pack's beds leave only ~0.17 m under the mattress, too little for the under-bed hide. Modelled covers with matching clearances are still missing. |
+| Room shells (floors, walls), statues, fireplaces, chandeliers | **Placeholder.** Primitive geometry with procedural canvas textures. The chandelier model was tried and rejected because it hides people from the overhead camera. |
+| Lighting | **Improved, not final.** One warm light per room, plus 34 small practical lights at lamps and sconces (clustered lighting); a fire glow; contact shadows under every character; about a third of the lamps flicker and fail after the attack. **No baked lightmaps and no real-time shadows yet.** |
 | Portraits | **Placeholder.** Generated in code. |
 | Voices | 52 AI voice auditions, **not approved** |
 | Sound effects | **Placeholder.** Synthesized in `client/src/audio.js`. |

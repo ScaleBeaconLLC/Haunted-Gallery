@@ -78,6 +78,39 @@ function boxMesh(w, h, d, su, sv) {
   return mesh;
 }
 
+// ------------------------------------------------------------------ furniture models
+// CC0 Quaternius furniture (tools/assets/build-props.mjs -> /models/props/). Loaded once and
+// shared; each placement is fitted to a size, recoloured to the mansion palette and batched.
+const PROP_BASE = '/models/props/';
+let propManifest = null;
+const propContainers = new Map();
+const tintedMats = new Map();
+const loadPropManifest = () => (propManifest ??= fetch(PROP_BASE + 'manifest.json').then(r => r.json()));
+function loadProp(app, name) {
+  if (!propContainers.has(name)) propContainers.set(name, new Promise((resolve, reject) => {
+    const asset = new pc.Asset('prop-' + name, 'container', { url: PROP_BASE + name + '.glb' });
+    asset.on('load', a => resolve(a.resource));
+    asset.on('error', e => reject(new Error(name + ': ' + e)));
+    app.assets.add(asset);
+    app.assets.load(asset);
+  }));
+  return propContainers.get(name);
+}
+/** One shared material per (source material, tint) so identical props still batch together. */
+function tinted(source, tint) {
+  const t = typeof tint === 'string' ? { color: tint } : tint;
+  const key = source.id + ':' + JSON.stringify(t);
+  if (!tintedMats.has(key)) {
+    const m = source.clone();
+    if (t.color) m.diffuse = new pc.Color().fromString(t.color);
+    if (t.emissive) { m.emissive = new pc.Color().fromString(t.emissive); m.emissiveIntensity = t.intensity ?? 1; }
+    if (t.gloss != null) m.gloss = t.gloss;
+    m.update();
+    tintedMats.set(key, m);
+  }
+  return tintedMats.get(key);
+}
+
 export class World {
   constructor(app) {
     this.app = app;
@@ -92,7 +125,11 @@ export class World {
     this.exitLight = null;
     this.painting = null;
     this.cameraProp = null;
+    this.propJobs = [];
+    this.practicals = [];   // lamp / sconce lights that can flicker and fail after the attack
     this.build();
+    /** Resolves when every furniture model has been placed (room-card capture waits for it). */
+    this.propsReady = Promise.allSettled(this.propJobs);
   }
 
   // Low-level placers (all static geometry joins the batch group).
@@ -120,6 +157,29 @@ export class World {
     e.setLocalEulerAngles(0, yaw, 0);
     parent.addChild(e);
     return e;
+  }
+
+  /**
+   * A furniture model fitted to a height (h), width (w) or depth (d) in a local frame whose
+   * +z faces yaw; replaces fallback (the primitive version) once loaded.
+   */
+  propAt(parent, name, x, z, yaw, { h, w, d, y = 0, tints = {}, fallback = null } = {}) {
+    const g = this.grp(parent, 'Prop_' + name, x, z, yaw, y);
+    this.propJobs.push((async () => {
+      const [manifest, container] = await Promise.all([loadPropManifest(), loadProp(this.app, name)]);
+      const info = manifest.props[name];
+      const s = h ? h / info.size[1] : w ? w / info.size[0] : d / info.size[2];
+      const e = container.instantiateRenderEntity({ castShadows: false, receiveShadows: false, batchGroupId: this.staticGroup });
+      e.setLocalScale(s, s, s);
+      e.setLocalPosition(-(info.min[0] + info.size[0] / 2) * s, -info.min[1] * s, -(info.min[2] + info.size[2] / 2) * s);
+      for (const r of e.findComponents('render')) {
+
+        for (const mi of r.meshInstances) if (tints[mi.material.name]) mi.material = tinted(mi.material, tints[mi.material.name]);
+      }
+      g.addChild(e);
+      if (fallback) fallback.enabled = false;
+    })().catch(err => console.warn('furniture model unavailable, keeping the primitive', err)));
+    return g;
   }
 
   build() {
@@ -153,6 +213,7 @@ export class World {
       node.addChild(light);
       this.roomLights[id] = light;
       this.dressRoom(id, node);
+      this.cornerPlants(id, node);
       this.hideCovers[id] = room.hides.map(h => this.buildCover(node, h));
     }
     this.buildClues();
@@ -473,8 +534,20 @@ export class World {
   }
   bookcaseAt(p, x, z, yaw, w = 2.4, h = 2.6) {
     const g = this.grp(p, 'Bookcase', x, z, yaw);
-    this.box(g, 'Case', [0, h / 2, 0.2], [w, h, 0.4], mat('#2e1a0e', { gloss: 0.5 }));
-    this.wbox(g, 'Books', [0, h / 2, 0.41], [w - 0.12, h - 0.16, 0.02], tmat('books'), 1.4, 1.3);
+    const fb = this.grp(g, 'BookcasePrimitive', 0, 0);
+    this.box(fb, 'Case', [0, h / 2, 0.2], [w, h, 0.4], mat('#2e1a0e', { gloss: 0.5 }));
+    this.wbox(fb, 'Books', [0, h / 2, 0.41], [w - 0.12, h - 0.16, 0.02], tmat('books'), 1.4, 1.3);
+    // Carved cases side by side along the wall; the books are a painted panel set just in
+    // front of each case's back, framed by the model's real shelf boards (2.9k triangles per
+    // case instead of 11k for the modelled-books version: phones render whole rooms of these).
+    const unit = h * 1.842 / 3.371, n = Math.max(1, Math.round(w / unit));
+    const woods = { Wood1: '#3a2214', Wood2: '#2e1a0e', DarkWood: '#1e1008', Wood: '#3a2214', Metal: { color: '#b08a3a', gloss: 0.7 } };
+    const s = h / 3.371;
+    for (let i = 0; i < n; i++) {
+      const ux = (i - (n - 1) / 2) * (w / n);
+      this.propAt(g, 'f-bookcase', ux, 0.28, 0, { h, tints: woods, fallback: i === 0 ? fb : null });
+      this.wbox(g, 'ShelfBooks', [ux, h * 0.47, 0.28 + 0.664 * s / 2 - 0.13], [1.842 * s * 0.84, h * 0.8, 0.02], tmat('books'), 1.2, 1.6);
+    }
   }
   fireplaceAt(p, x, z, yaw) {
     const g = this.grp(p, 'Fireplace', x, z, yaw);
@@ -500,34 +573,63 @@ export class World {
       this.prim(g, 'sphere', 'Flame', [Math.cos(a) * r, 0.12, Math.sin(a) * r], [0.07, 0.11, 0.07], mat('#fff', { emissive: '#ffd27a', emissiveIntensity: 1.4 }));
     }
   }
+  /** A small warm light at a lamp or sconce (clustered lighting keeps many of these cheap). */
+  practical(p, x, y, z, range = 2.8, intensity = 0.75, glow = null) {
+    const l = new pc.Entity('Practical');
+    l.addComponent('light', { type: 'omni', color: new pc.Color(1, 0.72, 0.42), intensity, range, castShadows: false, falloffMode: pc.LIGHTFALLOFF_INVERSESQUARED });
+    l.setLocalPosition(x, y, z);
+    p.addChild(l);
+    this.practicals.push({ light: l, base: intensity, glow, fail: false, t: 0 });
+    return l;
+  }
   lampAt(p, x, z, y = 0.75) {
     this.prim(p, 'cylinder', 'LampBase', [x, y + 0.15, z], [0.08, 0.3, 0.08], mat('#8a6a2a', { metalness: 0.7 }));
-    this.prim(p, 'cone', 'Shade', [x, y + 0.42, z], [0.36, 0.3, 0.36], mat('#221', { emissive: '#ffcf8a', emissiveIntensity: 1.0 }));
+    const shade = this.prim(p, 'cone', 'Shade', [x, y + 0.42, z], [0.36, 0.3, 0.36], mat('#221', { emissive: '#ffcf8a', emissiveIntensity: 1.0 }), false);
+    this.practical(p, x, y + 0.55, z, 2.8, 0.8, shade);
   }
   tableAt(p, x, z, w, d, h = 0.8, color = '#4a2c18') {
     const m = mat(color, { gloss: 0.55 });
     this.box(p, 'TableTop', [x, h, z], [w, 0.07, d], m);
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) this.box(p, 'TableLeg', [x + sx * (w / 2 - 0.08), h / 2, z + sz * (d / 2 - 0.08)], [0.07, h, 0.07], m);
   }
-  nightstandAt(p, x, z) { this.box(p, 'Nightstand', [x, 0.33, z], [0.55, 0.66, 0.45], mat('#4a2c18', { gloss: 0.5 })); this.lampAt(p, x, z, 0.66); }
+  nightstandAt(p, x, z) {
+    const fb = this.grp(p, 'NightstandPrimitive', x, z);
+    this.box(fb, 'Nightstand', [0, 0.33, 0], [0.55, 0.66, 0.45], mat('#4a2c18', { gloss: 0.5 }));
+    this.propAt(p, 'nightstand_2', x, z, 0, { h: 0.64, tints: { Wood: '#4a2c18', Metal: { color: '#b08a3a', gloss: 0.7 } }, fallback: fb });
+    this.lampAt(p, x, z, 0.64);
+  }
   dresserAt(p, x, z, yaw, w = 1.6) {
     const g = this.grp(p, 'Dresser', x, z, yaw);
-    this.box(g, 'Body', [0, 0.45, 0.25], [w, 0.9, 0.5], mat('#3e2616', { gloss: 0.55 }));
-    for (let i = 0; i < 3; i++) this.box(g, 'Drawer', [0, 0.2 + i * 0.26, 0.51], [w - 0.12, 0.2, 0.02], mat('#5a3a22'));
-    this.lampAt(g, -w / 2 + 0.25, 0.25, 0.9);
+    const fb = this.grp(g, 'DresserPrimitive', 0, 0);
+    this.box(fb, 'Body', [0, 0.45, 0.25], [w, 0.9, 0.5], mat('#3e2616', { gloss: 0.55 }));
+    for (let i = 0; i < 3; i++) this.box(fb, 'Drawer', [0, 0.2 + i * 0.26, 0.51], [w - 0.12, 0.2, 0.02], mat('#5a3a22'));
+    this.propAt(g, 'drawer_1', 0, 0.3, 0, { w, tints: { Wood: '#3e2616', Wood_Dark: '#24140a', Wood_Light: '#6a4a2a' }, fallback: fb });
+    this.lampAt(g, -w / 2 + 0.25, 0.25, w * 1.353 / 2.794);
   }
   armchairAt(p, x, z, yaw, color = '#6e1c24') {
     const g = this.grp(p, 'Armchair', x, z, yaw);
+    const fb = this.grp(g, 'ArmchairPrimitive', 0, 0);
     const m = mat(color, { gloss: 0.2 });
-    this.box(g, 'Seat', [0, 0.25, 0], [0.8, 0.5, 0.8], m);
-    this.box(g, 'Back', [0, 0.7, -0.33], [0.8, 0.9, 0.16], m);
-    for (const s of [-1, 1]) this.box(g, 'Arm', [s * 0.36, 0.55, 0], [0.12, 0.3, 0.8], m);
+    this.box(fb, 'Seat', [0, 0.25, 0], [0.8, 0.5, 0.8], m);
+    this.box(fb, 'Back', [0, 0.7, -0.33], [0.8, 0.9, 0.16], m);
+    for (const s of [-1, 1]) this.box(fb, 'Arm', [s * 0.36, 0.55, 0], [0.12, 0.3, 0.8], m);
+    this.propAt(g, 'couch_small1', 0, 0, 0, { w: 1.25, tints: { Couch_Blue: { color, gloss: 0.15 }, Black: '#1a1010' }, fallback: fb });
   }
   chaiseAt(p, x, z, yaw, color = '#6e1c24') {
     const g = this.grp(p, 'Chaise', x, z, yaw);
+    const fb = this.grp(g, 'ChaisePrimitive', 0, 0);
     const m = mat(color, { gloss: 0.2 });
-    this.box(g, 'Seat', [0, 0.25, 0], [1.8, 0.5, 0.7], m);
-    this.box(g, 'Roll', [-0.85, 0.55, 0], [0.2, 0.5, 0.7], m);
+    this.box(fb, 'Seat', [0, 0.25, 0], [1.8, 0.5, 0.7], m);
+    this.box(fb, 'Roll', [-0.85, 0.55, 0], [0.2, 0.5, 0.7], m);
+    this.propAt(g, 'f-sofa2', 0, 0, 0, { w: 2.1, tints: { Sofa: { color, gloss: 0.15 }, Legs: '#2a180c' }, fallback: fb });
+  }
+  /** A tall shaded standard lamp (glowing shade). */
+  standardLampAt(p, x, z, h = 1.75) {
+    this.practical(p, x, h - 0.2, z, 3.4, 0.9);
+    this.propAt(p, 'light_stand1', x, z, 0, { h, tints: { LightMetal: { color: '#b08a3a', gloss: 0.7 }, White: { color: '#f3e2c0', emissive: '#ffcf8a', intensity: 0.9 } } });
+  }
+  plantAt(p, x, z, h = 1.0, kind = 'houseplant_7') {
+    this.propAt(p, kind, x, z, 0, { h, tints: { Black: '#2a1c14', Brown: '#4a2c18' } });
   }
   benchAt(p, x, z, yaw, len = 1.4, color = '#5a1a2a') {
     const g = this.grp(p, 'Bench', x, z, yaw);
@@ -551,7 +653,10 @@ export class World {
     this.wbox(g, 'Canvas', [0, 1.3, 0.05], [0.9, 1.1, 0.04], tmat('portrait', { args: [variant] }), 0.9, 1.1);
   }
   crateAt(p, x, z, s = 0.9) { this.box(p, 'Crate', [x, s / 2, z], [s, s, s], mat('#7b6040')); }
-  sconceAt(p, x, z, y = 2.2) { this.prim(p, 'sphere', 'Sconce', [x, y, z], [0.12, 0.18, 0.12], mat('#221', { emissive: '#ffc27a', emissiveIntensity: 1.1 })); }
+  sconceAt(p, x, z, y = 2.2) {
+    const glow = this.prim(p, 'sphere', 'Sconce', [x, y, z], [0.12, 0.18, 0.12], mat('#221', { emissive: '#ffc27a', emissiveIntensity: 1.1 }), false);
+    this.practical(p, x, y - 0.1, z, 3.2, 0.6, glow);
+  }
   pianoAt(p, x, z, yaw) {
     const g = this.grp(p, 'Piano', x, z, yaw);
     const black = mat('#0c0c0e', { gloss: 0.9 });
@@ -595,9 +700,8 @@ export class World {
       // Two-level library (ref 07): stacks, wall bookcases, fireplace, reading lamps.
       for (let i = 0; i < 3; i++) {
         const sx = x0 + 3 + i * 4.5;
-        this.box(node, 'Stack', [sx, 1.3, cz - 2], [3, 2.6, 0.6], mat('#2e1a0e'));
-        this.wbox(node, 'StackBooksN', [sx, 1.3, cz - 1.69], [2.9, 2.4, 0.02], tmat('books'), 1.4, 1.2);
-        this.wbox(node, 'StackBooksS', [sx, 1.3, cz - 2.31], [2.9, 2.4, 0.02], tmat('books'), 1.4, 1.2);
+        this.bookcaseAt(node, sx, cz - 2.02, N, 3.0, 2.6);
+        this.bookcaseAt(node, sx, cz - 1.98, S, 3.0, 2.6);
       }
       this.bookcaseAt(node, 6.5, z0 + 0.05, N, 3.2);
       this.bookcaseAt(node, 17, z0 + 0.05, N, 3.2);
@@ -694,7 +798,7 @@ export class World {
       this.dresserAt(node, x0 + 0.05, 69.4, W, 1.4);
       this.portraitAt(node, x0 + 0.05, 74, W, 1.3, 0.9, 1);
       this.rug(node, -1.2, 72, 5, 4.2, '#2c3a5c');
-      this.lampAt(node, 4.8, 67.2, 0);
+      this.standardLampAt(node, 4.8, 67.2);
     } else if (id === 'spare_bedroom') {
       // Spare bedroom / old nursery (ref 06): canopied single bed, folding screen, closet,
       // rocking chair, toy shelf, trunk, window.
@@ -706,6 +810,25 @@ export class World {
       this.armchairAt(node, 10.4, 67.6, 45, '#4a3a2a');
       this.rug(node, 17, 71.5, 5, 4, '#233054');
       this.portraitAt(node, x1 - 0.05, 75.5, E, 0.8, 1.0, 0);
+    }
+  }
+
+  /**
+   * Potted plants in room corners, only where nothing needs the space: never within 2 m of a
+   * doorway, 1.6 m of a hiding place or clue, and not in the stone vault or sealed room.
+   */
+  cornerPlants(id, node) {
+    if (['sculpture', 'sealed', 'corridor'].includes(id)) return;
+    const [x0, x1, z0, z1] = ROOMS[id].rect;
+    const doors = [...CORRIDORS.flatMap(c => c.doors.map(d => d.pos)), EXIT_CORRIDOR.door.pos];
+    const busy = [...ROOMS[id].hides.flatMap(h => [h.cover.pos, frontOf(h)]), ...CLUES.filter(c => c.room === id).map(c => c.pos)];
+    const far = (p, list, r) => list.every(q => Math.hypot(p[0] - q[0], p[1] - q[1]) > r);
+    const kinds = ['houseplant_7', 'houseplant_1', 'houseplant_3'];
+    let k = 0;
+    for (const p of [[x0 + 0.7, z0 + 0.7], [x1 - 0.7, z0 + 0.7], [x0 + 0.7, z1 - 0.7], [x1 - 0.7, z1 - 0.7]]) {
+      if (!far(p, doors, 2) || !far(p, busy, 1.6)) continue;
+      const kind = kinds[k++ % kinds.length];
+      this.plantAt(node, p[0], p[1], kind === 'houseplant_3' ? 1.2 : 1.05, kind);
     }
   }
 
@@ -723,6 +846,28 @@ export class World {
     this.exitOpen = open;
     this.exitLight.light.color = open ? new pc.Color(0.2, 1, 0.35) : new pc.Color(1, 0.1, 0.1);
     this.exitSign.render.meshInstances[0].material = open ? mat('#030', { emissive: '#2aff5a', emissiveIntensity: 1.2 }) : mat('#300', { emissive: '#ff2a2a', emissiveIntensity: 1.2 });
+  }
+
+  /**
+   * After the attack some lamps flicker and fail (spec: selected lamps dim or fail, but
+   * windows and the remaining practicals still reveal routes). The choice is fixed per lamp
+   * so every phone sees the same house. restore() brings them all back for a new match.
+   */
+  failLamps() {
+    this.practicals.forEach((p, i) => { if ((i * 7919) % 100 < 35) { p.fail = true; p.t = 0.4 + ((i * 31) % 17) / 10; } });
+  }
+  restoreLamps() {
+    for (const p of this.practicals) { p.fail = false; p.light.light.intensity = p.base; p.light.enabled = true; if (p.glow) p.glow.enabled = true; }
+  }
+  updateLights(dt) {
+    for (const p of this.practicals) {
+      if (!p.fail || !p.light.enabled) continue;
+      p.t -= dt;
+      const on = p.t > 0 && Math.sin(performance.now() / 45 + p.t * 13) > 0.1;
+      p.light.light.intensity = on ? p.base * (0.4 + Math.random() * 0.6) : 0;
+      if (p.glow) p.glow.enabled = on;
+      if (p.t <= 0) { p.light.enabled = false; if (p.glow) p.glow.enabled = false; }
+    }
   }
 
   setLockdown(on) {

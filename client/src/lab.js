@@ -82,3 +82,24 @@ if (mode === 'lean') {
   if (q.get('view') === 'under') { cam.setLocalPosition(2.0, 0.3, 0); cam.lookAt(0, 0.6, 0); }
   else { cam.setLocalPosition(0, 0.9, 4.5); cam.lookAt(0, 0.6, 0); }
 }
+// Props lineup: /lab.html?mode=props&filter=bed|closet — each prop at its native scale.
+if (mode === 'props') {
+  const pm = await (await fetch('/models/props/manifest.json')).json();
+  const re = new RegExp(q.get('filter') || '.', 'i');
+  const names = Object.keys(pm.props).filter(n => re.test(n));
+  let x = 0;
+  for (const n of names) {
+    const c = await new Promise(res => { const a = new pc.Asset(n, 'container', { url: `/models/props/${n}.glb` }); a.on('load', () => res(a.resource)); app.assets.add(a); app.assets.load(a); });
+    const e = c.instantiateRenderEntity();
+    const w = pm.props[n].size[0];
+    e.setLocalPosition(x + w / 2 - pm.props[n].min[0] - w / 2, -pm.props[n].min[1], 0);
+    app.root.addChild(e);
+    label.push(`${n}: ${pm.props[n].size.join(' x ')}`);
+    x += w + 0.6;
+  }
+  cam.setLocalPosition(x / 2, 3.2, Math.max(5, x * 0.55)); cam.lookAt(x / 2, 1, 0);
+  app.scene.ambientLight = new pc.Color(0.8, 0.8, 0.85);
+  floor.enabled = q.get('floor') !== 'off';
+  if (q.get('cam')) { const [cx, cy, cz, tx, ty, tz] = q.get('cam').split(',').map(Number); cam.setLocalPosition(cx, cy, cz); cam.lookAt(tx, ty, tz); }
+  document.getElementById('l').textContent = label.join('\n');
+}

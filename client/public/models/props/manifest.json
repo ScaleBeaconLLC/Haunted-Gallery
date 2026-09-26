@@ -1,0 +1,986 @@
+{
+  "source": "Quaternius (CC0 1.0): Ultimate House Interior Pack, Ultimate Furniture Pack",
+  "props": {
+    "bed_king": {
+      "source": "interior/Bed_King",
+      "size": [
+        3.064,
+        1.215,
+        3.953
+      ],
+      "min": [
+        -1.532,
+        0,
+        -1.976
+      ],
+      "materials": [
+        "White",
+        "Red",
+        "Wood",
+        "Grey",
+        "DarkRed"
+      ]
+    },
+    "bed_single": {
+      "source": "interior/Bed_Single",
+      "size": [
+        1.979,
+        1.355,
+        3.94
+      ],
+      "min": [
+        -0.967,
+        0,
+        -1.97
+      ],
+      "materials": [
+        "White",
+        "Red",
+        "Wood",
+        "Grey",
+        "DarkRed"
+      ]
+    },
+    "bookshelf": {
+      "source": "interior/Bookshelf",
+      "size": [
+        2.318,
+        4.438,
+        0.756
+      ],
+      "min": [
+        -1.159,
+        -0.024,
+        -0.378
+      ],
+      "materials": [
+        "White"
+      ]
+    },
+    "fireplace": {
+      "source": "interior/Fireplace",
+      "size": [
+        3.25,
+        2.561,
+        1.158
+      ],
+      "min": [
+        -1.625,
+        0,
+        -0.492
+      ],
+      "materials": [
+        "Marble"
+      ]
+    },
+    "chair_1": {
+      "source": "interior/Chair_1",
+      "size": [
+        0.762,
+        1.768,
+        0.825
+      ],
+      "min": [
+        -0.381,
+        -0.003,
+        -0.445
+      ],
+      "materials": [
+        "Wood"
+      ]
+    },
+    "chair_2": {
+      "source": "interior/Chair_2",
+      "size": [
+        0.762,
+        1.689,
+        0.825
+      ],
+      "min": [
+        -0.381,
+        -0.003,
+        -0.445
+      ],
+      "materials": [
+        "Wood_Dark",
+        "Cushin"
+      ]
+    },
+    "chair_3": {
+      "source": "interior/Chair_3",
+      "size": [
+        0.762,
+        1.694,
+        0.838
+      ],
+      "min": [
+        -0.381,
+        -0.007,
+        -0.457
+      ],
+      "materials": [
+        "Wood_Dark",
+        "Cushin"
+      ]
+    },
+    "chair_4": {
+      "source": "interior/Chair_4",
+      "size": [
+        0.762,
+        1.768,
+        0.825
+      ],
+      "min": [
+        -0.381,
+        -0.003,
+        -0.445
+      ],
+      "materials": [
+        "Wood"
+      ]
+    },
+    "couch_medium1": {
+      "source": "interior/Couch_Medium1",
+      "size": [
+        4.688,
+        1.91,
+        2.203
+      ],
+      "min": [
+        -2.344,
+        -0.013,
+        -1.183
+      ],
+      "materials": [
+        "Couch_Blue",
+        "Black"
+      ]
+    },
+    "couch_small1": {
+      "source": "interior/Couch_Small1",
+      "size": [
+        2.885,
+        1.91,
+        2.203
+      ],
+      "min": [
+        -1.443,
+        -0.013,
+        -1.183
+      ],
+      "materials": [
+        "Couch_Blue",
+        "Black"
+      ]
+    },
+    "couch_large1": {
+      "source": "interior/Couch_Large1",
+      "size": [
+        5.475,
+        2.106,
+        1.992
+      ],
+      "min": [
+        -2.738,
+        0,
+        -0.675
+      ],
+      "materials": [
+        "DarkRed",
+        "Red"
+      ]
+    },
+    "curtains_double": {
+      "source": "interior/Curtains_Double",
+      "size": [
+        3.469,
+        4.344,
+        0.476
+      ],
+      "min": [
+        -1.694,
+        -0.006,
+        -0.362
+      ],
+      "materials": [
+        "LightMetal",
+        "Couch_Blue"
+      ]
+    },
+    "drawer_1": {
+      "source": "interior/Drawer_1",
+      "size": [
+        2.794,
+        1.353,
+        1.119
+      ],
+      "min": [
+        -1.397,
+        -0.009,
+        -0.559
+      ],
+      "materials": [
+        "Wood",
+        "Wood_Dark",
+        "Wood_Light"
+      ]
+    },
+    "drawer_2": {
+      "source": "interior/Drawer_2",
+      "size": [
+        4.035,
+        1.305,
+        1.119
+      ],
+      "min": [
+        -2.018,
+        -0.009,
+        -0.559
+      ],
+      "materials": [
+        "Wood",
+        "Wood_Dark",
+        "Wood_Light"
+      ]
+    },
+    "drawer_3": {
+      "source": "interior/Drawer_3",
+      "size": [
+        4.153,
+        1.577,
+        1.336
+      ],
+      "min": [
+        -2.077,
+        0,
+        -0.668
+      ],
+      "materials": [
+        "Wood",
+        "Wood_Dark",
+        "Wood_Light"
+      ]
+    },
+    "drawer_4": {
+      "source": "interior/Drawer_4",
+      "size": [
+        2.794,
+        2.07,
+        1.119
+      ],
+      "min": [
+        -1.397,
+        -0.007,
+        -0.563
+      ],
+      "materials": [
+        "Wood",
+        "Wood_Dark",
+        "Wood_Light"
+      ]
+    },
+    "drawer_5": {
+      "source": "interior/Drawer_5",
+      "size": [
+        2.794,
+        1.332,
+        1.153
+      ],
+      "min": [
+        -1.397,
+        0.011,
+        -0.555
+      ],
+      "materials": [
+        "Wood",
+        "Wood_Dark",
+        "Wood_Light"
+      ]
+    },
+    "nightstand_1": {
+      "source": "interior/NightStand_1",
+      "size": [
+        0.952,
+        0.825,
+        0.952
+      ],
+      "min": [
+        -0.476,
+        0.004,
+        -0.476
+      ],
+      "materials": [
+        "Wood",
+        "Metal"
+      ]
+    },
+    "nightstand_2": {
+      "source": "interior/NightStand_2",
+      "size": [
+        0.952,
+        0.945,
+        0.952
+      ],
+      "min": [
+        -0.476,
+        0.004,
+        -0.476
+      ],
+      "materials": [
+        "Wood",
+        "Metal"
+      ]
+    },
+    "nightstand_3": {
+      "source": "interior/NightStand_3",
+      "size": [
+        0.952,
+        0.827,
+        0.952
+      ],
+      "min": [
+        -0.476,
+        0.002,
+        -0.476
+      ],
+      "materials": [
+        "Wood",
+        "Metal"
+      ]
+    },
+    "light_chandelier": {
+      "source": "interior/Light_Chandelier",
+      "size": [
+        0.813,
+        0.519,
+        0.813
+      ],
+      "min": [
+        -0.407,
+        -0.519,
+        -0.407
+      ],
+      "materials": [
+        "Grey",
+        "Light"
+      ]
+    },
+    "light_floor1": {
+      "source": "interior/Light_Floor1",
+      "size": [
+        0.281,
+        1.603,
+        0.295
+      ],
+      "min": [
+        -0.14,
+        0.014,
+        -0.148
+      ],
+      "materials": [
+        "Grey",
+        "Light",
+        "LightMetal"
+      ]
+    },
+    "light_floor2": {
+      "source": "interior/Light_Floor2",
+      "size": [
+        0.313,
+        0.757,
+        0.329
+      ],
+      "min": [
+        -0.157,
+        0,
+        -0.165
+      ],
+      "materials": [
+        "White",
+        "LightMetal"
+      ]
+    },
+    "light_floor3": {
+      "source": "interior/Light_Floor3",
+      "size": [
+        0.4,
+        0.894,
+        0.421
+      ],
+      "min": [
+        -0.2,
+        0,
+        -0.21
+      ],
+      "materials": [
+        "LightMetal",
+        "White"
+      ]
+    },
+    "light_desk": {
+      "source": "interior/Light_Desk",
+      "size": [
+        0.252,
+        0.573,
+        0.453
+      ],
+      "min": [
+        -0.126,
+        0,
+        -0.126
+      ],
+      "materials": [
+        "Black",
+        "LightMetal",
+        "White"
+      ]
+    },
+    "light_stand1": {
+      "source": "interior/Light_Stand1",
+      "size": [
+        0.773,
+        2.994,
+        0.813
+      ],
+      "min": [
+        -0.387,
+        0,
+        -0.407
+      ],
+      "materials": [
+        "LightMetal",
+        "White"
+      ]
+    },
+    "light_stand2": {
+      "source": "interior/Light_Stand2",
+      "size": [
+        0.678,
+        2.945,
+        0.678
+      ],
+      "min": [
+        -0.339,
+        0,
+        -0.339
+      ],
+      "materials": [
+        "White",
+        "LightMetal"
+      ]
+    },
+    "table_roundlarge": {
+      "source": "interior/Table_RoundLarge",
+      "size": [
+        3.713,
+        1.121,
+        1.941
+      ],
+      "min": [
+        -1.857,
+        0.005,
+        -0.97
+      ],
+      "materials": [
+        "Wood"
+      ]
+    },
+    "table_roundsmall": {
+      "source": "interior/Table_RoundSmall",
+      "size": [
+        1.941,
+        1.147,
+        1.941
+      ],
+      "min": [
+        -0.97,
+        -0.003,
+        -0.97
+      ],
+      "materials": [
+        "Wood"
+      ]
+    },
+    "houseplant_1": {
+      "source": "interior/Houseplant_1",
+      "size": [
+        0.769,
+        0.717,
+        0.694
+      ],
+      "min": [
+        -0.292,
+        0.002,
+        -0.323
+      ],
+      "materials": [
+        "Black",
+        "Brown",
+        "Plant_Green"
+      ]
+    },
+    "houseplant_3": {
+      "source": "interior/Houseplant_3",
+      "size": [
+        0.343,
+        0.845,
+        0.338
+      ],
+      "min": [
+        -0.169,
+        0.001,
+        -0.169
+      ],
+      "materials": [
+        "Black",
+        "Brown",
+        "DarkGreen",
+        "LightOrange"
+      ]
+    },
+    "houseplant_5": {
+      "source": "interior/Houseplant_5",
+      "size": [
+        0.512,
+        0.424,
+        0.528
+      ],
+      "min": [
+        -0.236,
+        0.001,
+        -0.289
+      ],
+      "materials": [
+        "Black",
+        "Brown",
+        "Plant_Green"
+      ]
+    },
+    "houseplant_7": {
+      "source": "interior/Houseplant_7",
+      "size": [
+        1.166,
+        0.882,
+        1.22
+      ],
+      "min": [
+        -0.538,
+        0.002,
+        -0.586
+      ],
+      "materials": [
+        "Black",
+        "Brown",
+        "Plant_Green"
+      ]
+    },
+    "column_round1": {
+      "source": "interior/Column_Round1",
+      "size": [
+        1.4,
+        1.773,
+        1.472
+      ],
+      "min": [
+        -0.7,
+        0,
+        -0.736
+      ],
+      "materials": [
+        "Marble"
+      ]
+    },
+    "column_round2": {
+      "source": "interior/Column_Round2",
+      "size": [
+        1.4,
+        4.001,
+        1.472
+      ],
+      "min": [
+        -0.7,
+        0,
+        -0.736
+      ],
+      "materials": [
+        "Marble"
+      ]
+    },
+    "column_squarebig": {
+      "source": "interior/Column_SquareBig",
+      "size": [
+        0.907,
+        4.159,
+        0.907
+      ],
+      "min": [
+        -0.454,
+        0,
+        -0.454
+      ],
+      "materials": [
+        "Marble"
+      ]
+    },
+    "door_double": {
+      "source": "interior/Door_Double",
+      "size": [
+        3.483,
+        4.188,
+        0.43
+      ],
+      "min": [
+        -1.743,
+        0.004,
+        -0.214
+      ],
+      "materials": [
+        "Wood",
+        "Gold"
+      ]
+    },
+    "window_large1": {
+      "source": "interior/Window_Large1",
+      "size": [
+        1.832,
+        1.698,
+        0.141
+      ],
+      "min": [
+        -0.916,
+        0,
+        -0.071
+      ],
+      "materials": [
+        "White",
+        "Glass"
+      ]
+    },
+    "window_large2": {
+      "source": "interior/Window_Large2",
+      "size": [
+        1.832,
+        1.698,
+        0.141
+      ],
+      "min": [
+        -0.916,
+        0,
+        -0.071
+      ],
+      "materials": [
+        "White",
+        "Glass"
+      ]
+    },
+    "carpet_1": {
+      "source": "interior/Carpet_1",
+      "size": [
+        2.131,
+        0.037,
+        3.093
+      ],
+      "min": [
+        -1.058,
+        -0.001,
+        -1.556
+      ],
+      "materials": [
+        "DarkRed",
+        "LightOrange"
+      ]
+    },
+    "carpet_2": {
+      "source": "interior/Carpet_2",
+      "size": [
+        3.093,
+        0.037,
+        3.181
+      ],
+      "min": [
+        -1.456,
+        -0.001,
+        -1.558
+      ],
+      "materials": [
+        "DarkRed",
+        "LightOrange"
+      ]
+    },
+    "shelf_large": {
+      "source": "interior/Shelf_Large",
+      "size": [
+        3.381,
+        4.438,
+        0.756
+      ],
+      "min": [
+        -2.222,
+        -0.024,
+        -0.378
+      ],
+      "materials": [
+        "White"
+      ]
+    },
+    "stool": {
+      "source": "interior/Stool",
+      "size": [
+        0.675,
+        1.372,
+        0.71
+      ],
+      "min": [
+        -0.338,
+        -0.009,
+        -0.355
+      ],
+      "materials": [
+        "Wood",
+        "Cushin"
+      ]
+    },
+    "f-beddouble": {
+      "source": "furniture/BedDouble",
+      "size": [
+        2.826,
+        1.558,
+        4.259
+      ],
+      "min": [
+        -2.125,
+        -0.012,
+        -1.425
+      ],
+      "materials": [
+        "PillowCover",
+        "Comforter",
+        "ComforterLight",
+        "Mattress",
+        "Wood",
+        "DarkWood"
+      ]
+    },
+    "f-bedtwin": {
+      "source": "furniture/BedTwin",
+      "size": [
+        2.061,
+        1.558,
+        4.259
+      ],
+      "min": [
+        -1.029,
+        -0.012,
+        -1.529
+      ],
+      "materials": [
+        "PillowCover",
+        "Comforter",
+        "ComforterLight",
+        "Mattress",
+        "Wood",
+        "DarkWood"
+      ]
+    },
+    "f-bookcase": {
+      "source": "furniture/Bookcase",
+      "size": [
+        1.842,
+        3.371,
+        0.664
+      ],
+      "min": [
+        -0.917,
+        -0.018,
+        -0.287
+      ],
+      "materials": [
+        "Wood1",
+        "Wood2",
+        "DarkWood",
+        "Metal"
+      ]
+    },
+    "f-bookcase_books": {
+      "source": "furniture/Bookcase_Books",
+      "size": [
+        1.842,
+        3.371,
+        0.664
+      ],
+      "min": [
+        -0.917,
+        -0.018,
+        -0.287
+      ],
+      "materials": [
+        "Wood1",
+        "Wood2",
+        "DarkWood",
+        "Pages",
+        "Cover1",
+        "Cover2",
+        "Cover3",
+        "Cover4",
+        "Cover6",
+        "Cover5",
+        "Metal"
+      ]
+    },
+    "f-closet": {
+      "source": "furniture/Closet",
+      "size": [
+        1.553,
+        2.978,
+        0.87
+      ],
+      "min": [
+        -0.777,
+        -0.008,
+        -0.43
+      ],
+      "materials": [
+        "DarkWood",
+        "Metal",
+        "Wood"
+      ]
+    },
+    "f-shortcloset": {
+      "source": "furniture/ShortCloset",
+      "size": [
+        1.553,
+        2.267,
+        0.907
+      ],
+      "min": [
+        -0.776,
+        -0.008,
+        -0.43
+      ],
+      "materials": [
+        "DarkWood",
+        "Metal",
+        "Wood"
+      ]
+    },
+    "f-desk": {
+      "source": "furniture/Desk",
+      "size": [
+        1.822,
+        0.922,
+        0.847
+      ],
+      "min": [
+        -0.911,
+        -0.001,
+        -0.452
+      ],
+      "materials": [
+        "Wood",
+        "DarkWood"
+      ]
+    },
+    "f-sofa": {
+      "source": "furniture/Sofa",
+      "size": [
+        4.241,
+        1.508,
+        1.784
+      ],
+      "min": [
+        -2.121,
+        -0.008,
+        -0.901
+      ],
+      "materials": [
+        "Sofa",
+        "Legs"
+      ]
+    },
+    "f-sofa2": {
+      "source": "furniture/Sofa2",
+      "size": [
+        4.003,
+        1.452,
+        1.541
+      ],
+      "min": [
+        -2.016,
+        -0.039,
+        -0.669
+      ],
+      "materials": [
+        "Sofa",
+        "Legs"
+      ]
+    },
+    "f-table": {
+      "source": "furniture/Table",
+      "size": [
+        1.418,
+        0.824,
+        2.78
+      ],
+      "min": [
+        -0.709,
+        0.001,
+        -1.39
+      ],
+      "materials": [
+        "DarkWood",
+        "Wood"
+      ]
+    },
+    "f-table2": {
+      "source": "furniture/Table2",
+      "size": [
+        1.418,
+        0.824,
+        2.78
+      ],
+      "min": [
+        -0.709,
+        0.001,
+        -1.39
+      ],
+      "materials": [
+        "DarkWood",
+        "Wood"
+      ]
+    },
+    "f-chair": {
+      "source": "furniture/Chair",
+      "size": [
+        0.507,
+        1.066,
+        0.632
+      ],
+      "min": [
+        -0.254,
+        -0.007,
+        -0.365
+      ],
+      "materials": [
+        "Wood",
+        "Cushing"
+      ]
+    },
+    "f-nightstand": {
+      "source": "furniture/NightStand",
+      "size": [
+        0.588,
+        0.512,
+        0.507
+      ],
+      "min": [
+        -0.294,
+        -0.002,
+        -0.253
+      ],
+      "materials": [
+        "Wood",
+        "DarkWood"
+      ]
+    }
+  }
+}

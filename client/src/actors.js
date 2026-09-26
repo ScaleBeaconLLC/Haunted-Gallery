@@ -17,6 +17,33 @@ const FROZEN = '#dfe8ff';
 // Slightly larger than life so people read clearly from the overhead camera on a phone.
 const MODEL_SCALE = 1.12;
 
+let shadowMat = null;
+/** A radial dark gradient on a transparent plane (shared by everyone). */
+function contactShadowMaterial() {
+  if (shadowMat) return shadowMat;
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(32, 32, 2, 32, 32, 31);
+  grad.addColorStop(0, 'rgba(0,0,0,0.75)');
+  grad.addColorStop(0.55, 'rgba(0,0,0,0.35)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 64, 64);
+  const tex = new pc.Texture(pc.Application.getApplication().graphicsDevice, { width: 64, height: 64, mipmaps: true });
+  tex.setSource(c);
+  const m = new pc.StandardMaterial();
+  m.diffuse = new pc.Color(0, 0, 0);
+  m.emissive = new pc.Color(0, 0, 0);
+  m.opacityMap = tex;
+  m.opacityMapChannel = 'a';
+  m.blendType = pc.BLEND_NORMAL;
+  m.depthWrite = false;
+  m.useLighting = false;
+  m.update();
+  return (shadowMat = m);
+}
+
 export function castInfo(id) {
   return id === 'elias' ? CURATOR : CAST.find(c => c.id === id);
 }
@@ -59,6 +86,12 @@ export class ActorView {
     this.body = new pc.Entity('Body');   // yaw/position root for model or stand-in
     this.entity.addChild(this.body);
     this.buildStandIn();
+    // Soft contact shadow so people stand on the floor rather than float over it.
+    this.shadow = new pc.Entity('ContactShadow');
+    this.shadow.addComponent('render', { type: 'plane', material: contactShadowMaterial(), castShadows: false });
+    this.shadow.setLocalPosition(0, 0.065, 0);
+    this.shadow.setLocalScale(0.95, 1, 0.95);
+    this.entity.addChild(this.shadow);
     this.ring = part(this.entity, 'torus', 'MeRing', [0, 0.04, 0], [1.1, 0.25, 1.1], mat('#111', { emissive: '#f2d27a', emissiveIntensity: 1.1 }));
     this.ring.enabled = false;
     app.root.addChild(this.entity);

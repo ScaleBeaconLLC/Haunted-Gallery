@@ -1,6 +1,7 @@
 // Phone client: join by QR code, pick a guest, then play. Every action is an intent;
 // the server's private "view" (what your character can perceive) is the only truth.
 import { CAST, OPENING_BEATS, ROOMS, SOS_PRESETS, TUNING } from '@game/data.ts';
+import * as pc from 'playcanvas';
 import { Connection, local } from './net.js';
 import { Game3D } from './game3d.js';
 import { GameAudio } from './audio.js';
@@ -31,7 +32,15 @@ let pace = local?.getItem('hg.pace') === 'run' ? 'run' : 'walk';
 if (captureRoom) {
   document.body.classList.add('capture');
   game.setCapture(captureRoom);
-  setTimeout(() => { window.__captureReady = true; }, 1500);
+  // Optional camera for checking a room from another angle: &shot=x,y,z,tx,ty,tz
+  const shot = params.get('shot')?.split(',').map(Number);
+  if (shot?.length === 6) {
+    game.captureShot = { pos: new pc.Vec3(shot[0], shot[1], shot[2]), target: new pc.Vec3(shot[3], shot[4], shot[5]), near: 0.2 };
+    game.camPos.copy(game.captureShot.pos);
+  }
+  window.__hgApp = game.app; // capture tooling reads render stats (draw calls)
+  // Wait for the furniture models so the room cards show the real rooms.
+  game.world.propsReady.then(() => setTimeout(() => { window.__captureReady = true; }, 1500));
 } else {
   $('join-code').value = (params.get('code') || '').toUpperCase();
   $('join-name').value = local?.getItem('hg.name') || '';
