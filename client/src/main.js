@@ -6,6 +6,8 @@ import { Connection, local } from './net.js';
 import { Game3D } from './game3d.js';
 import { GameAudio } from './audio.js';
 import { castInfo } from './actors.js';
+import { preloadCast } from './characters.js';
+import { allCastParts } from './cast-looks.js';
 import { mapSvg } from './map.js';
 
 const $ = id => document.getElementById(id);
@@ -42,6 +44,7 @@ if (captureRoom) {
   // Wait for the furniture models so the room cards show the real rooms.
   game.world.propsReady.then(() => setTimeout(() => { window.__captureReady = true; }, 1500));
 } else {
+  preloadCast(game.app, allCastParts());   // download the cast while players join and wait
   $('join-code').value = (params.get('code') || '').toUpperCase();
   $('join-name').value = local?.getItem('hg.name') || '';
   if (params.get('debug')) { $('debug').hidden = false; window.__hgGame = game; }

@@ -48,6 +48,15 @@ export function loadPart(app, id) {
   return partPromises.get(id);
 }
 
+/**
+ * Start downloading the skeleton, clips and every guest's parts in the background (lobby),
+ * so nobody appears as a stand-in when the match starts.
+ */
+export function preloadCast(app, partIds) {
+  loadAnims(app).catch(() => {});
+  for (const id of partIds) loadPart(app, id).catch(() => {});
+}
+
 /** Natural ground speed (m/s) of a locomotion clip, for foot-contact-matched playback. */
 export const groundSpeed = name => clipSpeeds[name] ?? 1;
 

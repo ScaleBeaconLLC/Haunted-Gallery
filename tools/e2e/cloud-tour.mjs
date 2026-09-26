@@ -45,15 +45,21 @@ async function tap(p, sel) {
 async function walkAndHide(id, p, onRoom) {
   const r = ROUTES[id];
   await p.click('[data-act="pace"][data-pace="run"]').catch(() => {});
+  // Natural play: a CPU zombie may catch this player on the way. That is reported, not failed.
+  const caught = async () => { const v = await view(p); return v?.role === 'hunter' || v?.me?.caught || v?.me?.intent?.reason === 'Caught'; };
   for (const room of r.via) {
-    const v = await view(p);
-    if (v?.me?.caught || v?.role === 'hunter') return `stopped before ${room}: ${v?.me?.caught ? 'caught' : 'turned'}`;
-    if (room === r.room) {
-      await tap(p, `.room-card[data-room="${room}"]`);
-      await tap(p, `[data-act="hide"][data-spot="${r.spot}"]`);
-    } else {
-      await tap(p, `.room-card[data-room="${room}"]`);
-      await tap(p, `[data-act="go"][data-room="${room}"]`);
+    if (await caught()) return `caught on the way to ${room} (natural play)`;
+    try {
+      if (room === r.room) {
+        await tap(p, `.room-card[data-room="${room}"]`);
+        await tap(p, `[data-act="hide"][data-spot="${r.spot}"]`);
+      } else {
+        await tap(p, `.room-card[data-room="${room}"]`);
+        await tap(p, `[data-act="go"][data-room="${room}"]`);
+      }
+    } catch (e) {
+      if (await caught()) return `caught on the way to ${room} (natural play)`;
+      throw e;
     }
     await onRoom?.(room, 'leaving');
     const ok = await p.waitForFunction(rm => {

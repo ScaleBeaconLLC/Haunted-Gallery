@@ -32,6 +32,11 @@ export const LOOKS = {
   elias: { ...M('king', 'suit', 'suit', 'suit'), roles: { color: ['body:Tie'], pants: ['legs:Suit'], shoes: ['feet:Black'], hair: ['head:Hair_White'] }, fixed: { 'body:Suit': '#16090c' }, hide: ['head:Gold'], scale: 1.06 },
 };
 
+/** Every part any guest (or Elias) wears — for preloading while players wait in the lobby. */
+export function allCastParts() {
+  return [...new Set(Object.keys(LOOKS).flatMap(id => lookParts(id).parts.map(p => p.id)))];
+}
+
 export function lookParts(id) {
   const info = id === 'elias' ? CURATOR : CAST.find(c => c.id === id);
   const look = LOOKS[id];
