@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { networkInterfaces } from "node:os";
 import { dirname, join } from "node:path";
@@ -10,6 +11,12 @@ import { GalleryRoom } from "./rooms/GalleryRoom.js";
 // so one HTTPS origin serves the game page and the WSS endpoint.
 const publicDir = join(dirname(fileURLToPath(import.meta.url)), "..", "public");
 
+const VERSION = { commit: gitCommit(), startedAt: new Date().toISOString() };
+function gitCommit(): string {
+  try { return execSync("git rev-parse --short HEAD", { cwd: dirname(fileURLToPath(import.meta.url)), stdio: ["ignore", "pipe", "ignore"] }).toString().trim(); }
+  catch { return process.env.GIT_COMMIT ?? "unknown"; }
+}
+
 const server = defineServer({
   rooms: {
     gallery: defineRoom(GalleryRoom),
@@ -17,6 +24,9 @@ const server = defineServer({
 
   express: (app) => {
     app.get("/healthz", (_req, res) => { res.json({ ok: true }); });
+    // Which commit is running and since when, so a deploy can be verified from outside.
+    // Public on purpose: a commit id and a start time reveal nothing secret.
+    app.get("/version", (_req, res) => { res.json(VERSION); });
 
     if (process.env.NODE_ENV !== "production") {
       // Development only; never expose the monitor publicly without a password.
