@@ -243,6 +243,7 @@ export class GalleryRoom extends Room<{ state: GalleryState; client: GalleryClie
         this.game!["emit"]({ type: "you_turned", to: [a.id], by: "elias" });
       }
       if (p?.exitOpenNow) g.exitOpensAt = 0;
+      if (typeof p?.searchMs === "number") g.testSearchMs = Math.max(500, Math.min(15_000, p.searchMs));
     }),
     "host:cpuFill": (client: GalleryClient, p: any) => this.guard(client, "host", () => {
       if (this.state.phase !== "lobby") throw new GameError("Change CPU fill in the lobby");

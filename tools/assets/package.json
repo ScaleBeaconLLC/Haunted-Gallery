@@ -1,0 +1,11 @@
+{
+  "name": "haunted-gallery-asset-tools",
+  "private": true,
+  "type": "module",
+  "description": "Offline asset pipeline (download CC0 sources, retarget animations, export runtime GLBs). Not part of the game build.",
+  "dependencies": {
+    "@gltf-transform/core": "^4.5.0",
+    "@gltf-transform/functions": "^4.5.0",
+    "gl-matrix": "^3.4.4"
+  }
+}

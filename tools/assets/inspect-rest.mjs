@@ -1,0 +1,21 @@
+import { NodeIO } from '@gltf-transform/core';
+import { vec3 } from 'gl-matrix';
+import { sample, worldPose, byName } from './pose.mjs';
+const io = new NodeIO();
+const src = await io.read('assets-src/ual/AnimationLibrary_Godot_Standard.gltf');
+const tgt = await io.read('assets-src/quaternius/women/Formal.gltf');
+const dir = (W, a, b) => { const v = vec3.sub(vec3.create(), W.get(b).p, W.get(a).p); vec3.normalize(v, v); return v.map(x => +x.toFixed(2)); };
+const tpose = src.getRoot().listAnimations().find(a => a.getName() === 'A_TPose');
+const Ws = worldPose(src, sample(tpose, 0)), Ws0 = worldPose(src);
+const Wt = worldPose(tgt);
+const s = n => byName(src, n), t = n => byName(tgt, n);
+console.log('src TPose upper_arm.L dir', dir(Ws, s('DEF-upper_arm.L'), s('DEF-forearm.L')), 'rest', dir(Ws0, s('DEF-upper_arm.L'), s('DEF-forearm.L')));
+console.log('tgt rest UpperArm.L dir', dir(Wt, t('UpperArm.L'), t('LowerArm.L')));
+console.log('src thigh.L dir', dir(Ws, s('DEF-thigh.L'), s('DEF-shin.L')), 'tgt', dir(Wt, t('UpperLeg.L'), t('LowerLeg.L')));
+console.log('src hips y', Ws.get(s('DEF-hips')).p.map(x=>+x.toFixed(3)), 'head', Ws.get(s('DEF-head')).p.map(x=>+x.toFixed(3)), 'foot', Ws.get(s('DEF-foot.L')).p.map(x=>+x.toFixed(3)));
+console.log('tgt hips', Wt.get(t('Hips')).p.map(x=>+x.toFixed(3)), 'head', Wt.get(t('Head')).p.map(x=>+x.toFixed(3)), 'foot', Wt.get(t('Foot.L')).p.map(x=>+x.toFixed(3)), 'lowerleg', Wt.get(t('LowerLeg.L')).p.map(x=>+x.toFixed(3)));
+console.log('scales tgt', [...Wt].filter(([n,w])=>Math.abs(w.s-1)>1e-3).map(([n,w])=>n.getName()+':'+w.s.toFixed(3)).slice(0,8).join(' '));
+console.log('scales src', [...Ws].filter(([n,w])=>Math.abs(w.s-1)>1e-3).map(([n,w])=>n.getName()+':'+w.s.toFixed(3)).slice(0,8).join(' '));
+// facing: vector from hips to toe/foot forward
+console.log('src foot->toe', dir(Ws, s('DEF-foot.L'), s('DEF-toe.L')));
+console.log('tgt LowerArm.L -> Wrist.L', dir(Wt, t('LowerArm.L'), t('Wrist.L')));

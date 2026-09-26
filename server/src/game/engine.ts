@@ -133,6 +133,8 @@ export class HauntedGame {
   readonly actors = new Map<ActorId, Actor>();
   readonly birthday: CharacterId;
   readonly photographer: CharacterId;
+  /** Test servers only (HG_TEST_HOOKS): a longer search so screenshots can catch it. */
+  testSearchMs: number | null = null;
   camera: { holder: CharacterId | null; pos: Vec2; zone: ZoneId; room: RoomId; readyAt: number };
   snares: Snare[] = [];
   /** Clue ids whose snare has been taken (each clue gives one). */
@@ -584,7 +586,7 @@ export class HauntedGame {
         }
         return this.interrupt(a, "The camera isn't here any more");
       case "search": {
-        a.searching = { spot: intent.spot, until: now + TUNING.searchMs };
+        a.searching = { spot: intent.spot, until: now + (this.testSearchMs ?? TUNING.searchMs) };
         // Face the hiding place (to look under / behind / into it).
         const hs = hideSpot(intent.spot);
         if (hs) a.yaw = (hs.spot.look + 180) % 360;

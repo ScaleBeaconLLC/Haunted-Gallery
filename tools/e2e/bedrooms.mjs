@@ -90,7 +90,8 @@ try {
   step(`anika hidden inside the guest wardrobe (pose ${report.checks.anikaPose})`);
 
   // 3. Marcus secretly turns and comes looking under the bed.
-  await hook({ infect: ['marcus'] });
+  // A long search on the test server, so the slow headless screenshots can catch the kneel.
+  await hook({ infect: ['marcus'], searchMs: 9000 });
   await marcus.waitForSelector('#briefing:not([hidden])', { timeout: 10000 });
   await marcus.click('#briefing-ok');
   await marcus.click('.room-card[data-room="corridor"]');
@@ -99,17 +100,34 @@ try {
   await marcus.waitForFunction(() => window.__hgView?.me?.room === 'master_bedroom' && !window.__hgView?.me?.moving, null, { timeout: 30000 });
   await shot(marcus, '08-phone-hunter-in-master-bedroom');
   let farNormal = null, revealed = false, searched = false;
+  // How low the searcher's head actually gets, as rendered on Julian's phone (the face must
+  // come down into the gap under the bed frame, 0.62 m, to be seen from underneath).
+  await julian.evaluate(() => {
+    window.__minHead = 99;
+    setInterval(() => {
+      const a = window.__hgGame?.actors?.get('marcus');
+      const h = a?.model?.bones?.Head;
+      if (a?.entity?.enabled && a.action === 'searching' && h) window.__minHead = Math.min(window.__minHead, h.getPosition().y);
+    }, 50);
+  });
   for (let i = 0; i < 160; i++) {
     const v = await view(julian);
     const m = v?.actors?.find(x => x.id === 'marcus');
     if (m && farNormal === null) { farNormal = !m.revealed; await shot(julian, '09-phone-from-under-bed-someone-enters'); }
     if (!searched) { await marcus.click('[data-act="search"][data-spot="under_fourposter"]').then(() => { searched = true; }, () => {}); }
-    if (m?.action === 'searching' && !revealed) { await sleep(900); await shot(julian, '10-phone-under-bed-he-bends-down'); revealed = true; }
+    if (m?.action === 'searching' && !revealed) {
+      await shot(julian, '10a-phone-under-bed-search-begins');
+      await sleep(2500); await shot(julian, '10-phone-under-bed-he-bends-down');
+      await shot(marcus, '10b-phone-hunter-kneels-to-look-under');
+      revealed = true;
+    }
     if (v?.me?.caught) { await sleep(1200); await shot(julian, '11-phone-pulled-out-and-caught'); break; }
     await sleep(300);
   }
   report.checks.infectedLooksNormalAtFirst = farNormal;
   report.checks.searchSeenFromUnderBed = revealed;
+  report.checks.searcherMinHeadY = +(await julian.evaluate(() => window.__minHead)).toFixed(2);
+  report.checks.searcherKneltLow = report.checks.searcherMinHeadY < 0.9;
   report.checks.julianCaught = !!(await view(julian))?.me?.caught || (await view(julian))?.status === 'infected';
   step(`search: normal at first=${farNormal}, bend seen=${revealed}, caught=${report.checks.julianCaught}`);
   await shot(host, '12-desktop-host-console');

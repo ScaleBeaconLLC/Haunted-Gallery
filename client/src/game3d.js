@@ -9,7 +9,7 @@
 import * as pc from 'playcanvas';
 import { CAMERA_START, ROOMS, TUNING, hideSpot } from '@game/data.ts';
 import { World, mat, walkRects } from './world.js';
-import { ActorView, castInfo } from './actors.js';
+import { ActorView, castInfo, setScenePhase } from './actors.js';
 
 const WALK = walkRects();
 const ROOM_RECTS = WALK.filter(w => w.kind === 'room').map(w => w.r);
@@ -134,6 +134,7 @@ export class Game3D {
   applyView(view, pub) {
     this.myView = view;
     this.phase = view?.phase ?? pub?.phase ?? 'lobby';
+    setScenePhase(this.phase);
     const now = this.now();
     const seen = new Set();
     if (view?.me) {

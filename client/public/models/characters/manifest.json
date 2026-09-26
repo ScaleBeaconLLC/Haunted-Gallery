@@ -1,0 +1,2596 @@
+{
+  "parts": {
+    "w-adventurer-body": {
+      "source": "quaternius/women/Adventurer.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "White",
+          "color": [
+            0.458,
+            0.458,
+            0.458
+          ]
+        },
+        {
+          "name": "Brown2",
+          "color": [
+            0.107,
+            0.076,
+            0.032
+          ]
+        },
+        {
+          "name": "LightGreen",
+          "color": [
+            0.099,
+            0.085,
+            0.037
+          ]
+        },
+        {
+          "name": "Gold",
+          "color": [
+            0.429,
+            0.242,
+            0.067
+          ]
+        },
+        {
+          "name": "Green",
+          "color": [
+            0.061,
+            0.051,
+            0.019
+          ]
+        }
+      ],
+      "triangles": 4066
+    },
+    "w-adventurer-feet": {
+      "source": "quaternius/women/Adventurer.gltf",
+      "materials": [
+        {
+          "name": "Brown2",
+          "color": [
+            0.107,
+            0.076,
+            0.032
+          ]
+        },
+        {
+          "name": "Brown_02",
+          "color": [
+            0.179,
+            0.127,
+            0.051
+          ]
+        }
+      ],
+      "triangles": 772
+    },
+    "w-adventurer-head": {
+      "source": "quaternius/women/Adventurer.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Hair_Brown",
+          "color": [
+            0.048,
+            0.034,
+            0.022
+          ]
+        },
+        {
+          "name": "Brown",
+          "color": [
+            0.031,
+            0.018,
+            0.011
+          ]
+        }
+      ],
+      "triangles": 646
+    },
+    "w-adventurer-legs": {
+      "source": "quaternius/women/Adventurer.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "White",
+          "color": [
+            0.458,
+            0.458,
+            0.458
+          ]
+        },
+        {
+          "name": "Brown2",
+          "color": [
+            0.107,
+            0.076,
+            0.032
+          ]
+        },
+        {
+          "name": "LightGreen",
+          "color": [
+            0.099,
+            0.085,
+            0.037
+          ]
+        },
+        {
+          "name": "Gold",
+          "color": [
+            0.429,
+            0.242,
+            0.067
+          ]
+        },
+        {
+          "name": "Brown_02",
+          "color": [
+            0.179,
+            0.127,
+            0.051
+          ]
+        }
+      ],
+      "triangles": 1328
+    },
+    "w-casual-body": {
+      "source": "quaternius/women/Casual.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "White",
+          "color": [
+            0.458,
+            0.458,
+            0.458
+          ]
+        }
+      ],
+      "triangles": 2654
+    },
+    "w-casual-feet": {
+      "source": "quaternius/women/Casual.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Grey",
+          "color": [
+            0.05,
+            0.05,
+            0.05
+          ]
+        }
+      ],
+      "triangles": 538
+    },
+    "w-casual-head": {
+      "source": "quaternius/women/Casual.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Hair_Brown",
+          "color": [
+            0.048,
+            0.034,
+            0.022
+          ]
+        },
+        {
+          "name": "Brown",
+          "color": [
+            0.031,
+            0.018,
+            0.011
+          ]
+        },
+        {
+          "name": "Hair_Blond",
+          "color": [
+            0.26,
+            0.179,
+            0.063
+          ]
+        }
+      ],
+      "triangles": 2526
+    },
+    "w-casual-legs": {
+      "source": "quaternius/women/Casual.gltf",
+      "materials": [
+        {
+          "name": "Orange",
+          "color": [
+            0.342,
+            0.121,
+            0.04
+          ]
+        }
+      ],
+      "triangles": 706
+    },
+    "w-formal-head": {
+      "source": "quaternius/women/Formal.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Brown",
+          "color": [
+            0.031,
+            0.018,
+            0.011
+          ]
+        },
+        {
+          "name": "Red",
+          "color": [
+            0.138,
+            0.016,
+            0.004
+          ]
+        }
+      ],
+      "triangles": 2542
+    },
+    "w-formal-body": {
+      "source": "quaternius/women/Formal.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "LimeGreen",
+          "color": [
+            0.062,
+            0.138,
+            0.056
+          ]
+        },
+        {
+          "name": "Gold",
+          "color": [
+            0.429,
+            0.242,
+            0.067
+          ]
+        }
+      ],
+      "triangles": 2594
+    },
+    "w-formal-feet": {
+      "source": "quaternius/women/Formal.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Red",
+          "color": [
+            0.138,
+            0.016,
+            0.004
+          ]
+        }
+      ],
+      "triangles": 490
+    },
+    "w-formal-legs": {
+      "source": "quaternius/women/Formal.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "LimeGreen",
+          "color": [
+            0.062,
+            0.138,
+            0.056
+          ]
+        }
+      ],
+      "triangles": 482
+    },
+    "w-medieval-body": {
+      "source": "quaternius/women/Medieval.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "DarkBrown",
+          "color": [
+            0.067,
+            0.027,
+            0.009
+          ]
+        },
+        {
+          "name": "Gold",
+          "color": [
+            0.429,
+            0.242,
+            0.067
+          ]
+        },
+        {
+          "name": "LightBrown",
+          "color": [
+            0.157,
+            0.061,
+            0.018
+          ]
+        },
+        {
+          "name": "Black",
+          "color": [
+            0.031,
+            0.027,
+            0.024
+          ]
+        },
+        {
+          "name": "Metal",
+          "color": [
+            0.173,
+            0.173,
+            0.173
+          ]
+        }
+      ],
+      "triangles": 3214
+    },
+    "w-medieval-feet": {
+      "source": "quaternius/women/Medieval.gltf",
+      "materials": [
+        {
+          "name": "DarkBrown",
+          "color": [
+            0.067,
+            0.027,
+            0.009
+          ]
+        },
+        {
+          "name": "LightBrown",
+          "color": [
+            0.157,
+            0.061,
+            0.018
+          ]
+        }
+      ],
+      "triangles": 570
+    },
+    "w-medieval-head": {
+      "source": "quaternius/women/Medieval.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "DarkBrown",
+          "color": [
+            0.067,
+            0.027,
+            0.009
+          ]
+        },
+        {
+          "name": "Black",
+          "color": [
+            0.031,
+            0.027,
+            0.024
+          ]
+        },
+        {
+          "name": "White",
+          "color": [
+            0.458,
+            0.458,
+            0.458
+          ]
+        },
+        {
+          "name": "Brown",
+          "color": [
+            0.031,
+            0.018,
+            0.011
+          ]
+        }
+      ],
+      "triangles": 2022
+    },
+    "w-medieval-legs": {
+      "source": "quaternius/women/Medieval.gltf",
+      "materials": [
+        {
+          "name": "Black",
+          "color": [
+            0.031,
+            0.027,
+            0.024
+          ]
+        }
+      ],
+      "triangles": 598
+    },
+    "w-punk-body": {
+      "source": "quaternius/women/Punk.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Pink",
+          "color": [
+            0.138,
+            0.012,
+            0.13
+          ]
+        },
+        {
+          "name": "Black",
+          "color": [
+            0.031,
+            0.027,
+            0.024
+          ]
+        }
+      ],
+      "triangles": 3118
+    },
+    "w-punk-feet": {
+      "source": "quaternius/women/Punk.gltf",
+      "materials": [
+        {
+          "name": "Black",
+          "color": [
+            0.031,
+            0.027,
+            0.024
+          ]
+        },
+        {
+          "name": "Grey",
+          "color": [
+            0.05,
+            0.05,
+            0.05
+          ]
+        }
+      ],
+      "triangles": 720
+    },
+    "w-punk-head": {
+      "source": "quaternius/women/Punk.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Pink",
+          "color": [
+            0.138,
+            0.012,
+            0.13
+          ]
+        },
+        {
+          "name": "Black",
+          "color": [
+            0.031,
+            0.027,
+            0.024
+          ]
+        },
+        {
+          "name": "Hair_Brown",
+          "color": [
+            0.048,
+            0.034,
+            0.022
+          ]
+        },
+        {
+          "name": "Brown",
+          "color": [
+            0.031,
+            0.018,
+            0.011
+          ]
+        }
+      ],
+      "triangles": 1386
+    },
+    "w-punk-legs": {
+      "source": "quaternius/women/Punk.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Black",
+          "color": [
+            0.031,
+            0.027,
+            0.024
+          ]
+        }
+      ],
+      "triangles": 732
+    },
+    "w-scifi-body": {
+      "source": "quaternius/women/SciFi.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Black",
+          "color": [
+            0.031,
+            0.027,
+            0.024
+          ]
+        },
+        {
+          "name": "Metal",
+          "color": [
+            0.173,
+            0.173,
+            0.173
+          ]
+        },
+        {
+          "name": "LightBlue",
+          "color": [
+            0.015,
+            0.199,
+            0.296
+          ]
+        },
+        {
+          "name": "Blue",
+          "color": [
+            0.005,
+            0.076,
+            0.152
+          ]
+        }
+      ],
+      "triangles": 3238
+    },
+    "w-scifi-feet": {
+      "source": "quaternius/women/SciFi.gltf",
+      "materials": [
+        {
+          "name": "Black",
+          "color": [
+            0.031,
+            0.027,
+            0.024
+          ]
+        },
+        {
+          "name": "Metal",
+          "color": [
+            0.173,
+            0.173,
+            0.173
+          ]
+        }
+      ],
+      "triangles": 634
+    },
+    "w-scifi-head": {
+      "source": "quaternius/women/SciFi.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Black",
+          "color": [
+            0.031,
+            0.027,
+            0.024
+          ]
+        },
+        {
+          "name": "Blue",
+          "color": [
+            0.005,
+            0.076,
+            0.152
+          ]
+        },
+        {
+          "name": "Brown",
+          "color": [
+            0.031,
+            0.018,
+            0.011
+          ]
+        },
+        {
+          "name": "Hair_Black",
+          "color": [
+            0.022,
+            0.021,
+            0.022
+          ]
+        }
+      ],
+      "triangles": 2582
+    },
+    "w-scifi-legs": {
+      "source": "quaternius/women/SciFi.gltf",
+      "materials": [
+        {
+          "name": "Black",
+          "color": [
+            0.031,
+            0.027,
+            0.024
+          ]
+        },
+        {
+          "name": "Metal",
+          "color": [
+            0.173,
+            0.173,
+            0.173
+          ]
+        },
+        {
+          "name": "LightBlue",
+          "color": [
+            0.015,
+            0.199,
+            0.296
+          ]
+        }
+      ],
+      "triangles": 544
+    },
+    "w-soldier-body": {
+      "source": "quaternius/women/Soldier.gltf",
+      "materials": [
+        {
+          "name": "Black",
+          "color": [
+            0.031,
+            0.027,
+            0.024
+          ]
+        },
+        {
+          "name": "Swat",
+          "color": [
+            0.078,
+            0.087,
+            0.102
+          ]
+        },
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        }
+      ],
+      "triangles": 2708
+    },
+    "w-soldier-feet": {
+      "source": "quaternius/women/Soldier.gltf",
+      "materials": [
+        {
+          "name": "Black",
+          "color": [
+            0.031,
+            0.027,
+            0.024
+          ]
+        },
+        {
+          "name": "Grey",
+          "color": [
+            0.05,
+            0.05,
+            0.05
+          ]
+        }
+      ],
+      "triangles": 1036
+    },
+    "w-soldier-head": {
+      "source": "quaternius/women/Soldier.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Hair_Brown",
+          "color": [
+            0.048,
+            0.034,
+            0.022
+          ]
+        },
+        {
+          "name": "Brown",
+          "color": [
+            0.031,
+            0.018,
+            0.011
+          ]
+        }
+      ],
+      "triangles": 2848
+    },
+    "w-soldier-legs": {
+      "source": "quaternius/women/Soldier.gltf",
+      "materials": [
+        {
+          "name": "Black",
+          "color": [
+            0.031,
+            0.027,
+            0.024
+          ]
+        },
+        {
+          "name": "Swat",
+          "color": [
+            0.078,
+            0.087,
+            0.102
+          ]
+        },
+        {
+          "name": "Grey",
+          "color": [
+            0.05,
+            0.05,
+            0.05
+          ]
+        }
+      ],
+      "triangles": 1308
+    },
+    "w-suit-body": {
+      "source": "quaternius/women/Suit.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Black",
+          "color": [
+            0.031,
+            0.027,
+            0.024
+          ]
+        },
+        {
+          "name": "White",
+          "color": [
+            0.458,
+            0.458,
+            0.458
+          ]
+        }
+      ],
+      "triangles": 2738
+    },
+    "w-suit-feet": {
+      "source": "quaternius/women/Suit.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Black",
+          "color": [
+            0.031,
+            0.027,
+            0.024
+          ]
+        }
+      ],
+      "triangles": 522
+    },
+    "w-suit-head": {
+      "source": "quaternius/women/Suit.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Hair_Brown",
+          "color": [
+            0.048,
+            0.034,
+            0.022
+          ]
+        },
+        {
+          "name": "Brown",
+          "color": [
+            0.031,
+            0.018,
+            0.011
+          ]
+        },
+        {
+          "name": "Hair_Blond",
+          "color": [
+            0.26,
+            0.179,
+            0.063
+          ]
+        }
+      ],
+      "triangles": 2526
+    },
+    "w-suit-legs": {
+      "source": "quaternius/women/Suit.gltf",
+      "materials": [
+        {
+          "name": "Black",
+          "color": [
+            0.031,
+            0.027,
+            0.024
+          ]
+        }
+      ],
+      "triangles": 696
+    },
+    "w-witch-body": {
+      "source": "quaternius/women/Witch.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Brown2",
+          "color": [
+            0.107,
+            0.076,
+            0.032
+          ]
+        },
+        {
+          "name": "Purple",
+          "color": [
+            0.054,
+            0.01,
+            0.138
+          ]
+        },
+        {
+          "name": "Gold",
+          "color": [
+            0.429,
+            0.242,
+            0.067
+          ]
+        }
+      ],
+      "triangles": 2782
+    },
+    "w-witch-feet": {
+      "source": "quaternius/women/Witch.gltf",
+      "materials": [
+        {
+          "name": "Brown2",
+          "color": [
+            0.107,
+            0.076,
+            0.032
+          ]
+        }
+      ],
+      "triangles": 592
+    },
+    "w-witch-head": {
+      "source": "quaternius/women/Witch.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Purple",
+          "color": [
+            0.054,
+            0.01,
+            0.138
+          ]
+        },
+        {
+          "name": "Gold",
+          "color": [
+            0.429,
+            0.242,
+            0.067
+          ]
+        },
+        {
+          "name": "Brown",
+          "color": [
+            0.031,
+            0.018,
+            0.011
+          ]
+        },
+        {
+          "name": "Hair_Black",
+          "color": [
+            0.022,
+            0.021,
+            0.022
+          ]
+        }
+      ],
+      "triangles": 2946
+    },
+    "w-witch-legs": {
+      "source": "quaternius/women/Witch.gltf",
+      "materials": [
+        {
+          "name": "Purple",
+          "color": [
+            0.054,
+            0.01,
+            0.138
+          ]
+        },
+        {
+          "name": "Gold",
+          "color": [
+            0.429,
+            0.242,
+            0.067
+          ]
+        },
+        {
+          "name": "Brown",
+          "color": [
+            0.031,
+            0.018,
+            0.011
+          ]
+        }
+      ],
+      "triangles": 552
+    },
+    "w-worker-body": {
+      "source": "quaternius/women/Worker.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Worker_Vest",
+          "color": [
+            0.485,
+            0.127,
+            0.023
+          ]
+        },
+        {
+          "name": "White",
+          "color": [
+            0.458,
+            0.458,
+            0.458
+          ]
+        },
+        {
+          "name": "Worker_Yellow",
+          "color": [
+            0.456,
+            0.296,
+            0.007
+          ]
+        }
+      ],
+      "triangles": 2610
+    },
+    "w-worker-feet": {
+      "source": "quaternius/women/Worker.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Black",
+          "color": [
+            0.031,
+            0.027,
+            0.024
+          ]
+        }
+      ],
+      "triangles": 522
+    },
+    "w-worker-head": {
+      "source": "quaternius/women/Worker.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Worker_Yellow",
+          "color": [
+            0.456,
+            0.296,
+            0.007
+          ]
+        },
+        {
+          "name": "DarkBrown",
+          "color": [
+            0.067,
+            0.027,
+            0.009
+          ]
+        },
+        {
+          "name": "Brown",
+          "color": [
+            0.031,
+            0.018,
+            0.011
+          ]
+        }
+      ],
+      "triangles": 2148
+    },
+    "w-worker-legs": {
+      "source": "quaternius/women/Worker.gltf",
+      "materials": [
+        {
+          "name": "Brown_02",
+          "color": [
+            0.179,
+            0.127,
+            0.051
+          ]
+        },
+        {
+          "name": "Brown2",
+          "color": [
+            0.107,
+            0.076,
+            0.032
+          ]
+        }
+      ],
+      "triangles": 832
+    },
+    "m-adventurer-body": {
+      "source": "quaternius/men/Adventurer.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Green",
+          "color": [
+            0.061,
+            0.051,
+            0.019
+          ]
+        },
+        {
+          "name": "LightGreen",
+          "color": [
+            0.099,
+            0.085,
+            0.037
+          ]
+        }
+      ],
+      "triangles": 3528
+    },
+    "m-adventurer-feet": {
+      "source": "quaternius/men/Adventurer.gltf",
+      "materials": [
+        {
+          "name": "Grey",
+          "color": [
+            0.05,
+            0.05,
+            0.05
+          ]
+        },
+        {
+          "name": "Black",
+          "color": [
+            0.018,
+            0.018,
+            0.018
+          ]
+        }
+      ],
+      "triangles": 480
+    },
+    "m-adventurer-head": {
+      "source": "quaternius/men/Adventurer.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Eyebrows",
+          "color": [
+            0.048,
+            0.034,
+            0.022
+          ]
+        },
+        {
+          "name": "Hair",
+          "color": [
+            0.067,
+            0.027,
+            0.009
+          ]
+        },
+        {
+          "name": "Eye",
+          "color": [
+            0.031,
+            0.018,
+            0.011
+          ]
+        }
+      ],
+      "triangles": 3620
+    },
+    "m-adventurer-legs": {
+      "source": "quaternius/men/Adventurer.gltf",
+      "materials": [
+        {
+          "name": "Brown",
+          "color": [
+            0.179,
+            0.127,
+            0.051
+          ]
+        },
+        {
+          "name": "Brown2",
+          "color": [
+            0.107,
+            0.076,
+            0.032
+          ]
+        }
+      ],
+      "triangles": 822
+    },
+    "m-beach-body": {
+      "source": "quaternius/men/Beach.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "LightBrown",
+          "color": [
+            0.305,
+            0.279,
+            0.227
+          ]
+        }
+      ],
+      "triangles": 2778
+    },
+    "m-beach-feet": {
+      "source": "quaternius/men/Beach.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Red_Dark",
+          "color": [
+            0.205,
+            0.02,
+            0.034
+          ]
+        }
+      ],
+      "triangles": 682
+    },
+    "m-beach-head": {
+      "source": "quaternius/men/Beach.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Eyebrows",
+          "color": [
+            0.048,
+            0.034,
+            0.022
+          ]
+        },
+        {
+          "name": "Eye",
+          "color": [
+            0.031,
+            0.018,
+            0.011
+          ]
+        },
+        {
+          "name": "Hair",
+          "color": [
+            0.067,
+            0.027,
+            0.009
+          ]
+        },
+        {
+          "name": "Earrings",
+          "color": [
+            0.429,
+            0.242,
+            0.067
+          ]
+        }
+      ],
+      "triangles": 2288
+    },
+    "m-beach-legs": {
+      "source": "quaternius/men/Beach.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Red_Dark",
+          "color": [
+            0.205,
+            0.02,
+            0.034
+          ]
+        },
+        {
+          "name": "White",
+          "color": [
+            0.458,
+            0.458,
+            0.458
+          ]
+        }
+      ],
+      "triangles": 830
+    },
+    "m-casual2-body": {
+      "source": "quaternius/men/Casual_2.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "LightBrown",
+          "color": [
+            0.305,
+            0.279,
+            0.227
+          ]
+        }
+      ],
+      "triangles": 2806
+    },
+    "m-casual2-feet": {
+      "source": "quaternius/men/Casual_2.gltf",
+      "materials": [
+        {
+          "name": "Red_Dark",
+          "color": [
+            0.205,
+            0.02,
+            0.034
+          ]
+        },
+        {
+          "name": "White",
+          "color": [
+            0.458,
+            0.458,
+            0.458
+          ]
+        }
+      ],
+      "triangles": 552
+    },
+    "m-casual2-head": {
+      "source": "quaternius/men/Casual_2.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Skin_Darker",
+          "color": [
+            0.487,
+            0.331,
+            0.19
+          ]
+        },
+        {
+          "name": "Eyebrows",
+          "color": [
+            0.048,
+            0.034,
+            0.022
+          ]
+        },
+        {
+          "name": "Hair",
+          "color": [
+            0.067,
+            0.027,
+            0.009
+          ]
+        },
+        {
+          "name": "Eye",
+          "color": [
+            0.031,
+            0.018,
+            0.011
+          ]
+        }
+      ],
+      "triangles": 1684
+    },
+    "m-casual2-legs": {
+      "source": "quaternius/men/Casual_2.gltf",
+      "materials": [
+        {
+          "name": "LightBlue",
+          "color": [
+            0.033,
+            0.05,
+            0.063
+          ]
+        }
+      ],
+      "triangles": 734
+    },
+    "m-casualhoodie-body": {
+      "source": "quaternius/men/Casual_Hoodie.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Purple",
+          "color": [
+            0.063,
+            0.038,
+            0.105
+          ]
+        }
+      ],
+      "triangles": 3048
+    },
+    "m-casualhoodie-feet": {
+      "source": "quaternius/men/Casual_Hoodie.gltf",
+      "materials": [
+        {
+          "name": "Purple",
+          "color": [
+            0.063,
+            0.038,
+            0.105
+          ]
+        },
+        {
+          "name": "White",
+          "color": [
+            0.458,
+            0.458,
+            0.458
+          ]
+        }
+      ],
+      "triangles": 512
+    },
+    "m-casualhoodie-head": {
+      "source": "quaternius/men/Casual_Hoodie.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Eyebrows",
+          "color": [
+            0.048,
+            0.034,
+            0.022
+          ]
+        },
+        {
+          "name": "Eye",
+          "color": [
+            0.031,
+            0.018,
+            0.011
+          ]
+        },
+        {
+          "name": "Hair",
+          "color": [
+            0.067,
+            0.027,
+            0.009
+          ]
+        }
+      ],
+      "triangles": 1888
+    },
+    "m-casualhoodie-legs": {
+      "source": "quaternius/men/Casual_Hoodie.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "LightBlue",
+          "color": [
+            0.033,
+            0.05,
+            0.063
+          ]
+        }
+      ],
+      "triangles": 758
+    },
+    "m-farmer-body": {
+      "source": "quaternius/men/Farmer.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "LightBlue",
+          "color": [
+            0.033,
+            0.05,
+            0.063
+          ]
+        },
+        {
+          "name": "Brown",
+          "color": [
+            0.179,
+            0.127,
+            0.051
+          ]
+        },
+        {
+          "name": "Beige",
+          "color": [
+            0.332,
+            0.309,
+            0.202
+          ]
+        }
+      ],
+      "triangles": 3358
+    },
+    "m-farmer-feet": {
+      "source": "quaternius/men/Farmer.gltf",
+      "materials": [
+        {
+          "name": "Brown",
+          "color": [
+            0.179,
+            0.127,
+            0.051
+          ]
+        },
+        {
+          "name": "Brown2",
+          "color": [
+            0.107,
+            0.076,
+            0.032
+          ]
+        }
+      ],
+      "triangles": 384
+    },
+    "m-farmer-head": {
+      "source": "quaternius/men/Farmer.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Beige",
+          "color": [
+            0.332,
+            0.309,
+            0.202
+          ]
+        },
+        {
+          "name": "Eyebrows",
+          "color": [
+            0.048,
+            0.034,
+            0.022
+          ]
+        },
+        {
+          "name": "Red",
+          "color": [
+            0.202,
+            0.005,
+            0.014
+          ]
+        },
+        {
+          "name": "Eye",
+          "color": [
+            0.031,
+            0.018,
+            0.011
+          ]
+        }
+      ],
+      "triangles": 816
+    },
+    "m-farmer-legs": {
+      "source": "quaternius/men/Farmer.gltf",
+      "materials": [
+        {
+          "name": "LightBlue",
+          "color": [
+            0.033,
+            0.05,
+            0.063
+          ]
+        }
+      ],
+      "triangles": 918
+    },
+    "m-king-body": {
+      "source": "quaternius/men/King.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Blue",
+          "color": [
+            0.05,
+            0.063,
+            0.098
+          ]
+        },
+        {
+          "name": "Metal",
+          "color": [
+            0.125,
+            0.128,
+            0.125
+          ]
+        },
+        {
+          "name": "Beige",
+          "color": [
+            0.332,
+            0.309,
+            0.202
+          ]
+        },
+        {
+          "name": "Metal_Dark",
+          "color": [
+            0.078,
+            0.08,
+            0.078
+          ]
+        }
+      ],
+      "triangles": 4772
+    },
+    "m-king-feet": {
+      "source": "quaternius/men/King.gltf",
+      "materials": [
+        {
+          "name": "Metal",
+          "color": [
+            0.125,
+            0.128,
+            0.125
+          ]
+        }
+      ],
+      "triangles": 624
+    },
+    "m-king-head": {
+      "source": "quaternius/men/King.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Hair_White",
+          "color": [
+            0.538,
+            0.538,
+            0.538
+          ]
+        },
+        {
+          "name": "Gold",
+          "color": [
+            0.279,
+            0.175,
+            0.04
+          ]
+        },
+        {
+          "name": "Eye",
+          "color": [
+            0.031,
+            0.018,
+            0.011
+          ]
+        }
+      ],
+      "triangles": 3892
+    },
+    "m-king-legs": {
+      "source": "quaternius/men/King.gltf",
+      "materials": [
+        {
+          "name": "Metal",
+          "color": [
+            0.125,
+            0.128,
+            0.125
+          ]
+        },
+        {
+          "name": "Metal_Dark",
+          "color": [
+            0.078,
+            0.08,
+            0.078
+          ]
+        },
+        {
+          "name": "DarkBrown",
+          "color": [
+            0.07,
+            0.048,
+            0.037
+          ]
+        }
+      ],
+      "triangles": 1822
+    },
+    "m-punk-body": {
+      "source": "quaternius/men/Punk.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "White",
+          "color": [
+            0.458,
+            0.458,
+            0.458
+          ]
+        },
+        {
+          "name": "Black",
+          "color": [
+            0.018,
+            0.018,
+            0.018
+          ]
+        }
+      ],
+      "triangles": 2958
+    },
+    "m-punk-feet": {
+      "source": "quaternius/men/Punk.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Black",
+          "color": [
+            0.018,
+            0.018,
+            0.018
+          ]
+        }
+      ],
+      "triangles": 552
+    },
+    "m-punk-head": {
+      "source": "quaternius/men/Punk.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Eye",
+          "color": [
+            0.031,
+            0.018,
+            0.011
+          ]
+        },
+        {
+          "name": "Eyebrows",
+          "color": [
+            0.048,
+            0.034,
+            0.022
+          ]
+        },
+        {
+          "name": "Red_Dark",
+          "color": [
+            0.205,
+            0.02,
+            0.034
+          ]
+        },
+        {
+          "name": "Red",
+          "color": [
+            0.202,
+            0.005,
+            0.014
+          ]
+        },
+        {
+          "name": "Earrings",
+          "color": [
+            0.429,
+            0.242,
+            0.067
+          ]
+        }
+      ],
+      "triangles": 1244
+    },
+    "m-punk-legs": {
+      "source": "quaternius/men/Punk.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "LightBlue",
+          "color": [
+            0.033,
+            0.05,
+            0.063
+          ]
+        }
+      ],
+      "triangles": 746
+    },
+    "m-spacesuit-body": {
+      "source": "quaternius/men/Spacesuit.gltf",
+      "materials": [
+        {
+          "name": "SciFi_Light",
+          "color": [
+            0.448,
+            0.39,
+            0.365
+          ]
+        },
+        {
+          "name": "SciFi_Light_Accent",
+          "color": [
+            0.366,
+            0.112,
+            0.031
+          ]
+        },
+        {
+          "name": "SciFi_Main",
+          "color": [
+            0.054,
+            0.089,
+            0.084
+          ]
+        },
+        {
+          "name": "SciFi_MainDark",
+          "color": [
+            0.03,
+            0.045,
+            0.05
+          ]
+        }
+      ],
+      "triangles": 4022
+    },
+    "m-spacesuit-feet": {
+      "source": "quaternius/men/Spacesuit.gltf",
+      "materials": [
+        {
+          "name": "SciFi_Light",
+          "color": [
+            0.448,
+            0.39,
+            0.365
+          ]
+        },
+        {
+          "name": "SciFi_Light_Accent",
+          "color": [
+            0.366,
+            0.112,
+            0.031
+          ]
+        }
+      ],
+      "triangles": 576
+    },
+    "m-spacesuit-head": {
+      "source": "quaternius/men/Spacesuit.gltf",
+      "materials": [
+        {
+          "name": "SciFi_Light",
+          "color": [
+            0.448,
+            0.39,
+            0.365
+          ]
+        },
+        {
+          "name": "SciFi_Light_Accent",
+          "color": [
+            0.366,
+            0.112,
+            0.031
+          ]
+        },
+        {
+          "name": "Grey",
+          "color": [
+            0.05,
+            0.05,
+            0.05
+          ]
+        }
+      ],
+      "triangles": 4854
+    },
+    "m-spacesuit-legs": {
+      "source": "quaternius/men/Spacesuit.gltf",
+      "materials": [
+        {
+          "name": "SciFi_Light",
+          "color": [
+            0.448,
+            0.39,
+            0.365
+          ]
+        },
+        {
+          "name": "SciFi_Light_Accent",
+          "color": [
+            0.366,
+            0.112,
+            0.031
+          ]
+        },
+        {
+          "name": "SciFi_Main",
+          "color": [
+            0.054,
+            0.089,
+            0.084
+          ]
+        },
+        {
+          "name": "SciFi_MainDark",
+          "color": [
+            0.03,
+            0.045,
+            0.05
+          ]
+        }
+      ],
+      "triangles": 1106
+    },
+    "m-suit-body": {
+      "source": "quaternius/men/Suit.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Tie",
+          "color": [
+            0.067,
+            0.078,
+            0.102
+          ]
+        },
+        {
+          "name": "Suit",
+          "color": [
+            0.015,
+            0.021,
+            0.027
+          ]
+        },
+        {
+          "name": "White",
+          "color": [
+            0.458,
+            0.458,
+            0.458
+          ]
+        }
+      ],
+      "triangles": 2916
+    },
+    "m-suit-feet": {
+      "source": "quaternius/men/Suit.gltf",
+      "materials": [
+        {
+          "name": "Black",
+          "color": [
+            0.018,
+            0.018,
+            0.018
+          ]
+        }
+      ],
+      "triangles": 528
+    },
+    "m-suit-head": {
+      "source": "quaternius/men/Suit.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Eyebrows",
+          "color": [
+            0.048,
+            0.034,
+            0.022
+          ]
+        },
+        {
+          "name": "Hair",
+          "color": [
+            0.067,
+            0.027,
+            0.009
+          ]
+        },
+        {
+          "name": "Eye",
+          "color": [
+            0.031,
+            0.018,
+            0.011
+          ]
+        }
+      ],
+      "triangles": 2456
+    },
+    "m-suit-legs": {
+      "source": "quaternius/men/Suit.gltf",
+      "materials": [
+        {
+          "name": "Suit",
+          "color": [
+            0.015,
+            0.021,
+            0.027
+          ]
+        }
+      ],
+      "triangles": 734
+    },
+    "m-swat-body": {
+      "source": "quaternius/men/Swat.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Swat",
+          "color": [
+            0.078,
+            0.087,
+            0.102
+          ]
+        },
+        {
+          "name": "Swat_Black",
+          "color": [
+            0.031,
+            0.027,
+            0.024
+          ]
+        }
+      ],
+      "triangles": 3106
+    },
+    "m-swat-feet": {
+      "source": "quaternius/men/Swat.gltf",
+      "materials": [
+        {
+          "name": "Swat_Black",
+          "color": [
+            0.031,
+            0.027,
+            0.024
+          ]
+        }
+      ],
+      "triangles": 560
+    },
+    "m-swat-head": {
+      "source": "quaternius/men/Swat.gltf",
+      "materials": [
+        {
+          "name": "Swat",
+          "color": [
+            0.078,
+            0.087,
+            0.102
+          ]
+        },
+        {
+          "name": "Swat_Black",
+          "color": [
+            0.031,
+            0.027,
+            0.024
+          ]
+        },
+        {
+          "name": "Visor",
+          "color": [
+            0.008,
+            0.008,
+            0.008
+          ]
+        }
+      ],
+      "triangles": 2308
+    },
+    "m-swat-legs": {
+      "source": "quaternius/men/Swat.gltf",
+      "materials": [
+        {
+          "name": "Swat",
+          "color": [
+            0.078,
+            0.087,
+            0.102
+          ]
+        },
+        {
+          "name": "Swat_Black",
+          "color": [
+            0.031,
+            0.027,
+            0.024
+          ]
+        }
+      ],
+      "triangles": 1780
+    },
+    "m-worker-body": {
+      "source": "quaternius/men/Worker.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Worker_Yellow",
+          "color": [
+            0.456,
+            0.296,
+            0.007
+          ]
+        },
+        {
+          "name": "Worker_Vest",
+          "color": [
+            0.485,
+            0.127,
+            0.023
+          ]
+        },
+        {
+          "name": "LightBrown",
+          "color": [
+            0.305,
+            0.279,
+            0.227
+          ]
+        }
+      ],
+      "triangles": 3018
+    },
+    "m-worker-feet": {
+      "source": "quaternius/men/Worker.gltf",
+      "materials": [
+        {
+          "name": "Grey",
+          "color": [
+            0.05,
+            0.05,
+            0.05
+          ]
+        },
+        {
+          "name": "Black",
+          "color": [
+            0.018,
+            0.018,
+            0.018
+          ]
+        }
+      ],
+      "triangles": 464
+    },
+    "m-worker-head": {
+      "source": "quaternius/men/Worker.gltf",
+      "materials": [
+        {
+          "name": "Skin",
+          "color": [
+            0.617,
+            0.418,
+            0.238
+          ]
+        },
+        {
+          "name": "Worker_Yellow",
+          "color": [
+            0.456,
+            0.296,
+            0.007
+          ]
+        },
+        {
+          "name": "Eyebrows",
+          "color": [
+            0.048,
+            0.034,
+            0.022
+          ]
+        },
+        {
+          "name": "Moustache",
+          "color": [
+            0.163,
+            0.053,
+            0.001
+          ]
+        },
+        {
+          "name": "Eye",
+          "color": [
+            0.031,
+            0.018,
+            0.011
+          ]
+        }
+      ],
+      "triangles": 936
+    },
+    "m-worker-legs": {
+      "source": "quaternius/men/Worker.gltf",
+      "materials": [
+        {
+          "name": "Brown",
+          "color": [
+            0.179,
+            0.127,
+            0.051
+          ]
+        },
+        {
+          "name": "Brown2",
+          "color": [
+            0.107,
+            0.076,
+            0.032
+          ]
+        }
+      ],
+      "triangles": 822
+    }
+  },
+  "clips": [
+    {
+      "name": "collapse",
+      "duration": 1.333
+    },
+    {
+      "name": "hit",
+      "duration": 0.708
+    },
+    {
+      "name": "hit2",
+      "duration": 0.708
+    },
+    {
+      "name": "idle",
+      "duration": 2.083
+    },
+    {
+      "name": "idle_alert",
+      "duration": 2.083
+    },
+    {
+      "name": "interact",
+      "duration": 1.583
+    },
+    {
+      "name": "lunge",
+      "duration": 1.042
+    },
+    {
+      "name": "run",
+      "duration": 1,
+      "groundSpeed": 2.06
+    },
+    {
+      "name": "walk",
+      "duration": 1.667,
+      "groundSpeed": 1.056
+    },
+    {
+      "name": "wave",
+      "duration": 2.083
+    },
+    {
+      "name": "crouch_idle",
+      "duration": 2.917
+    },
+    {
+      "name": "crouch_walk",
+      "duration": 2,
+      "groundSpeed": 0.926
+    },
+    {
+      "name": "kneel_look",
+      "duration": 3.3
+    },
+    {
+      "name": "pickup",
+      "duration": 0.833
+    },
+    {
+      "name": "walk_formal",
+      "duration": 1.333,
+      "groundSpeed": 1.239
+    },
+    {
+      "name": "talk",
+      "duration": 2.917
+    },
+    {
+      "name": "sprint",
+      "duration": 0.667,
+      "groundSpeed": 3.899
+    },
+    {
+      "name": "recoil",
+      "duration": 0.333
+    },
+    {
+      "name": "grab",
+      "duration": 2.667
+    },
+    {
+      "name": "idle_breathe",
+      "duration": 2.5
+    },
+    {
+      "name": "dance",
+      "duration": 1
+    },
+    {
+      "name": "inspect",
+      "duration": 2
+    }
+  ],
+  "source": "Quaternius (CC0): Ultimate Modular Women/Men, Universal Animation Library"
+}
