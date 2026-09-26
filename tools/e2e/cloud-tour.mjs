@@ -4,7 +4,7 @@
 // the bedroom wing and hide:
 //  - Julian (phone 390x844): Grand Portrait Gallery -> Sculpture Vault -> Study ->
 //    Portrait Corridor -> Master Bedroom, then under the four-poster.
-//  - Anika (desktop 1280x800): Gallery -> Sealed Exhibition -> Hall of Mirrors ->
+//  - Anika (desktop 1280x800): Gallery -> Sculpture Vault -> Study ->
 //    Corridor -> Guest Bedroom, then inside the wardrobe.
 //  - Marcus (phone): the same route as Julian, into the Spare Bedroom and under the single bed.
 // CPU zombies play for real, so a player may be caught on the way. That is reported, not failed.
@@ -26,9 +26,18 @@ const view = p => p.evaluate(() => window.__hgView);
 
 const ROUTES = {
   julian: { room: 'master_bedroom', spot: 'under_fourposter', via: ['sculpture', 'study', 'corridor', 'master_bedroom'] },
-  anika: { room: 'guest_bedroom', spot: 'guest_wardrobe', via: ['sealed', 'mirrors', 'corridor', 'guest_bedroom'] },
+  anika: { room: 'guest_bedroom', spot: 'guest_wardrobe', via: ['sculpture', 'study', 'corridor', 'guest_bedroom'] },
   marcus: { room: 'spare_bedroom', spot: 'under_single_bed', via: ['sculpture', 'study', 'corridor', 'spare_bedroom'] },
 };
+
+// Tap like a person: if the button was redrawn mid-tap, look again and tap again.
+async function tap(p, sel) {
+  for (let i = 0; i < 8; i++) {
+    if (await p.locator(sel).first().click({ timeout: 4000 }).then(() => true, () => false)) return;
+    await sleep(300);
+  }
+  throw new Error(`could not tap ${sel}`);
+}
 
 // Walk room by room (only the current and adjacent rooms are offered), then hide.
 async function walkAndHide(id, p, onRoom) {
@@ -38,11 +47,11 @@ async function walkAndHide(id, p, onRoom) {
     const v = await view(p);
     if (v?.me?.caught || v?.role === 'hunter') return `stopped before ${room}: ${v?.me?.caught ? 'caught' : 'turned'}`;
     if (room === r.room) {
-      await p.click(`.room-card[data-room="${room}"]`);
-      await p.click(`[data-act="hide"][data-spot="${r.spot}"]`);
+      await tap(p, `.room-card[data-room="${room}"]`);
+      await tap(p, `[data-act="hide"][data-spot="${r.spot}"]`);
     } else {
-      await p.click(`.room-card[data-room="${room}"]`);
-      await p.click(`[data-act="go"][data-room="${room}"]`);
+      await tap(p, `.room-card[data-room="${room}"]`);
+      await tap(p, `[data-act="go"][data-room="${room}"]`);
     }
     await onRoom?.(room, 'leaving');
     const ok = await p.waitForFunction(rm => {
@@ -107,7 +116,7 @@ try {
       if (room === 'corridor' && when === 'arrived') await shot(julian, '07-phone-corridor-bedroom-cards');
     }),
     walkAndHide('anika', anika, async (room, when) => {
-      if (room === 'mirrors' && when === 'leaving') { await sleep(1500); await shot(anika, '09-desktop-travel-hall-of-mirrors'); }
+      if (room === 'study' && when === 'leaving') { await sleep(1500); await shot(anika, '09-desktop-travel-to-curators-study'); }
       if (room === 'guest_bedroom' && when === 'leaving') { await sleep(2500); await shot(anika, '10-desktop-entering-guest-bedroom'); }
     }),
     walkAndHide('marcus', marcus, async (room, when) => {

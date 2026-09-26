@@ -352,6 +352,9 @@ function renderHud() {
   $('hud-phase').textContent = pub.paused ? 'Paused by host' : { opening: 'The Unveiling', hunt: view?.role === 'hunter' ? 'You are infected' : 'Survive', ended: 'Aftermath' }[pub.phase] ?? pub.phase;
   if (pub.phase === 'ended') $('hud-timer').textContent = '';
   $('hud-team').textContent = `${pub.escapedCount} escaped · ${pub.insideCount} still inside · team ${pub.teamScore} pts · Garden Gate ${pub.exitOpen ? 'open' : 'locked'}`;
+  // Captions sit just below the HUD, which grows when a long room name wraps on a phone.
+  const hb = $('hud').getBoundingClientRect().bottom;
+  if (hb > 0) $('caption').style.top = `${Math.round(hb + 4)}px`;
 }
 
 function btn(act, label, { active = false, disabled = false, cls = '', data = {} } = {}) {
@@ -429,7 +432,9 @@ function renderPanel() {
     const extra = [];
     if (photo) extra.push(photo);
     if (cam.floor) extra.push(btn('pickup', '📷 Go get the camera'));
-    if (cam.mine && view.options.passTo?.length) extra.push(btn('give-open', '📷 Hand over the camera'));
+    // Always shown while holding the camera (disabled when nobody is in reach), so the buttons
+    // don't jump around as other guests walk past.
+    if (cam.mine) extra.push(btn('give-open', '📷 Hand over the camera', { disabled: !view.options.passTo?.length }));
     if (cam.mine) extra.push(btn('drop', 'Drop camera'));
     if (m.snares) extra.push(btn('snare', '🪢 Rig snare here'));
     const clue = view.options.inspect?.[0];
