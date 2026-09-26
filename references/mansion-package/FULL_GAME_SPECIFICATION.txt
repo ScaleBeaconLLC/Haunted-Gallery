@@ -1,0 +1,951 @@
+**My call: the human-controlled guests arrive together; the CPU guests are already inside with the birthday guest.** That gives the opening a natural reason to change depending on how many people are playing. But everyone gathers for the photograph before the hunt, so arriving earlier gives CPU characters **no gameplay advantage**.
+
+One important correction: your saved cast contains **13 guest identities, plus Elias—14 characters total.** Each match uses twelve active guest seats, with the remaining guest becoming the birthday victim. We should preserve that structure rather than accidentally deleting someone. :chatgpt-content-reference{index="0"} :chatgpt-content-reference{index="1"}
+
+For the visuals, I’d combine **the first image’s rich wood, gallery balconies, and warm lamps with the second image’s imposing stone arches and staircase**—but make it a maintained, expensive mansion with something deeply wrong underneath. Not an abandoned building covered in random cobwebs.
+
+**Attach both reference images when you paste this into Claude.** The prompt below specifies the actual game, not just the mood. Higher-quality models, animation, lighting, and sound still need to be produced or sourced; a prettier description alone does not complete those assets.
+
+---
+
+# HAUNTED GALLERY
+# Complete Story, Gameplay, Visual, Animation, Audio, and Browser Production Specification
+
+## 1. Project directive and non-negotiable foundation
+
+Act as the lead gameplay engineer, narrative director, and technical art director for the existing Haunted Gallery project.
+
+Build the experience around this principle:
+
+**Hiding keeps you alive. Moving gets you out. Trust determines who leaves with you.**
+
+This is an implementation request for the existing multiplayer browser game—not a new concept document, static website, replacement project, generic horror template, or disconnected cinematic.
+
+Read the repository instructions, current gameplay documentation, asset manifests, voice configuration, and multiplayer handoff. Identify the latest working branch and create a recoverable checkpoint.
+
+Do not interrupt an active deployment or silently restart from an older main branch.
+
+Preserve the existing cast, approved identities, room IDs, working assets, voice integrations, rescue rules, camera ownership, multiplayer infrastructure, and deployment workflow.
+
+Replace conflicting older story and turn-based movement instructions with this specification. Document those replacements explicitly rather than leaving contradictory rules in different files.
+
+**PlayCanvas renders the actual interactive 3D game in the player’s browser. Colyseus owns authoritative multiplayer state and outcomes.**
+
+Continue using the existing standalone PlayCanvas workflow. A separate Editor project is not a prerequisite; PlayCanvas officially supports building directly with the engine. :chatgpt-content-reference{index="2"}
+
+Do not substitute a video, slideshow, CSS room illustration, or server-streamed desktop for the playable 3D browser experience.
+
+Make reasonable implementation decisions within these requirements. Ask for authorization only when genuinely required for access, credentials, paid assets or services, irreversible changes, or physical-device testing.
+
+Do not claim that placeholder assets are finished production assets.
+
+## 2. The experience the player should have
+
+Haunted Gallery is a fifteen-minute multiplayer hide-and-seek escape game inside a collector’s mansion at night.
+
+The player arrives expecting a birthday party. A photograph exposes the host’s supernatural nature. A bite turns the birthday guest into the first additional hunter. The host announces a deadline.
+
+Players must decide where to go, when to run, when to hide, what to inspect, whom to trust, and whether to help someone else.
+
+The game must repeatedly create three competing instincts:
+
+**Stay hidden because someone might be nearby.**
+
+**Move because the deadline is getting closer.**
+
+**Help because escaping alone means leaving someone behind.**
+
+None should always be the correct decision.
+
+The objective must be understandable without reading the backstory:
+
+**Escape alive before the final lockdown. Help others when you can.**
+
+Knowing the mansion’s history should deepen the experience, not become a requirement for operating the controls or reaching the exit.
+
+## 3. Preserve the entire existing cast
+
+Preserve these thirteen established guest identities:
+
+**Julian Mercer, Anika Rao, Marcus Bell, Mei Chen, Dev Patel, Amara Okafor, and Alex Park.** :chatgpt-content-reference{index="3"}
+
+**Andre Calder, Rafael Duarte, Simone Whitaker, Owen Price, Tessa Monroe, and Nia Calder.** Preserve **Elias Voss** as the separate Curator character. :chatgpt-content-reference{index="4"}
+
+Use the current repository’s authoritative character IDs and approved identity assets. Preserve existing appearance, complexion, hairstyle, clothing, footwear, accessories, proportions, and voice assignments.
+
+Verify the manifest before editing. If it differs from this documented roster, report the actual discrepancy rather than silently deleting, renaming, or duplicating characters.
+
+Do not add Michael, Kayla, or DeMarcus merely because those names appeared in earlier illustrative gameplay examples.
+
+Do not invent accents, personality stereotypes, or family relationships from names.
+
+Improving the model quality does not authorize changing who the character is.
+
+All guests need animation and dialogue support for survivor play, infection, and their possible birthday role. Eligible arriving guests also need support for the photographer role.
+
+## 4. Determine human players, CPU guests, and opening roles correctly
+
+Maintain twelve active guest seats per match.
+
+After human players select distinct guest identities, fill the remaining active seats with distinct CPU-controlled guests. The one unused guest identity becomes the birthday guest and opening victim.
+
+Elias remains separate from those thirteen guest identities.
+
+Use this opening arrangement:
+
+**Human-selected guests arrive at the mansion.**
+
+**CPU-controlled active guests are already inside.**
+
+**The birthday guest is always already inside.**
+
+**Elias is already inside as the host.**
+
+For one human player, show that person arriving while eleven CPU guests and the birthday guest are inside.
+
+For six human players, show six arriving while six CPU guests and the birthday guest are inside.
+
+For twelve human players, show all twelve arriving. Only the birthday guest and Elias are waiting inside.
+
+Do not create duplicate background versions of existing guests to make the room look full.
+
+If a zero-human demonstration mode is needed, choose a consistent subset of CPU guests to arrive and treat it explicitly as a demonstration. Do not complicate the normal player flow with that case.
+
+Lock the cast, birthday identity, photographer, dialogue roles, and staging assignments when the host starts the session. Store them authoritatively so reconnecting or reloading cannot reroll the opening.
+
+Late arrivals must follow the existing supported admission policy. They must not trigger another introduction, replace the birthday victim, or resurrect a resolved character.
+
+The distinction between arriving and already-present guests applies only to the introduction. All twelve active survivors gather near the party area before the attack.
+
+CPU guests cannot collect items, explore hidden routes, establish concealment, or gain knowledge before human players receive control.
+
+## 5. Adapt conversations to the actual group
+
+Do not write an introduction that breaks when only one person is playing.
+
+With multiple arriving guests, invitation-related conversation can happen outside or while walking toward the entrance.
+
+With one arriving guest, move that exchange to the doorway between the arriving player’s character and an already-present CPU guest.
+
+Suggested exchange:
+
+“Who booked this place?”
+
+“I thought you did.”
+
+“No. I just organized the ride.”
+
+“The invitation already had everybody’s names.”
+
+The birthday guest believes the friends arranged the surprise. The friends believe someone else in the group arranged the venue.
+
+A guest can have coordinated transportation without having booked the mansion.
+
+Choose speaking roles from characters actually present in the shot. Do not play dialogue from nonexistent passengers or a character who is visibly elsewhere.
+
+Use character-specific delivery while preserving the meaning of each line.
+
+Do not force all twelve guests to speak during a ninety-second introduction.
+
+## 6. Lock the time of night and exterior atmosphere
+
+The entire match takes place at night.
+
+The fictional mansion clock reaches **11:45 p.m.** when the active fifteen-minute timer begins. Final lockdown occurs at **midnight**.
+
+This is fictional story time derived from match progress, not the player’s real clock, timezone, or location.
+
+The introduction takes place immediately before 11:45 p.m. The ending remains nighttime. Do not introduce a sunrise after fifteen minutes.
+
+The exterior is a large private mansion with a stone façade, tall windows, an imposing entrance, and restrained warm light spilling onto the steps.
+
+Use a deep blue-black sky, drifting clouds, wet or recently rain-darkened paving, and a light breeze moving branches.
+
+Use restrained ground-level mist outside. Do not fill the entrance with opaque fog that prevents players from seeing the characters.
+
+The arrival should feel expensive and slightly isolated, not like an abandoned ruin or a cartoon haunted attraction.
+
+Preserve the existing limousine arrival when the asset is usable. Show the vehicle stopping, doors opening, guests stepping out, clothing settling, and footsteps crossing the paving.
+
+Do not add a driver character to the permanent cast. The driver can remain unseen.
+
+Sound begins with distant wind, tires on damp stone, an idling engine, vehicle doors, and muffled conversation. As the guests approach the mansion, faint music becomes audible through the entrance.
+
+No monster roar is needed before anyone gets inside.
+
+## 7. Interpret the two reference images without copying their limitations
+
+Use the uploaded images as composition and atmosphere references, not as production assets to extract or duplicate.
+
+**Reference A:** rich woodwork, patterned flooring, framed art, gallery balconies, staircases, lamps, and a space that can be viewed from above.
+
+**Reference B:** heavy stone arches, vertical scale, an imposing staircase, dark recesses, and intimidating architecture.
+
+Combine their strongest qualities into an original mansion.
+
+The target is grounded, modern 3D with believable materials, architectural scale, character contact, and deliberate lighting.
+
+Avoid low-resolution textures, visibly angular faces, repeated flat wall panels, empty rooms, floating props, uniformly shiny surfaces, and generic colored character capsules.
+
+The mansion should initially look cared for. Elias maintains the collection obsessively.
+
+Dust belongs in inaccessible corners, unused service areas, and old frames—not as a blanket over the birthday table and every walking surface.
+
+Use restrained aging: polished stair treads, worn brass handles, hairline stone cracks, darker wood at hand-contact points, faded edges of rugs, and carefully restored portraits.
+
+Do not use random gore, skeleton piles, or excessive cobwebs as a substitute for art direction.
+
+## 8. Define materials, lighting, and visual hierarchy
+
+Use a consistent palette: dark walnut, muted olive and charcoal walls, aged brass, deep wine-red fabric, warm ivory highlights, and cold blue moonlight.
+
+Wood should have believable grain and varied roughness. Stone should look heavy and matte. Brass should reflect light without looking chrome-plated. Velvet should absorb light. Glass should remain readable without excessive transparency effects.
+
+Do not make every surface wet.
+
+Before the attack, use warm lamps, chandeliers, and soft indirect light to suggest hospitality.
+
+After the attack, let selected lamps dim or fail. Cold window light and practical lamps should still reveal routes, bodies, doorways, and cover.
+
+Darkness must create uncertainty, not make the game unreadable.
+
+Avoid global exposure pumping when the player passes a lamp. Keep strong bloom, chromatic aberration, heavy grain, and motion blur disabled by default during gameplay.
+
+Use baked lighting for appropriate static architecture and controlled real-time effects for moving characters and interactive events. PlayCanvas supports lightmapping for static scenes; use that capability rather than making every fixture an expensive dynamic shadow light. :chatgpt-content-reference{index="5"}
+
+Quality settings may change shadow resolution and decorative effects. They must not change which players are legitimately visible.
+
+## 9. Preserve the mansion’s rooms and make each recognizable
+
+Retain the established room identities and reconcile them with the current authoritative map. Do not invent connections in documentation that do not exist in geometry.
+
+**Grand Portrait Gallery:** the social center and primary visual showcase. Use walnut paneling, tall framed portraits, olive walls, warm chandeliers, and the birthday arrangement. The buffet table supplies the established under-table hiding opportunity. Keep a clear sightline between the party display, camera sideboard, and Elias.
+
+**Sculpture Vault:** pale stone figures, dark plinths, taller silhouettes, and narrow but navigable passages between displays. Sculptures provide occlusion without becoming a random obstacle maze. Make statue bases heavy and stable, not movable physics toys.
+
+**Archive Library:** high shelving, reading lamps, leather or fabric seating, papers, and the established reading-table hide. Footsteps should feel quieter on rugs and more distinct on exposed wood. Shelves must block sight where their geometry suggests they should.
+
+**Conservation Lab:** practical workbenches, restrained cool task lights, covered frames, restoration tools, and protective sheets. It should feel like a working conservation room, not an unrelated futuristic laboratory.
+
+**Curator’s Study:** controlled symmetry, personal records, a heavier desk, a low lamp, and unsettling evidence of planning. Preserve the established desk hiding opportunity. Do not turn every paper into an interactable quest item.
+
+**Sealed Exhibition Room:** a more restricted, solemn space with covered works and heavier architectural details. The historical name must not imply a locked entrance unless the gameplay actually enforces it. Do not add a key quest solely because of the name.
+
+**Hall of Mirrors:** a narrower connecting space with aged mirrors, curtains, and intersecting sightlines. Reflections must not reveal hidden entities through walls. Use simplified reflection techniques when necessary rather than implementing an expensive or privacy-breaking mirror system.
+
+Use the staircase and balcony language from the references in the foyer and connecting spaces. Decorative upper levels must not imply reachable routes unless they are actually navigable.
+
+Provide readable landmarks so players can learn the mansion through sight, not just room labels.
+
+## 10. Make escape geography coherent
+
+Use the existing working exit and connect its public presentation to one consistent destination: **Garden Gate**.
+
+The closed arrival entrance and the Garden Gate must not be confused.
+
+Wayfinding can indicate **Courtyard → Garden Gate**, but the route still requires traversing the mansion.
+
+If the existing exit needs a small rear threshold or courtyard treatment to make that presentation coherent, add it without rebuilding the entire map.
+
+Provide alternate approaches or appropriate counterplay around critical choke points. A decorative second door does not count as a second escape route.
+
+The player must physically cross the authoritative escape boundary before the deadline.
+
+Do not require collecting every clue, inspecting every portrait, possessing the camera, or waiting for a final unlock.
+
+Elias can pursue or physically obstruct the route, but the story must not claim that he can arbitrarily seal every exit before the deadline.
+
+Beyond the Garden Gate, his claim ends for guests who crossed while still uninfected.
+
+A legitimate escape is final. Do not add another mandatory outside chase that secretly changes the objective.
+
+## 11. Establish the story rules that connect everything
+
+Elias Voss was a portrait restorer who became obsessed with preserving people, not merely their likenesses.
+
+He made a supernatural bargain that allowed him to bind human presence into his collection. Preservation became possession.
+
+Birthdays appeal to him because they celebrate time moving forward—the thing he refuses to accept.
+
+He presents himself as a gracious host. He speaks about remembrance and keeping people together while depriving them of choice.
+
+The bargain has limits.
+
+Guests must enter voluntarily, although Elias deceives them about the invitation.
+
+Once he declares a collection night, there is a fifteen-minute interval before the mansion completes its final sealing.
+
+An uninfected guest who crosses the escape threshold during that interval can leave.
+
+Biting gives Elias temporary control over a guest as an infected seeker. It does not immediately add their portrait to the wall.
+
+At the final bell, those who remain are claimed by the collection.
+
+Past victims remain bound to the collection. Do not introduce a separate roaming army of historical zombies.
+
+These rules explain the invitations, camera, infection, portraits, deadline, and exit.
+
+Do not add a bomb, external mastermind, unrelated creature, additional final boss, or mandatory ritual.
+
+Elias’s history explains his behavior; it does not excuse it.
+
+## 12. Build the introduction as a synchronized sequence
+
+Target approximately ninety seconds. The timings below are production targets, not permission to rush important performances.
+
+**Opening exterior: approximately 0–12 seconds.** Establish the mansion at night and the arriving group. Briefly show a human-controlled character clearly enough for the player to recognize their selection. Avoid twelve repetitive individual introductions.
+
+**Entrance and reunion: approximately 12–28 seconds.** Arriving guests enter and greet those already inside. Show the birthday guest acknowledging them. Use a brief warm exchange before introducing danger. The entrance doors close with a heavy but initially plausible sound.
+
+**The welcome: approximately 28–43 seconds.** Elias approaches with a wrapped gift. The camera framing should feel controlled and symmetrical. He is courteous, not openly snarling.
+
+A guest asks, “Did you invite us?”
+
+Elias answers indirectly:
+
+“A birthday deserves to be remembered.”
+
+**The photograph: approximately 43–55 seconds.** Elias proposes a photograph with the birthday guest before the group picture. He expects a normal phone.
+
+An arriving guest notices the antique camera and picks it up.
+
+“Wait. Let’s use this.”
+
+Elias recognizes it too late.
+
+“Not that—”
+
+The flash fires.
+
+**The freeze: five actual seconds.** Elias becomes unnaturally still. Do not animate a continuing idle sway through the freeze. His expression reveals something wrong, but the others initially interpret it as distress.
+
+The birthday guest approaches:
+
+“Are you okay?”
+
+**The attack and panic: approximately 60–70 seconds.** Elias recovers and bites. The attacker and victim must physically align. The victim recoils and struggles. Nearby guests react at slightly different moments.
+
+The photographer drops the camera. Show the object leaving the hand and reaching the floor. Avoid a long unpredictable physics bounce; settle it in an authoritative reachable position.
+
+The wrapped gift opens during the disturbance. Inside is an empty portrait frame bearing the birthday guest’s name.
+
+**The announcement: approximately 70–90 seconds.** Elias uses a nearby microphone or a visibly coherent intercom control. He does not teleport to another room.
+
+“I offered you a night you would never forget. Now I offer you a choice. You have fifteen minutes to leave my house. When the final shutters close, anyone still inside becomes part of the collection.”
+
+A pause.
+
+“Go on. Find somewhere to hide.”
+
+The music drops away. Display **FINAL LOCKDOWN — 15:00** and transition into player control.
+
+Adapt timing to actual recorded dialogue. Preserve the five-second freeze exactly and maintain cause and effect.
+
+## 13. Handle the birthday guest, photographer, and gift dynamically
+
+The birthday guest’s name on the frame must come from the selected match identity. It must not be baked into a texture that always names the same person.
+
+Use readable in-world lettering or an appropriately generated local asset with a safe fallback.
+
+Choose the photographer from the arriving active group. In a solo-human match, that human’s character can perform the narrative photograph.
+
+The scripted opening action does not mean the player must discover a hidden button before the introduction can proceed.
+
+Bind the camera pickup, flash, freeze, bite, drop, and intercom to ordered narrative events. Do not trigger them independently on each client.
+
+All eligible guests need compatible hand placement, camera holding, reaction clips, and necessary opening lines.
+
+The birthday role can use any existing guest’s rig without the bite animation passing through the neck, shoulder, or torso.
+
+Do not use gender-specific dialogue that breaks with a different birthday identity.
+
+The empty frame should match the hallway collection’s visual language. It is evidence of intent, not a collectible power source.
+
+## 14. Explain the antique camera consistently
+
+The camera belonged to a previous guest who attempted to understand the collection and escape.
+
+Use an existing suitable historical identity if available. Otherwise, create one fictional past victim for gallery lore—not another active cast member.
+
+That person restored and altered the camera. Its flash briefly forces Elias and infected guests toward the human state buried beneath the curse.
+
+Elias kept it as a trophy, believing it broken. He did not knowingly give the group a working defense.
+
+The camera was already functional before the birthday photograph. The first flash does not create the infection.
+
+A short gallery inscription can later explain:
+
+“The light makes them remember. Only for a moment. Long enough to run.”
+
+The opening demonstrates the effect before players need to understand its origin.
+
+There is one camera. It remains optional protection, not a required escape item or permanent weapon against Elias.
+
+Do not add batteries, replacement parts, or a repair quest.
+
+## 15. Start the hunt fairly and keep the timer authoritative
+
+The server starts the fifteen-minute deadline when survivor control becomes available.
+
+Include an initial eight-second hunter-release delay as a configurable starting value for testing. It is part of the fifteen minutes, not additional match time.
+
+This gives survivors a brief opportunity to scatter and understand movement.
+
+Communicate the temporary hunter hold to the affected roles. Do not represent it as another camera freeze or grant repeated immunity after entering cover.
+
+Every active survivor begins from a valid staging position near the party area, regardless of whether they arrived or were already inside.
+
+No CPU gets a head start collecting items.
+
+The camera retains its timeline and location. By the end of the announcement, its initial recharge may legitimately have completed; do not confuse that with resetting it on every phase change.
+
+Host-authorized intro skipping must produce the same gameplay-ready state.
+
+Warn at five minutes and one minute without stopping play.
+
+At zero, resolve the deadline authoritatively. A local clock change, slow animation, inspection panel, or reconnect cannot add time.
+
+## 16. Specify movement and running as physical performances
+
+The player selects where to go. The character handles the route. The player controls the decisions along the way.
+
+Support room selection, nearby floor selection, Stop, Walk/Run, changing destinations, and choosing valid cover.
+
+Do not make the character look like a rigid figure sliding across the floor.
+
+**Standing:** subtle breathing, natural weight distribution, small head movement, and occasional attention shifts. Avoid constant fidgeting.
+
+**Walking:** cautious but purposeful steps, believable weight transfer, coordinated arm movement, and feet that contact the surface.
+
+**Running:** forward intent, stronger arm drive, longer strides, and faster breathing. Panic should appear through posture and urgency, not flailing limbs or a permanent exaggerated sprint.
+
+**Stopping:** decelerate into a planted position. Do not play a running cycle while the character has already stopped.
+
+**Turning:** rotate the body through a plausible turn rather than instantly snapping 180 degrees. Allow emergency direction changes without forcing a lengthy animation.
+
+**Stairs:** feet must meet the steps. Match the movement path to the visible staircase rather than sliding upward on an invisible ramp with floating feet.
+
+**Crouching and hiding:** lower the body, place hands where necessary, enter cover, and settle. Under-table entry should involve bending and moving into the actual available space.
+
+**Leaving cover:** show the character emerging before resuming full running speed. Do not teleport them into the hallway.
+
+Use compatible rigged animation clips, retargeting, and limited procedural adjustment where needed. PlayCanvas’s animation system supports state-based animation control; use it to organize transitions rather than scattering unrelated animation calls throughout the game. :chatgpt-content-reference{index="6"}
+
+Synchronize footsteps with actual foot contacts. Match animation playback to movement speed and prevent obvious foot sliding.
+
+Preserve individual character identity through posture and secondary motion without giving selected cosmetics hidden gameplay advantages.
+
+## 17. Define animation coverage and interruption rules
+
+Every guest needs functional coverage for neutral idle, cautious idle, walk, run, stop, turns, crouch, entering cover, hidden idle, peeking, leaving cover, inspection, camera handling, discovery, struggle, bite reaction, transformation, infected movement, search, stun, recovery, and escape.
+
+Shared compatible animation assets are allowed. Identical faces, timing, voices, and silhouettes are not.
+
+An infected guest should retain recognizable movement cues until behavior or close observation reveals the change.
+
+Do not make every infected person constantly stumble, roar, or hold both arms forward. That would reveal them long before the intended encounter.
+
+Searching under a table requires approaching, stopping, bending, and looking into the actual opening.
+
+For the close reveal, the head and upper body must enter the hidden player’s legitimate field of view. Do not substitute a full-screen face texture.
+
+A camera stun should interrupt a valid attack, produce the appropriate reaction, and keep the affected body stable until recovery.
+
+Animation timing must not decide server outcomes by itself. An attack result belongs to the server; presentation follows that event.
+
+Interrupted actions must exit cleanly. A character who is grabbed cannot continue casually reading a portrait or finish a queued wave.
+
+Use brief blended transitions, not long cinematic locks during active play.
+
+## 18. Define the travel camera and corner-peek camera
+
+Use an angled overhead perspective during travel, not a flat diagram or building-wide tactical map.
+
+Initial tuning target: approximately 50–55 degrees downward pitch, a moderate perspective field of view, and a distance that keeps the character recognizable while showing nearby approaches.
+
+Adjust those values to the actual room scale and phone aspect ratio. Record final settings rather than leaving every scene with unrelated camera behavior.
+
+Follow smoothly and include modest look-ahead in the direction of travel.
+
+Do not rotate violently when the character turns. Preserve the player’s spatial understanding.
+
+The camera can show a visible person approaching from either side. It cannot reveal occupants through walls, hidden places, or floors above and below.
+
+At a valid corner, stop the character and offer Peek.
+
+Holding Peek moves the character’s head and upper body enough to gain a genuine view. The camera follows that legitimate position.
+
+Releasing it returns them to cover. Provide a toggle-peek accessibility option using the same exposure rules.
+
+Do not expose the whole body because the player merely looked around. Do not provide free remote vision without any physical exposure.
+
+## 19. Define the first-person hiding view
+
+Transition to first person only after the character has physically established concealment.
+
+Under a table, the camera should sit at the character’s actual head position. Show the table underside, nearby hands or knees where appropriate, the floor, feet, shadows, and openings.
+
+Avoid excessive fisheye distortion.
+
+Allow dragging to look within the hiding place’s legitimate range. Clamp impossible rotation where geometry or posture requires it.
+
+Use subtle breathing movement, with a reduced-motion option. Do not make the view constantly shake.
+
+Nearby shoes and lower legs should remain detailed enough to recognize the character. Prioritize those assets because they are central to the trust mechanic.
+
+A friendly survivor can stop beside the table. An infected one can do the same.
+
+A player should be able to think:
+
+“I know those shoes.”
+
+Then, only when the person bends down:
+
+“That is not who I thought it was.”
+
+Normal looking does not expose the character. Deliberate leaning or leaving does.
+
+No free overhead camera while remaining hidden. Leaving cover restores the travel camera.
+
+Use **Hidden — stay alert**, not “Safe forever.”
+
+## 20. Make hiding and searching fair
+
+Do not equate entering a room with becoming hidden.
+
+Concealment depends on actual cover, position, exposure, and valid visibility rules.
+
+A hunter who watched someone enter a hiding place can remember it. A hunter who did not must search or discover evidence.
+
+A search must inspect a plausible location. It cannot reveal every survivor in the room.
+
+Replace any obsolete guarantee that the first search always misses. Properly positioned inspection of the correct hiding place must be meaningful.
+
+Do not let repeated cover entry reset hunter memory or grant fresh protection.
+
+Bots must operate from permitted observations, noises, and remembered evidence—not the full server state.
+
+Use fair search behavior with actual wrong guesses, investigation, and abandonment of stale evidence.
+
+A hunter cannot bite through a table, wall, locked door, or across the room.
+
+Survivors can reposition, retreat, or use valid defenses when the situation permits. Do not automatically rescue them because a hunter found the right spot.
+
+## 21. Preserve secret infection and the social tension
+
+The central uncertainty is:
+
+**“I recognize you. I don’t know whether I can trust you.”**
+
+Preserve clothing, shoes, hair, and the guest’s recognizable face structure after infection.
+
+Use restrained changes: altered expression, eyes, tension, breathing, and close-range facial detail. Preserve complexion rather than replacing everyone with identical pale skin.
+
+Do not require the infection to remain invisible when someone is plainly looking at the face. The uncertainty should come from incomplete observation.
+
+Do not announce later infections through names, roster changes, red badges, map symbols, or public notifications.
+
+The opening victim’s infection is witnessed. That exception does not expose every later transformation.
+
+Newly infected players receive private instructions and retain control as seekers.
+
+No cure is introduced in this version. The camera temporarily restrains; it does not restore.
+
+Keep the transformation brief, readable, and server-authoritative. Preserve validated existing timing unless a change is explicitly documented and tested.
+
+Multiple guests can occupy the same room. Neither a room card nor a familiar person’s presence guarantees safety.
+
+## 22. Build “View Gallery” as optional environmental storytelling
+
+Create a substantial portrait wall along an existing hallway used during travel.
+
+It displays fictional individuals and groups Elias trapped over many years.
+
+Use a curated set of detailed inspectable portraits, supported by additional background frames that suggest a larger collection. Do not require dozens of unique cinematic assets before the feature works.
+
+Vary clothing eras, photographic styles, painted surfaces, frame aging, and plaque treatments.
+
+Some images show birthdays. Others show private receptions or groups in familiar mansion locations.
+
+Selected images include Elias across widely separated years, looking unsettlingly unchanged.
+
+Passing the wall provides a visual glimpse. It does not force a stop, camera cut, popup, or jump scare.
+
+When close enough and legitimately facing the wall, display **View Gallery**.
+
+Selecting it stops or redirects the current journey through a valid movement transition and brings the character to a physical inspection point.
+
+Use a close view of the actual wall. Do not teleport the player into a safe gallery menu.
+
+Allow nearby portraits to be inspected. Reaching another section requires repositioning.
+
+The discovery should unfold in three layers:
+
+At first, these look like old celebrations.
+
+Then the player notices the same host, room, gifts, and references to guests who never left.
+
+Finally, the frame design connects to the birthday gift.
+
+Suggested fictional plaques:
+
+**The Winter Reception — 1978**  
+“Twelve invitations. No departures.”
+
+**A Birthday to Remember — 1996**  
+“She asked who had arranged the party.”
+
+**The Photographer**  
+“The light makes them remember. Only for a moment.”
+
+Keep entries brief enough to read under pressure.
+
+Occasional restrained supernatural details are permitted: a subtle eye movement, altered expression, or indistinct whisper. They must not reveal current player locations or impersonate authoritative footstep cues.
+
+The timer continues. The character remains physically vulnerable.
+
+Keep nearby gameplay audio audible and provide an obvious **Back to Game** action. Movement input closes inspection and requests a valid response.
+
+A grab or bite interrupts inspection appropriately.
+
+No immunity, mandatory portrait count, repeatable score farming, required escape unlock, or live infection tracker.
+
+Do not add current players to the wall until after the match has ended.
+
+## 23. Preserve the camera, doorway blocking, and limited defenses
+
+There is one physical antique camera.
+
+The holder deliberately chooses Take Photo. An eligible visible infected target freezes for five seconds. Recharge lasts seven seconds from shutter release.
+
+Preserve ownership, location, and remaining cooldown through passing, dropping, infection, refresh, and reconnection.
+
+The same rules apply in normal travel, a rescue, and a doorway encounter.
+
+No flashes through walls or across unrelated rooms.
+
+Use a short readable flash with restrained exposure. Offer a reduced-flash presentation that preserves identical gameplay.
+
+Avoid a repeated full-screen white strobe.
+
+The camera does not permanently kill Elias.
+
+Preserve the implemented limited-use defensive item, such as a snare. Do not add a large weapon inventory.
+
+A zombie may intentionally stand in a doorway and block passage.
+
+A successful disabling action must create a physically usable opening. The animation can move the blocker aside as part of the validated effect, but the server and clients must agree on position and collision.
+
+Do not freeze a character while leaving an invisible blocking reservation behind.
+
+Provide retreat, alternate approaches, help, and appropriate counterplay. Do not teleport hunters away merely because they are effective.
+
+## 24. Give cooperation meaning without forcing it
+
+Preserve authentic private SOS messages and verified rescue scoring.
+
+A shared location is a timestamped report, not permanent live tracking.
+
+Contact lists, delivery errors, and request cancellation must not reveal who turned.
+
+Do not add zombie impersonation to the existing authentic SOS system.
+
+A rescue requires a real assist followed by the threatened player escaping. Merely promising to help earns nothing.
+
+The camera holder can escape now or stay to create another opening.
+
+Do not invalidate a legal early escape or shame the player through misleading results.
+
+The story’s theme is that Elias tries to keep people together through possession. Players can choose to help each other freely.
+
+Express that through actual decisions and outcomes—not a friendship meter, compulsory sacrifice, or magical bonus for being nice.
+
+## 25. Preserve the established voice identities
+
+Keep the configured character-to-voice mappings unless an approved newer manifest supersedes them.
+
+The documented direction uses distinct Inworld voices for the thirteen guests and Elias. Preserve usable existing recordings and integrations rather than replacing everyone with generic narration. :chatgpt-content-reference{index="7"}
+
+Audit each recording. A file that exists or decodes successfully is not automatically a good dramatic performance.
+
+Maintain separate clips for quiet warnings, discovery, struggle, bite reaction, aftermath, movement, and distant cries.
+
+Do not generate an entire encounter as one uninterrupted speech file. Events must be interruptible.
+
+Quiet speech should be intimate and controlled. Discovery should interrupt that control. A grab produces physical strain. A bite reaction is short and broken. Afterward, use shaken breathing before infected vocal behavior.
+
+Do not make every guest shout the same words at the same moment.
+
+Preserve each identity’s established pacing and delivery. Do not infer accents from names.
+
+Elias’s welcome is warm and composed. His intercom performance becomes calmly threatening, not a theatrical cartoon villain.
+
+The revised story requires selected post-attack Elias announcements; update any older instruction that prohibited all such dialogue. Other infected guests should not deliver long villain speeches.
+
+Use approved tools and account limits. New paid generation requires authorization. Runtime gameplay must not depend on a fresh external voice-generation request.
+
+## 26. Design the sound from arrival to escape
+
+**Exterior:** wind through branches, tires, vehicle doors, shoes on wet stone, and distant indoor music.
+
+**Entrance:** the sound becomes enclosed. Footsteps acquire room character. Conversation and the party music feel warmer. The entrance door closes with weight.
+
+**The welcome:** music stays low under dialogue. Cloth, gift wrapping, glassware, and small movements provide intimacy.
+
+**The flash:** use the camera’s mechanical sound and a short supernatural interruption. Do not substitute an explosion.
+
+**The five-second freeze:** reduce the music and let stillness become uncomfortable. The birthday guest’s voice and movement are clear.
+
+**The bite:** combine a brief impact, fabric movement, interrupted speech, and a short cry. Avoid exaggerated gore audio.
+
+**The intercom:** use controlled speaker coloration. The voice must remain intelligible.
+
+**The hunt:** emphasize footfalls, door movement, breathing, cloth, and occasional structural sounds. Silence should have value.
+
+**The final minute:** add a restrained musical pulse and audible lockdown machinery without burying gameplay cues.
+
+**Escape:** the exterior sound opens up. Let breathing settle. Do not immediately cancel relief with an unavoidable final attack.
+
+The sound listener should represent the character’s physical location, not float high above the mansion with the travel camera.
+
+Account for distance, doors, and intervening walls. Do not make nearby rooms sound identical to the player’s own room.
+
+A soundtrack stinger must not reveal an unseen zombie through a wall. Threat music should follow events the player legitimately perceives.
+
+Do not force automatic character whispers that betray a hidden player when they chose to stay quiet.
+
+## 27. Handle audio, captions, and the real venue correctly
+
+Support headphones, phone-speaker play, and a shared venue audio mode.
+
+In shared venue mode, route common introduction and intercom audio through the designated host output to avoid twelve delayed copies of the same speech.
+
+Keep private SOS content and secret role information off shared speakers.
+
+Do not assume sound can start automatically. Use a clear player interaction to enable audio and handle blocked playback gracefully; browsers can restrict audible autoplay and Web Audio until appropriate interaction occurs. :chatgpt-content-reference{index="8"}
+
+Provide master, music, effects, and voice controls.
+
+Muting playback changes what the player hears, not whether their character’s running creates a gameplay sound event.
+
+Caption dialogue accurately. For unseen nonverbal events, use descriptions such as **footsteps nearby**, not a secret identity or infection label.
+
+Keep contrast between whispers and panic without unsafe output peaks. Use a limiter and avoid abrupt maximum-volume scares.
+
+Participants remain together in the real venue. Their characters do the running and hiding inside the virtual mansion.
+
+Do not require real running, crawling beneath venue furniture, microphone access, or unsafe movement.
+
+## 28. Build the browser interface from joining through play
+
+The participant journey remains:
+
+**Scan QR code → open browser → enter the intended session → select an available character → get ready → play.**
+
+No app installation, developer account, or complicated registration.
+
+The opening screen should show a restrained nighttime mansion view, the game title, and the join action. Avoid decorative buttons that do nothing.
+
+Character selection shows the existing identity, a readable portrait or model preview, availability, and a clear confirmation.
+
+The host sees actual readiness and asset-loading status. Do not report ready while essential character or room assets are missing.
+
+Freeze the cast and introduction assignments at match start.
+
+Support portrait and landscape phone layouts. Landscape may offer more scene width, but do not make forced rotation a requirement for playing.
+
+Keep touch targets generous, text readable, and controls clear of device safe areas.
+
+During travel, emphasize destination, pace, Stop, and contextual actions.
+
+Near a corner, show Peek. Near the portrait wall, show View Gallery. While hidden, show appropriate looking, peeking, leaving, and reachable interactions.
+
+Keep the countdown visible without covering the scene.
+
+Room selection uses recognizable static images captured from the actual rooms. Thumbnails must not expose current occupants.
+
+Do not stack menus on top of each other. Closing a panel must not resume an old movement command unexpectedly.
+
+Provide clear pending, accepted, blocked, reconnecting, and session-ended feedback.
+
+## 29. Make the ending reflect actual outcomes
+
+At zero, the mansion completes its final sealing.
+
+Remaining unescaped survivors fail. Hiding does not prevent the deadline.
+
+Use shutters, fading light, the final bell, and the collection’s imagery. Avoid an unrelated explosion.
+
+The portrait wall should make the consequence understandable.
+
+Current guest portraits may appear in the ending only after secret information is no longer relevant.
+
+Escaped players retain their success. Do not add a surprise curse or forced death that invalidates it.
+
+The ending reflects who escaped, who helped, who turned, and who remained.
+
+A larger group escape can show a warmer reunion. A lone escape can be quieter. Neither should falsify the outcome.
+
+Preserve the birthday guest’s established fate. Do not invent a cure in the ending.
+
+If all original survivors reach resolved outcomes before the deadline, end active play. A later final-lockdown epilogue must be clearly presented as a time jump rather than secretly changing the timer rule.
+
+Show the infection timeline only after the match.
+
+A final glimpse of another prepared invitation may suggest Elias remains a threat. It must not cancel the current group’s win or require a sequel.
+
+## 30. Preserve fair multiplayer and private information
+
+The server validates movement, visibility permissions, searches, grabs, bites, infection, blocking, defenses, camera ownership, cooldowns, rescue, escape, and match time.
+
+Clients send requested actions and render permitted outcomes.
+
+Maintain one shared match containing the mansion’s connected locations. Do not create a separate disconnected multiplayer session for each gallery room.
+
+Protect hidden state in transmitted data, not merely in interface labels. Colyseus State Views support per-client filtering; use compatible filtering and private messages rather than broadcasting every secret to every player. :chatgpt-content-reference{index="9"}
+
+Visible encounters require enough data to render the encountered character. They do not justify distributing a global infection directory.
+
+Bots use permitted perception and remembered evidence.
+
+Shared displays and spectators must not expose hidden positions or secret transformations to active participants.
+
+Reconnection restores the same eligible identity and legitimate state. It cannot duplicate characters, reset infection, restart the timer, or create another camera.
+
+Interrupted inspections and camera transitions must recover cleanly.
+
+A disconnected renderer must not reset the match.
+
+For last-second escapes, use one documented server-side ordering rule. Crossing must complete before the deadline.
+
+## 31. Make the visuals achievable in the actual browser
+
+The target is a polished, visually convincing browser game—not a promise that every phone can render unlimited detail.
+
+Use real rigged character assets, properly authored materials, optimized geometry, and suitable animation clips.
+
+Preserve the standalone engine’s current build pipeline. Verify package compatibility before changing APIs.
+
+Use a tested rendering path with appropriate fallback support. Do not require a graphics feature merely because it is available on the development computer.
+
+Profile the full scene rather than optimizing an empty room. PlayCanvas’s guidance emphasizes controlling draw calls, batching appropriate objects, and avoiding unnecessary per-frame allocations. :chatgpt-content-reference{index="10"}
+
+Use compressed textures through a compatible asset pipeline. Small image download size alone does not establish low texture-memory use; PlayCanvas documents that distinction and supports compressed texture workflows. :chatgpt-content-reference{index="11"}
+
+Initial production targets are sustained thirty frames per second on the chosen supported phone baseline and sixty on a suitable desktop test configuration. These are targets to measure, not claims already achieved.
+
+Test a full fifteen-minute run for heat, memory growth, frame pacing, and connection stability.
+
+Reduce decorative particles, reflection detail, distant geometry, and shadow cost before sacrificing essential character recognition, controls, or visibility rules.
+
+Do not load every high-resolution portrait and every voice variation before the player can join.
+
+Preload essential gameplay geometry, collision, core animations, and required opening assets. Stream optional detail safely.
+
+## 32. Maintain an honest asset-production manifest
+
+For each room, character, animation, sound, portrait, and cinematic component, record whether it is existing and usable, needs refinement, newly produced, or still a placeholder.
+
+Track source, usage permission, local path, runtime format, optimization status, and the feature that consumes it.
+
+Use available authorized production tools. Do not claim that unavailable modeling, animation, or generation tools were used.
+
+Do not extract copyrighted models, textures, music, or voices from the reference images or unrelated commercial games.
+
+Do not purchase assets or hire performers without approval.
+
+Preserve source assets and optimized runtime exports separately.
+
+When a required asset is missing, identify the exact missing deliverable. Do not quietly replace a detailed character with a capsule and mark the feature complete.
+
+A temporary substitute may support testing, but it must remain clearly labeled in the handoff.
+
+## 33. Build in integrated stages without stopping at a plan
+
+First, verify the working baseline and asset inventory.
+
+Then complete one full encounter in the existing game: select a destination, run, stop, peek around a corner, change route, enter cover, observe a visitor, react, and escape or become infected.
+
+Next, integrate View Gallery and prove that inspection remains part of the same live match.
+
+Then apply the interaction system consistently across the existing rooms.
+
+Integrate the dynamic-cast opening, camera continuity, intercom, timer, and ending.
+
+Perform the visual, animation, and audio refinement on those working systems.
+
+Do not spend the entire task creating cinematic shots while the player’s movement remains broken.
+
+Do not stop after producing a project plan when implementation can continue.
+
+Commit coherent checkpoints and keep the documentation current. A saved checkpoint is not the same as a finished deployment.
+
+## 34. Verify the vision from start to finish
+
+Test introductions with one, six, and twelve human players, plus CPU fill where appropriate.
+
+Verify all thirteen possible birthday identities and compatible photographer assignments. Confirm there are no duplicate characters, missing speakers, or incorrect frame names.
+
+Verify that arriving and already-present guests converge correctly before the attack.
+
+Test intro skip, reconnect during the introduction, audio blocked at launch, and the initial hunter-release delay.
+
+Inspect animation from overhead and first person. Check feet, hands, camera grip, stairs, table entry, face reveal, grab alignment, stun, and recovery.
+
+Test a friendly visitor and an infected visitor at the same hiding spot.
+
+Verify wrong searches, witnessed hiding, stale evidence, route changes, doorway blocking, defensive passage, rescue, and escape without the camera.
+
+Test walking past the gallery without interruption, entering inspection, reading, hearing an approach, closing immediately, and being interrupted by a valid attack.
+
+Confirm the gallery never grants immunity, pauses time, exposes live infection, or resumes unwanted movement.
+
+Test privacy in received client data, shared displays, sound cues, rosters, SOS behavior, and spectator views.
+
+Run complete multiplayer sessions at the configured population. Distinguish automated clients, mobile emulation, and actual phones.
+
+Verify full-duration timing, organizer pause, temporary network loss, early match completion, and last-second outcomes.
+
+Observe whether players understand the objective, notice the gallery’s meaning, recognize the camera’s purpose, and feel able to act.
+
+Measure waiting without decisions, confusing routes, dominant camping, unavoidable captures, trivial escapes, and repeated interface mistakes.
+
+Automated tests do not prove the experience is fun. Report what has been observed in human play and what remains untested.
+
+## 35. Deliver the actual game and evidence
+
+Provide the updated playable URL through the existing authorized deployment process.
+
+Identify the deployed frontend and backend versions so the link can be matched to the tested build.
+
+Provide representative screenshots or short captures from the actual browser game showing the nighttime exterior, party opening, overhead travel, first-person hiding, gallery inspection, and ending.
+
+Do not use concept art as evidence that the runtime scene is finished.
+
+Include test results, measured performance, known limitations, unfinished assets, and rollback instructions.
+
+Do not report an open connection, attractive title screen, completed script, or cinematic preview as a completed multiplayer game.
+
+The final quality standard is this:
+
+**The invitation gets them inside.**
+
+**The birthday makes the gathering personal.**
+
+**The photograph reveals that Elias can be resisted.**
+
+**The bite turns familiar faces into uncertainty.**
+
+**The gallery reveals what failure means.**
+
+**The deadline makes permanent hiding impossible.**
+
+**The controls let players create their own escape story.**
+
+**Their decisions determine who leaves.**
+
+The player should remember something that genuinely happened:
+
+“I stopped to look at the portraits. Then I heard footsteps. I recognized the shoes, so I almost came out. But he bent down, and I saw his face. My friend flashed the camera. We ran through the hallway together. We had forty seconds left.”
+
+**Build the systems, performances, and environment that make that moment possible. Do not replace it with a cutscene that tells the player it happened.**

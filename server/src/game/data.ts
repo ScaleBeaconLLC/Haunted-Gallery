@@ -8,7 +8,13 @@
  * number is used as z. Keep this file free of Node or browser APIs.
  */
 
-export type RoomId = "portrait" | "sculpture" | "archive" | "conservation" | "study" | "sealed" | "mirrors";
+/**
+ * The seven established rooms keep their ids. The bedroom wing (approved expansion,
+ * references 03–06 in references/mansion-package) adds the Portrait Corridor and three
+ * bedrooms north of the Curator's Study and the Hall of Mirrors.
+ */
+export type RoomId = "portrait" | "sculpture" | "archive" | "conservation" | "study" | "sealed" | "mirrors"
+  | "corridor" | "master_bedroom" | "guest_bedroom" | "spare_bedroom";
 export type CharacterId =
   | "julian" | "anika" | "marcus" | "mei" | "dev" | "amara" | "alex"
   | "andre" | "rafael" | "simone" | "owen" | "tessa" | "nia";
@@ -47,9 +53,15 @@ export const ROOM_GRAPH: Record<RoomId, RoomId[]> = {
   sculpture: ["portrait", "sealed", "study"],
   archive: ["sealed", "conservation"],
   conservation: ["archive", "sealed", "mirrors"],
-  study: ["sculpture", "sealed"],
+  study: ["sculpture", "sealed", "corridor"],
   sealed: ["portrait", "sculpture", "archive", "conservation", "study", "mirrors"],
-  mirrors: ["conservation", "sealed"],
+  mirrors: ["conservation", "sealed", "corridor"],
+  // Bedroom wing: the Portrait Corridor links the Study and the Hall of Mirrors and
+  // serves three bedrooms (each has one door, so hiding there is a real commitment).
+  corridor: ["study", "mirrors", "master_bedroom", "guest_bedroom", "spare_bedroom"],
+  master_bedroom: ["corridor"],
+  guest_bedroom: ["corridor"],
+  spare_bedroom: ["corridor"],
 };
 
 /**
@@ -60,7 +72,12 @@ export const EXIT_ROOM: RoomId = "sealed";
 export const EXIT_POINT: Vec2 = [0, 19.2];
 
 /** How a hidden survivor sits in cover: this drives the first-person camera height and look. */
-export type HidePose = "under" | "behind" | "curtain";
+/**
+ * under: beneath a table or bed (low first-person view); behind: crouched behind a
+ * screen/display; curtain: standing behind drapery; inside: standing inside a wardrobe
+ * or closet, looking out through the door gap.
+ */
+export type HidePose = "under" | "behind" | "curtain" | "inside";
 
 export interface HideSpot {
   id: string;
@@ -82,7 +99,14 @@ export interface RoomDef {
   /** Floor rectangle [x0, x1, z0, z1]. */
   rect: [number, number, number, number];
   center: Vec2;
-  hides: [HideSpot, HideSpot];
+  /** Two or more adult-sized hiding places. */
+  hides: HideSpot[];
+  /** Reference images (references/mansion-package/rooms) this room's design follows. */
+  refs?: string[];
+  /** Open floor where arrivals stand (defaults to a ring around the center); keeps people off beds. */
+  openArea?: [number, number, number, number];
+  /** Surface style for the generated 3D materials. */
+  style?: { floor: "parquet" | "herringbone" | "marble" | "planks" | "stone" | "tile"; wall: "walnut" | "olive" | "stone" | "damask" | "nursery" | "red" | "mirror" };
   floorColor: string;
   wallColor: string;
 }
@@ -97,7 +121,7 @@ export const ROOMS: Record<RoomId, RoomDef> = {
     id: "portrait", name: "Grand Portrait Gallery",
     story: "The midnight unveiling and first bite happen here.",
     searchRisk: "Frames and curtains create false movement and uncertain sightlines.",
-    rect: [-20.5, -3, 1.5, 16.5], center: [-11.75, 9], floorColor: "#3a2a22", wallColor: "#5b2f36",
+    refs: ["02_Grand_Foyer", "08_Dining_Room", "01_Mansion_Overview"], style: { floor: "marble", wall: "olive" }, rect: [-20.5, -3, 1.5, 16.5], center: [-11.75, 9], floorColor: "#3a2a22", wallColor: "#5b2f36",
     hides: [
       { id: "curtain_recess", label: "Curtain recess", pos: [-19.6, 3], pose: "curtain", look: 90, cover: { pos: [-18.2, 3], size: [0.3, 2.4], height: 2.8, kind: "curtain" } },
       { id: "buffet_table", label: "Under the draped buffet table", pos: [-18.7, 12.6], pose: "under", look: 90, cover: { pos: [-18.7, 12.6], size: [1.3, 2.8], height: 0.9, kind: "table" } },
@@ -107,7 +131,7 @@ export const ROOMS: Record<RoomId, RoomDef> = {
     id: "sculpture", name: "Sculpture Vault",
     story: "A dangerous shortcut around the central exhibition.",
     searchRisk: "Statues make silhouettes difficult to read.",
-    rect: [-32, -16, 22, 38], center: [-24, 30], floorColor: "#34343a", wallColor: "#4a4d57",
+    refs: ["12_Sculpture_Vault"], style: { floor: "stone", wall: "stone" }, rect: [-32, -16, 22, 38], center: [-24, 30], floorColor: "#34343a", wallColor: "#4a4d57",
     hides: [
       { id: "plinth_shadow", label: "Behind the plinth", pos: [-30.8, 24.4], pose: "behind", look: 45, cover: { pos: [-29.2, 25.6], size: [1.6, 1.6], height: 1.9, kind: "plinth" } },
       { id: "shipping_screen", label: "Behind the shipping screen", pos: [-17, 35.6], pose: "behind", look: 225, cover: { pos: [-18.4, 34.4], size: [0.3, 2.6], height: 2.3, kind: "screen" } },
@@ -117,7 +141,7 @@ export const ROOMS: Record<RoomId, RoomDef> = {
     id: "archive", name: "Archive Library",
     story: "Museum records reveal Elias has staged previous private unveilings.",
     searchRisk: "Rolling shelves can trap a survivor who waits too long.",
-    rect: [3, 20.5, 1.5, 16.5], center: [11.75, 9], floorColor: "#2e2a24", wallColor: "#4e3b2a",
+    refs: ["07_Archive_Library"], style: { floor: "herringbone", wall: "walnut" }, rect: [3, 20.5, 1.5, 16.5], center: [11.75, 9], floorColor: "#2e2a24", wallColor: "#4e3b2a",
     hides: [
       { id: "reading_alcove", label: "Under the reading table", pos: [14.2, 12.2], pose: "under", look: 200, cover: { pos: [14.2, 12.2], size: [2.6, 1.3], height: 0.85, kind: "table" } },
       { id: "rolling_shelf", label: "Behind the rolling shelf", pos: [8.6, 15.8], pose: "behind", look: 180, cover: { pos: [8.6, 14.5], size: [2.6, 0.6], height: 2.6, kind: "shelf" } },
@@ -127,7 +151,7 @@ export const ROOMS: Record<RoomId, RoomDef> = {
     id: "conservation", name: "Conservation Lab",
     story: "Restoration notes explain that the camera flash interrupts the infection long enough to flee.",
     searchRisk: "Metal carts and hanging canvas announce careless movement.",
-    rect: [16, 32, 22, 38], center: [24, 30], floorColor: "#2c3433", wallColor: "#3f5553",
+    refs: ["13_Conservation_Lab"], style: { floor: "planks", wall: "stone" }, rect: [16, 32, 22, 38], center: [24, 30], floorColor: "#2c3433", wallColor: "#3f5553",
     hides: [
       { id: "cabinet_bay", label: "Behind the cabinet bay", pos: [31, 24.2], pose: "behind", look: 300, cover: { pos: [29.6, 25.4], size: [0.6, 2.4], height: 2.2, kind: "cabinet" } },
       { id: "canvas_rack", label: "Behind the canvas rack", pos: [17, 35.8], pose: "behind", look: 120, cover: { pos: [18.4, 34.8], size: [0.4, 2.6], height: 2.5, kind: "rack" } },
@@ -137,7 +161,7 @@ export const ROOMS: Record<RoomId, RoomDef> = {
     id: "study", name: "Curator's Study",
     story: "Personal records establish Elias Voss as the recurring Curator.",
     searchRisk: "The Curator searches this room more thoroughly after its clue is found.",
-    rect: [-28, -12, 42, 54], center: [-20, 48], floorColor: "#33261d", wallColor: "#4a3222",
+    refs: ["11_Curator_Study"], style: { floor: "herringbone", wall: "walnut" }, rect: [-28, -12, 42, 54], center: [-20, 48], floorColor: "#33261d", wallColor: "#4a3222",
     hides: [
       { id: "bookcase_gap", label: "Behind the secret bookcase", pos: [-27.2, 44], pose: "behind", look: 90, cover: { pos: [-25.9, 44], size: [0.5, 2.4], height: 2.8, kind: "bookcase" } },
       { id: "desk_drapery", label: "Under the curator's desk", pos: [-17.4, 49.6], pose: "under", look: 200, cover: { pos: [-17.4, 49.6], size: [2.6, 1.3], height: 0.85, kind: "desk" } },
@@ -147,7 +171,7 @@ export const ROOMS: Record<RoomId, RoomDef> = {
     id: "sealed", name: "Sealed Exhibition Room",
     story: "The central hub offers the fastest routes and the greatest exposure.",
     searchRisk: "Most paths cross here, increasing the chance of meeting a hunter.",
-    rect: [-7, 7, 22, 38], center: [0, 30], floorColor: "#2a2a30", wallColor: "#3a3440",
+    refs: ["15_Sealed_Exhibition"], style: { floor: "parquet", wall: "walnut" }, rect: [-7, 7, 22, 38], center: [0, 30], floorColor: "#2a2a30", wallColor: "#3a3440",
     hides: [
       { id: "crate_tunnel", label: "Inside the crate tunnel", pos: [-5.7, 27], pose: "under", look: 90, cover: { pos: [-5.7, 27], size: [1.4, 2.6], height: 1.1, kind: "crates" } },
       { id: "blackout_recess", label: "Behind the blackout curtain", pos: [6.3, 35], pose: "curtain", look: 270, cover: { pos: [5, 35], size: [0.3, 2.4], height: 2.6, kind: "curtain" } },
@@ -157,10 +181,60 @@ export const ROOMS: Record<RoomId, RoomDef> = {
     id: "mirrors", name: "Hall of Mirrors",
     story: "Reflections make camera timing and zombie identity uncertain.",
     searchRisk: "A false reflection can reveal a hiding survivor when a hunter searches.",
-    rect: [12, 28, 42, 54], center: [20, 48], floorColor: "#26262e", wallColor: "#5f6570",
+    refs: ["09_Ballroom"], style: { floor: "parquet", wall: "mirror" }, rect: [12, 28, 42, 54], center: [20, 48], floorColor: "#26262e", wallColor: "#5f6570",
     hides: [
       { id: "false_reflection", label: "Behind the false reflection", pos: [27.2, 44], pose: "behind", look: 270, cover: { pos: [25.9, 44], size: [0.3, 2.4], height: 2.8, kind: "mirror" } },
       { id: "velvet_pocket", label: "Behind the velvet partition", pos: [13.2, 52.9], pose: "curtain", look: 135, cover: { pos: [14.4, 51.9], size: [2.2, 0.3], height: 2.4, kind: "curtain" } },
+    ],
+  },
+
+  // ---- Bedroom wing (references 03–06). Beds are raised with a real crawl gap and the
+  // wardrobes are hollow, adult-height volumes: the hider physically fits inside.
+  corridor: {
+    id: "corridor", name: "Portrait Corridor",
+    story: "A long gallery of portraits: people Elias invited over the years, and never let leave.",
+    searchRisk: "Long sightlines: anyone in the corridor can see you coming from either end.",
+    refs: ["03_Portrait_Corridor"], style: { floor: "planks", wall: "walnut" },
+    rect: [-26, 26, 58, 62], center: [0, 60], floorColor: "#3a2618", wallColor: "#4a2e1c",
+    hides: [
+      { id: "portrait_recess", label: "Behind the ajar portrait frame", pos: [-8, 61.6], pose: "behind", look: 180, cover: { pos: [-8, 60.95], size: [1.8, 0.14], height: 2.3, kind: "frame" } },
+      { id: "curtained_alcove", label: "Behind the alcove curtain", pos: [25.2, 60], pose: "curtain", look: 270, cover: { pos: [24.3, 60], size: [0.18, 3.6], height: 2.9, kind: "curtain" } },
+    ],
+  },
+  master_bedroom: {
+    id: "master_bedroom", name: "Master Bedroom",
+    story: "Elias's own room: a four-poster bed, a fire that never goes out, and a wardrobe of borrowed coats.",
+    searchRisk: "Only one door. If someone searches the bed, there is nowhere else to run.",
+    refs: ["04_Master_Bedroom"], style: { floor: "herringbone", wall: "walnut" },
+    rect: [-26, -8, 66, 80], center: [-17, 73], openArea: [-22.5, -11, 67.2, 72.2], floorColor: "#3a2618", wallColor: "#4d2a22",
+    hides: [
+      { id: "under_fourposter", label: "Under the four-poster bed", pos: [-16, 76], pose: "under", look: 180, cover: { pos: [-16, 76], size: [2.3, 2.7], height: 0.62, kind: "bed4" } },
+      { id: "master_wardrobe", label: "Inside the tall wardrobe", pos: [-8.6, 71.5], pose: "inside", look: 270, cover: { pos: [-8.6, 71.5], size: [1.1, 2.1], height: 2.4, kind: "wardrobe" } },
+      { id: "dressing_screen", label: "Behind the dressing screen", pos: [-24.9, 68.6], pose: "behind", look: 45, cover: { pos: [-23.6, 69.4], size: [2.2, 0.16], height: 1.9, kind: "fscreen" } },
+    ],
+  },
+  guest_bedroom: {
+    id: "guest_bedroom", name: "Guest Bedroom",
+    story: "The blue room, made up for a visitor who was expected to stay.",
+    searchRisk: "The window seat is lit by the moon; the space under the brass bed is not.",
+    refs: ["05_Guest_Bedroom"], style: { floor: "planks", wall: "damask" },
+    rect: [-6, 6, 66, 78], center: [0, 72], openArea: [-4.5, 3.4, 67.2, 72.4], floorColor: "#3a2618", wallColor: "#2c3a5c",
+    hides: [
+      { id: "under_brass_bed", label: "Under the raised brass bed", pos: [-2, 74.6], pose: "under", look: 180, cover: { pos: [-2, 74.6], size: [2.1, 2.5], height: 0.72, kind: "bedbrass" } },
+      { id: "window_seat", label: "Behind the window-seat curtain", pos: [3.6, 77.55], pose: "curtain", look: 180, cover: { pos: [3.6, 76.9], size: [2.4, 0.18], height: 2.7, kind: "curtain" } },
+      { id: "guest_wardrobe", label: "Inside the guest wardrobe", pos: [5.4, 70.5], pose: "inside", look: 270, cover: { pos: [5.4, 70.5], size: [1.1, 2.0], height: 2.3, kind: "wardrobe" } },
+    ],
+  },
+  spare_bedroom: {
+    id: "spare_bedroom", name: "Spare Bedroom",
+    story: "A converted nursery: a canopied single bed, a folding screen and a closet full of old clothes.",
+    searchRisk: "Toys on the floor; the closet door does not quite close.",
+    refs: ["06_Spare_Bedroom"], style: { floor: "planks", wall: "nursery" },
+    rect: [9, 26, 66, 78], center: [17.5, 72], openArea: [13.5, 23.2, 67.2, 73.2], floorColor: "#33241a", wallColor: "#34405a",
+    hides: [
+      { id: "under_single_bed", label: "Under the canopied single bed", pos: [11.4, 74.8], pose: "under", look: 90, cover: { pos: [11.4, 74.8], size: [1.3, 2.3], height: 0.55, kind: "bedsingle" } },
+      { id: "nursery_screen", label: "Behind the folding screen", pos: [21.6, 76.8], pose: "behind", look: 200, cover: { pos: [21.6, 75.9], size: [2.6, 0.16], height: 1.9, kind: "fscreen" } },
+      { id: "nursery_closet", label: "Inside the old closet", pos: [25.4, 70.4], pose: "inside", look: 270, cover: { pos: [25.4, 70.4], size: [1.1, 2.1], height: 2.4, kind: "wardrobe" } },
     ],
   },
 };
@@ -169,6 +243,20 @@ export const ROOM_IDS = Object.keys(ROOMS) as RoomId[];
 export function hideIds(room: RoomId): string[] {
   return ROOMS[room].hides.map(h => h.id);
 }
+/**
+ * The open side of a hiding place: just outside the cover in the hider's look direction.
+ * Hiders approach from here, searchers stand here, and snares rigged from cover land here,
+ * so nobody is ever placed inside a bed, wardrobe or table.
+ */
+export function frontOf(spot: HideSpot, gap = 0.55): Vec2 {
+  const a = spot.look * Math.PI / 180;
+  const dx = Math.sin(a), dz = Math.cos(a);
+  const [w, d] = spot.cover.size;
+  // Half-extent of the cover footprint along the look direction.
+  const half = Math.abs(dx) * w / 2 + Math.abs(dz) * d / 2;
+  return [spot.cover.pos[0] + dx * (half + gap), spot.cover.pos[1] + dz * (half + gap)];
+}
+
 export function hideSpot(id: string): { room: RoomId; spot: HideSpot } | null {
   for (const room of ROOM_IDS) {
     const spot = ROOMS[room].hides.find(h => h.id === id);
@@ -221,6 +309,12 @@ export const CORRIDORS: Corridor[] = [
   straightZ("conservation", "mirrors", 20, 38, 42),
   elbow("study", "sealed", 48, -12, -3, 38),
   elbow("mirrors", "sealed", 48, 12, 3, 38),
+  // Bedroom wing (appended so the existing corridor ids c0–c9 stay stable).
+  straightZ("study", "corridor", -20, 54, 58),
+  straightZ("mirrors", "corridor", 20, 54, 58),
+  straightZ("corridor", "master_bedroom", -17, 62, 66),
+  straightZ("corridor", "guest_bedroom", 0, 62, 66),
+  straightZ("corridor", "spare_bedroom", 17, 62, 66),
 ].map((c, i) => ({ id: `c${i}`, ...c }));
 
 /** The service exit corridor stub south of the Sealed Exhibition Room. */
@@ -246,6 +340,13 @@ export const DOORWAYS: Doorway[] = [
  */
 export const SPOTS_PER_ROOM = 16;
 export function standingSpot(room: RoomId, index: number): Vec2 {
+  const open = ROOMS[room].openArea;
+  if (open) {
+    // A 4 x 4 grid over the room's open floor.
+    const i = ((index % 16) + 16) % 16;
+    const [ox0, ox1, oz0, oz1] = open;
+    return [ox0 + (ox1 - ox0) * ((i % 4) + 0.5) / 4, oz0 + (oz1 - oz0) * (Math.floor(i / 4) + 0.5) / 4];
+  }
   const [cx, cz] = ROOMS[room].center;
   const [x0, x1, z0, z1] = ROOMS[room].rect;
   const i = ((index % SPOTS_PER_ROOM) + SPOTS_PER_ROOM) % SPOTS_PER_ROOM;
@@ -253,15 +354,16 @@ export function standingSpot(room: RoomId, index: number): Vec2 {
   const k = ring === 0 ? i : i - 6;
   const n = ring === 0 ? 6 : 10;
   const angle = (k / n) * Math.PI * 2 + (ring ? 0.3 : 0);
-  const rx = Math.min((x1 - x0) / 2 - 2.2, ring ? 5 : 2.4);
-  const rz = Math.min((z1 - z0) / 2 - 2.2, ring ? 5 : 2.4);
+  // Narrow rooms (the 4 m Portrait Corridor) keep spots on the walkway, never in a wall.
+  const rx = Math.max(0.3, Math.min((x1 - x0) / 2 - 2.2, ring ? 5 : 2.4));
+  const rz = Math.max(0.3, Math.min((z1 - z0) / 2 - 2.2, ring ? 5 : 2.4));
   return [cx + Math.cos(angle) * rx, cz + Math.sin(angle) * rz];
 }
 
 // ---------------------------------------------------------------------------
 // Clues and the snare defence.
 // ---------------------------------------------------------------------------
-export type ClueEffect = "camera" | "route" | "snare" | "exit" | "identity";
+export type ClueEffect = "camera" | "route" | "snare" | "exit" | "identity" | "lore";
 export interface Clue { id: string; room: RoomId; label: string; pos: Vec2; nearHide: string; effect: ClueEffect; text: string }
 
 /**
@@ -283,6 +385,15 @@ export const CLUES: Clue[] = [
     text: "Lockdown procedure: the rear service door releases automatically shortly after the alarm." },
   { id: "mirror_note", room: "mirrors", label: "Mirror-maker's note", pos: [27.0, 45.5], nearHide: "false_reflection", effect: "identity",
     text: "\"A reflection shows the face before the feet.\" Someone who looks like a friend from behind may not be one." },
+  // Bedroom wing. The corridor plaques are the portrait wall's story (FULL_GAME_SPECIFICATION §22).
+  { id: "gallery_plaques", room: "corridor", label: "Portrait wall plaques", pos: [-9.4, 61.4], nearHide: "portrait_recess", effect: "lore",
+    text: "The Winter Reception — 1978: \"Twelve invitations. No departures.\" · A Birthday to Remember — 1996: \"She asked who had arranged the party.\" · The Photographer: \"The light makes them remember. Only for a moment.\" The same host smiles in every frame." },
+  { id: "master_letters", room: "master_bedroom", label: "Letters on the bedside", pos: [-14.95, 76.9], nearHide: "under_fourposter", effect: "identity",
+    text: "Unsent invitations in Elias's hand, every one addressed to a birthday. \"They always come back to the party room. They always think a friend is still a friend.\"" },
+  { id: "guest_diary", room: "guest_bedroom", label: "A visitor's diary", pos: [2.4, 76.8], nearHide: "window_seat", effect: "route",
+    text: "\"The corridor joins the study and the hall of mirrors. From either one, the central exhibition leads to the Garden Gate.\"" },
+  { id: "nursery_music_box", room: "spare_bedroom", label: "Music box and nursery note", pos: [12.3, 73.8], nearHide: "under_single_bed", effect: "lore",
+    text: "A child's note tucked in the music box: \"The flash made him stop. Only for a moment. Long enough to run.\"" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -290,12 +401,14 @@ export const CLUES: Clue[] = [
 // ---------------------------------------------------------------------------
 export const TUNING = {
   openingMs: 24_000,
-  /** Elias and the first victim stay at the unveiling for the first moments of the hunt. */
-  lockdownGraceMs: 20_000,
-  /** The service exit unlocks this long after the hunt starts. */
-  exitOpensAfterMs: 90_000,
-  /** The hunt ends at "dawn" after this long; anyone still inside is trapped. */
-  huntMaxMs: 12 * 60_000,
+  /** Hunter release: Elias and the first victim hold for these first seconds of the hunt (spec §15; part of the 15 minutes). */
+  lockdownGraceMs: 8_000,
+  /** The Garden Gate is open from the start: escaping never waits for an unlock (spec §10). */
+  exitOpensAfterMs: 0,
+  /** One overall countdown: final lockdown at "midnight" (11:45 p.m. + 15 min). Anyone still inside is claimed. */
+  huntMaxMs: 15 * 60_000,
+  /** Public intercom warnings at these remaining times (ms). */
+  deadlineWarningsMs: [5 * 60_000, 60_000],
   tickMs: 100,
 
   walkSpeed: 1.7,

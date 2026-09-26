@@ -268,6 +268,46 @@ describe("Real-time rules", () => {
     assert.strictEqual(m.blocking, null);
   });
 
+  it("bedroom wing: reachable only through the Portrait Corridor; beds and wardrobes are real hiding places", () => {
+    const { g, clock } = huntStarted(["julian", "anika"]);
+    parkOthers(g, ["julian", "anika"]);
+    place(g, "julian", ROOMS.study.center);
+    assert.throws(() => g.setIntent("julian", { kind: "room", room: "master_bedroom" }, clock.t), /reachable/, "no shortcut past the corridor");
+    g.setIntent("julian", { kind: "room", room: "corridor" }, clock.t, "run");
+    run(g, clock, () => g.get("julian").room === "corridor" && !g.get("julian").path.length);
+    g.setIntent("julian", { kind: "hide", spot: "under_fourposter" }, clock.t, "run");
+    run(g, clock, () => g.get("julian").hideState === "hidden");
+    assert.strictEqual(g.get("julian").room, "master_bedroom");
+    assert.strictEqual((g.viewFor("julian", clock.t, names) as any).me.pose, "under");
+    // Anika takes the wardrobe in the guest room.
+    place(g, "anika", ROOMS.corridor.center);
+    g.setIntent("anika", { kind: "hide", spot: "guest_wardrobe" }, clock.t, "run");
+    run(g, clock, () => g.get("anika").hideState === "hidden");
+    assert.strictEqual((g.viewFor("anika", clock.t, names) as any).me.pose, "inside");
+    // A hunter who searches the bed finds Julian and pulls him out to the open side.
+    const B = g.birthday;
+    advance(g, clock, TUNING.lockdownGraceMs);
+    place(g, B, ROOMS.master_bedroom.openArea ? [-16, 70] : ROOMS.master_bedroom.center);
+    g.setIntent(B, { kind: "search", spot: "under_fourposter" }, clock.t);
+    run(g, clock, () => !!g.get("julian").grabbedBy, 20_000);
+    const j = g.get("julian").pos;
+    assert.ok(j[1] < 74.65, "pulled out from under the bed (south of the frame)");
+  });
+
+  it("one 15-minute countdown with intercom warnings at 5:00 and 1:00; the Garden Gate is open from the start", () => {
+    const { g, clock } = huntStarted(["julian"]);
+    assert.strictEqual(g.huntEndsAt - g.huntStartedAt, 15 * 60_000);
+    assert.strictEqual(g.exitOpen, true);
+    for (const a of g.actors.values()) a.cpu = false;
+    g.drainEvents();
+    place(g, "julian", ROOMS.master_bedroom.center);
+    run(g, clock, () => g.phase === "ended", 16 * 60_000);
+    const warns = g.drainEvents().filter(e => e.type === "deadline_warning").map(e => e.leftMs);
+    assert.deepStrictEqual(warns, [5 * 60_000, 60_000]);
+    assert.strictEqual(g.results().reason, "lockdown");
+    assert.deepStrictEqual(g.results().trapped, ["julian"]);
+  });
+
   it("CPU-only matches end, keep one camera, and never leak hidden guests into views", () => {
     for (let seed = 1; seed <= 12; seed++) {
       let n = 0;

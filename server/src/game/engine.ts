@@ -13,7 +13,7 @@
  */
 import {
   CAMERA_START, CAST, CLUES, CharacterId, DOORWAYS, EXIT_POINT, EXIT_ROOM, MAX_ACTIVE_SURVIVORS, ROOMS, ROOM_GRAPH,
-  RoomId, SCORE, SOS_PRESETS, SosPreset, SosReply, TUNING, Vec2, hideIds, hideSpot, standingSpot,
+  RoomId, SCORE, SOS_PRESETS, SosPreset, SosReply, TUNING, Vec2, frontOf, hideIds, hideSpot, standingSpot,
 } from "./data.js";
 import {
   Waypoint, ZoneId, blockSpot, canHear, canSee, dist, isRoom, planRoute, roomRoute, roomsOf, staggerSpot, toward, zoneAt,
@@ -140,7 +140,8 @@ export class HauntedGame {
   cameraAssistPaid = new Set<CharacterId>();
   sos: Sos[] = [];
   lastSosAt = new Map<CharacterId, number>();
-  endReason: "all_resolved" | "dawn" | null = null;
+  endReason: "all_resolved" | "lockdown" | null = null;
+  private warningsSent = new Set<number>();
   endedAt = 0;
   rescueLog: { victim: CharacterId; helper: CharacterId; method: string; at: number }[] = [];
   infectionLog: { victim: ActorId; by: ActorId; room: RoomId; atSec: number }[] = [];
@@ -256,6 +257,13 @@ export class HauntedGame {
       if (now >= this.startedAt + TUNING.openingMs) this.startHunt(now);
       return;
     }
+    // Intercom warnings before the final lockdown (public: everyone hears the intercom).
+    for (const w of TUNING.deadlineWarningsMs) {
+      if (!this.warningsSent.has(w) && this.huntEndsAt - now <= w) {
+        this.warningsSent.add(w);
+        this.emit({ type: "deadline_warning", to: ["*"], leftMs: w });
+      }
+    }
     if (!this.exitOpen && now >= this.exitOpensAt) {
       this.exitOpen = true;
       this.emit({ type: "exit_open", to: ["*"] });
@@ -289,6 +297,8 @@ export class HauntedGame {
     this.huntStartedAt = now;
     this.huntEndsAt = now + TUNING.huntMaxMs;
     this.exitOpensAt = now + TUNING.exitOpensAfterMs;
+    // The Garden Gate is simply open when there is no unlock delay (no "released" event).
+    if (TUNING.exitOpensAfterMs <= 0) this.exitOpen = true;
     for (const a of this.actors.values()) {
       a.ai.nextThinkAt = now + 300 + this.rand() * 1500;
       if (a.status === "infected" && !a.cpu) this.emit({ type: "you_turned", to: [a.id], by: "elias" });
@@ -396,7 +406,7 @@ export class HauntedGame {
       case "room": dest = { zone: intent.room, p: this.arrivalPoint(intent.room, a) }; break;
       case "hide": {
         const h = hideSpot(intent.spot)!;
-        const approach = toward(h.spot.pos, ROOMS[h.room].center, 1.0);
+        const approach = frontOf(h.spot);
         const route = planRoute(a.pos, a.zone, { zone: h.room, p: approach });
         if (!route) return this.interrupt(a, "No route");
         a.path = [...route, { p: h.spot.pos }];
@@ -406,7 +416,7 @@ export class HauntedGame {
       case "pickup": dest = { zone: this.camera.zone, p: this.camera.pos }; break;
       case "search": {
         const h = hideSpot(intent.spot)!;
-        dest = { zone: h.room, p: toward(h.spot.pos, ROOMS[h.room].center, 0.9) };
+        dest = { zone: h.room, p: frontOf(h.spot) };
         break;
       }
       case "block": dest = { zone: a.zone, p: blockSpot(intent.door)! }; break;
@@ -588,6 +598,9 @@ export class HauntedGame {
     const found = this.actorsHiddenAt(spot);
     for (const v of found) {
       v.hide = null; v.hideState = "none"; v.peeking = false; v.afterLeave = null;
+      // Pulled out of cover to the open side, right in front of the searcher.
+      v.pos = toward(h.pos, v.pos, Math.min(0.45, dist(h.pos, v.pos)));
+      this.updateZone(v);
       if (v.cpu) v.ai.nextThinkAt = now;
     }
     this.emit({ type: "search_done", to: this.witnessesOf(h, ...found), id: h.id, spot, found: found.map(f => f.id) });
@@ -755,7 +768,7 @@ export class HauntedGame {
     if (a.grabbedBy) throw new GameError("Not while caught");
     // From cover, rig it just outside your hiding place.
     let pos: Vec2 = [...a.pos] as Vec2;
-    if (a.hide) { const h = hideSpot(a.hide)!; pos = toward(h.spot.pos, ROOMS[h.room].center, 0.9); }
+    if (a.hide) { const h = hideSpot(a.hide)!; pos = frontOf(h.spot, 0.35); }
     a.snares -= 1;
     const s: Snare = { id: this.newId(), owner: id as CharacterId, pos, zone: zoneAt(pos) ?? a.zone, placedAt: now };
     this.snares.push(s);
@@ -802,7 +815,7 @@ export class HauntedGame {
   private checkEnd(now: number) {
     const inside = this.survivors().length;
     if (inside > 0 && now < this.huntEndsAt) return;
-    this.endReason = inside === 0 ? "all_resolved" : "dawn";
+    this.endReason = inside === 0 ? "all_resolved" : "lockdown";
     this.phase = "ended";
     this.endedAt = now;
     for (const s of this.sos) s.cancelled = true;
@@ -1030,6 +1043,8 @@ export class HauntedGame {
       stunned: this.stunned(o, now) ? o.stunKind : null,
       action: o.grabbing ? "grabbing" : o.grabbedBy ? "grabbed" : o.searching ? "searching" : o.blocking ? "blocking"
         : o.hideState === "entering" ? "entering_cover" : o.peeking ? "peeking" : null,
+      // Onlookers see HOW someone gets into cover (crawling under a bed, stepping into a wardrobe).
+      coverPose: o.hideState === "entering" && o.hide ? hideSpot(o.hide)?.spot.pose ?? null : null,
       searchSpot: o.searching ? o.searching.spot : null,
       grabbedBy: o.grabbedBy && this.perceives(me, this.get(o.grabbedBy)) ? o.grabbedBy : null,
     }));

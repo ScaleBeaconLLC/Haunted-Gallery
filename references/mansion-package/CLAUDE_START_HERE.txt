@@ -1,0 +1,8 @@
+HAUNTED GALLERY — CLAUDE HANDOFF
+
+Open READ_ME_FIRST.md, FULL_GAME_SPECIFICATION.txt, and every numbered image in rooms/.
+The 15 images are original concept references for the existing PlayCanvas/Colyseus game. They are not game-ready 3D models and should not be rendered as flat backdrops.
+The specification was supplied by Jermell. Citation artifacts such as :chatgpt-content-reference{index="..."} are not file paths; ignore those tokens and verify actual repository facts.
+Preserve the established 13 guest identities plus Elias, working online multiplayer, current room identifiers, host controls, voices, and one overall 15-minute hunt.
+Keep the playable room graph authoritative while fitting the desired bedroom hiding and mansion details into a connected 3D environment. Plan any new traversable rooms with proper server state, pathing, camera transitions, mobile performance and testing.
+Follow the user's prompt in the Claude chat for immediate priorities. Do not claim the concept renders are screenshots of implemented gameplay.

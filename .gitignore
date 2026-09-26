@@ -19,3 +19,6 @@ client/dist/
 .DS_Store
 Thumbs.db
 *.log
+
+# Reference package originals (43 MB of PNG concept art) stay local; web-size previews are committed.
+references/mansion-package/rooms/*.png
