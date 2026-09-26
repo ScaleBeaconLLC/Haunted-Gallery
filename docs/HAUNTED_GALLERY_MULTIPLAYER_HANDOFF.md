@@ -1,6 +1,6 @@
 # Haunted Gallery: authoritative multiplayer handoff
 
-_Written 2026-09-25. No secrets in this file. The host password lives only in the gitignored `server/.env.production`._
+_Written 2026-09-25, updated 2026-09-26 after the Colyseus Cloud deployment. No secrets in this file: the host password lives only in the gitignored `server/.env.production` and the Cloud dashboard's `HOST_KEY` variable; the deploy token lives only in the gitignored `.colyseus-cloud.json`._
 
 ## Where the work is
 
@@ -10,7 +10,48 @@ _Written 2026-09-25. No secrets in this file. The host password lives only in th
 | Gameplay baseline commit | `6f65621`, "Real-time hide-and-seek upgrade…" (was `main` == `origin/main`) |
 | Baseline checkpoint tag | `checkpoint-gameplay-upgrade` → `6f65621` (earlier: `checkpoint-rounds-v1` → `a2fbac9`) |
 | Working branch | `multiplayer-foundation` (branched from `6f65621`) |
-| Deployed to Colyseus Cloud? | **No** (not part of this task) |
+| Deployed to Colyseus Cloud? | **Yes**: commit **`fd998c0`** on `multiplayer-foundation` (see below) |
+
+## Colyseus Cloud deployment (verified)
+
+| Item | Value |
+|---|---|
+| Application | `1966-haunted-gallery` (created by the owner in the Colyseus Cloud dashboard) |
+| **Verified Cloud endpoint** | **https://us-ord-c6919c4a.colyseus.cloud**: serves the game page, the host console (`/host.html`) and WSS for Colyseus |
+| Deployed branch / commit | `multiplayer-foundation` / **`fd998c0`** (`main` is not deployed and was not merged) |
+| How it was deployed | `npx @colyseus/cloud@1.0.12 deploy --env production --branch multiplayer-foundation --remote https://github.com/ScaleBeaconLLC/Haunted-Gallery.git` from the repo root. Browser sign-in selected the existing app; the token is stored only in `.colyseus-cloud.json` (gitignored). |
+| Build on Cloud | Cloud clones over **SSH** with its own key, so its **read-only deploy key is added to the GitHub repo's Deploy keys** (without it: `Permission denied (publickey)`). Then it runs `npm install` + `npm run build` at the repo root, which builds the PlayCanvas client into `server/public` and compiles the server. PM2 starts `server/build/index.js` from the root `ecosystem.config.cjs` (`NODE_ENV=production`, 1 process). |
+| Environment variable | `HOST_KEY` set in the Cloud dashboard (value never in git or public files) |
+| Automatic deploys | **Off.** The GitHub integration (which deploys `main` on push) is intentionally not connected; deploys are triggered with the CLI command above. |
+
+### Proof the deployment is the tested commit
+
+- A fresh GitHub clone of `fd998c0` built with `npm install && npm run build` (1 min 16 s, no files from the laptop) and passed all 24 server tests.
+- Started through PM2 with `ecosystem.config.cjs`, that clean-clone build passed `tools/e2e/remote-multiplayer.mjs` (15/15).
+- The Cloud page references exactly the same content-hashed client files as that clean build (`main-I_naqONd.js`, `net-u5b_V9dC.js`, `net-CBJJvwHq.css`).
+
+### Live test results against https://us-ord-c6919c4a.colyseus.cloud (2026-09-26)
+
+| Test | Result |
+|---|---|
+| Serves page, host console, room pictures, voice clips (incl. repaired `VO_julian_grabbed_01.mp3`); `/monitor` and `/api/lan` return 404 (production) | Pass |
+| Session creation refused with no or a wrong host password; allowed with the configured `HOST_KEY` | Pass |
+| `tools/e2e/remote-multiplayer.mjs`, two independent SDK clients over WSS: same match by code; distinct identities; synchronized roster; unknown code → 522; hunt start seen by both; invalid move rejected with no state change; B sees A's server-validated movement; hidden player absent from B's received data; SOS only to its recipient; public state free of private data; drop → automatic reconnection, same session, still hidden; reload → token reconnection, same session and seat; no host control after rejoin; second match separate with no cross-traffic | **15/15 pass** |
+| `tools/e2e/bots.mjs`, 12 bots, one full match | Completed; **0 privacy violations in 12,554 private views** |
+| Browser smoke test: host console → create session with password → QR link points at the Cloud host → phone-sized browser joins, picks a guest, host starts → phone enters the match and renders the 3D opening; no page errors | Pass |
+
+Not tested on Cloud: real iPhone/Android devices, a 12-phone rehearsal, and long-running stability or restarts.
+
+### Cloud endpoint vs. the old preview
+
+- **Verified Cloud endpoint:** https://us-ord-c6919c4a.colyseus.cloud runs `fd998c0`, and every check above passed against it.
+- **Old tunnel preview** (`*.trycloudflare.com` from this laptop): still the **baseline `main` build (`6f65621`)**, not updated or tested in this task. It is temporary and not the Cloud deployment.
+
+### Redeploying
+
+1. Commit and push to `multiplayer-foundation` (or another tested branch).
+2. From the repo root run the deploy command above. It reuses `.colyseus-cloud.json` on this laptop; use `--reset` to pick the app again on another machine.
+3. Wait for `/healthz` to return `{"ok":true}`, then re-run `tools/e2e/remote-multiplayer.mjs https://us-ord-c6919c4a.colyseus.cloud` with `HOST_KEY` in the environment.
 
 ## Actual architecture (verified in the code, not the planning docs)
 
@@ -26,9 +67,9 @@ _Written 2026-09-25. No secrets in this file. The host password lives only in th
   - searches, grabs, bites and infection;
   - camera ownership, freeze (5 s) and recharge (7 s from the shutter), doorway blocks;
   - snares, rescue credit, escapes and the exit timer.
-- **Hosting today:**
-  - The same Node process serves the built client (`server/public`) and the WebSocket endpoint, so the page and WSS share one origin.
-  - The temporary public preview is a Cloudflare quick tunnel to this laptop, currently running the **baseline** (`main`) build, not this branch.
+- **Hosting:** the same Node process serves the built client (`server/public`) and the WebSocket endpoint (one origin, no `VITE_SERVER_URL` needed).
+  - **Colyseus Cloud:** https://us-ord-c6919c4a.colyseus.cloud runs `fd998c0`.
+  - **Old tunnel preview:** runs the baseline `main` build.
 
 ### Package versions (installed, server and client matched)
 
@@ -135,24 +176,17 @@ Gameplay baseline, re-run on this branch:
 
 ## Remaining issues
 
-1. **Colyseus Cloud build shape (unresolved, not tested):**
-   - The server serves the client from `server/public`, which is built from `client/` and is gitignored.
-   - A Cloud deploy of `server/` alone would ship without the game page. Two options:
-     - (a) set the Cloud build command to build the client first;
-     - (b) host the client elsewhere (e.g. PlayCanvas hosting) with `VITE_SERVER_URL` pointing at Cloud. That needs CORS and join-URL checks.
-   - `ecosystem.config.cjs` runs one process, because rooms are in memory and joined by code; more processes would need Redis presence.
-2. Deploying needs a Colyseus Cloud account and a paid plan: **your approval and a browser sign-in**.
-3. The public tunnel preview still runs `main` (baseline). This branch's seat takeover, expired-session messages and endpoint examples aren't live there.
+1. ~~Cloud build shape~~ **Resolved:** a root `package.json` build plus root `ecosystem.config.cjs`, verified from a clean clone and on Cloud. One process only, because rooms are in memory and joined by code; more processes would need Redis presence.
+2. ~~Cloud account~~ **Done:** the owner created the app; it's deployed and tested (see above).
+3. The old tunnel preview still runs `main` (baseline). The Cloud endpoint is the current, tested server.
 4. No real-phone or 12-device testing yet; balance values are initial.
 5. The PlayCanvas Editor is not integrated (standalone engine only).
+6. The host password has appeared in chat; rotate `HOST_KEY` (Cloud dashboard + local `server/.env.production`) before the event.
+7. `multiplayer-foundation` is not merged into `main`. Merge after review if the Cloud build should become the mainline.
 
-## Next step (task 3)
+## Next step
 
-Full cloud client integration:
-
-1. choose the Cloud build shape (issue 1);
-2. with your approval, create the Colyseus Cloud app and deploy `multiplayer-foundation`;
-3. set `HOST_KEY` in the Cloud dashboard;
-4. point the client at it (same origin or `VITE_SERVER_URL`);
-5. re-run `tools/e2e/bots.mjs` and `scenario.mjs` against the cloud URL;
-6. do the first real two-phone test.
+1. **First real-phone test on the Cloud endpoint:** host console at https://us-ord-c6919c4a.colyseus.cloud/host.html, one iPhone and one Android phone scanning the QR, with `&debug=1` for frame rate.
+2. Then the 12-device rehearsal.
+3. Rotate `HOST_KEY`.
+4. Decide whether to merge `multiplayer-foundation` into `main`.
