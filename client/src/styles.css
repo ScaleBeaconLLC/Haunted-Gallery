@@ -137,3 +137,49 @@ details summary { cursor: pointer; color: var(--gold); }
 .gallery-work { background: rgba(176, 138, 58, 0.12); border: 1px solid rgba(176, 138, 58, 0.45); border-radius: 10px; padding: 8px 12px; margin: 6px 0; }
 .gallery-work b { color: var(--gold); }
 .gallery-work p { margin: 4px 0 0; font-style: italic; }
+
+/* ---------------------------------------------------------------- direct controls */
+/* Thumb stick (bottom left): gentle push walks, all the way runs. */
+#stick { position: fixed; left: calc(14px + env(safe-area-inset-left, 0px)); bottom: calc(86px + var(--safe-b)); z-index: 16; width: 132px; touch-action: none; user-select: none; -webkit-user-select: none; }
+#stick .stick-base { width: 132px; height: 132px; border-radius: 50%; background: radial-gradient(circle at 50% 45%, rgba(40,26,20,.55), rgba(8,5,6,.72)); border: 1.5px solid rgba(229,192,123,.45); box-shadow: inset 0 0 18px rgba(0,0,0,.6), 0 0 0 5px rgba(229,192,123,.07); display: grid; place-items: center; }
+#stick .stick-knob { width: 58px; height: 58px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #6b5130, #2a1c10 70%); border: 1.5px solid rgba(229,192,123,.7); box-shadow: 0 3px 10px rgba(0,0,0,.6); transition: background .15s, border-color .15s; }
+#stick.running .stick-knob { background: radial-gradient(circle at 40% 35%, #f2d27a, #a8771f 70%); border-color: #fff1c4; }
+#stick.moving .stick-knob { border-color: var(--gold); }
+#stick .stick-label { position: absolute; left: 0; right: 0; top: -22px; text-align: center; font-size: 12px; letter-spacing: .06em; color: var(--muted); text-shadow: 0 1px 4px #000; min-height: 16px; }
+#stick.running .stick-label { color: #ffd98a; }
+
+/* Contextual actions (bottom right): only what you can do right here. */
+#actions { position: fixed; right: calc(12px + env(safe-area-inset-right, 0px)); bottom: calc(92px + var(--safe-b)); z-index: 16; display: flex; flex-direction: column-reverse; gap: 10px; align-items: flex-end; }
+.act { display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 6px 16px 6px 8px; border-radius: 28px; border: 1.5px solid rgba(229,192,123,.55); background: rgba(22,13,11,.86); color: var(--ink); font: 15px Georgia, serif; box-shadow: 0 4px 14px rgba(0,0,0,.5); user-select: none; -webkit-user-select: none; touch-action: none; }
+.act b { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: rgba(229,192,123,.14); font-size: 20px; font-weight: normal; }
+.act.hide { border-color: var(--gold); }
+.act.active, .act.peek.active { background: #3a2a14; border-color: #ffd98a; }
+.act:disabled { opacity: .45; }
+
+/* The panel is a slim dock during play; the room chooser opens as a drawer. */
+#panel.slim { background: linear-gradient(rgba(12,7,8,0), rgba(12,7,8,.85) 40%); border-top: 0; padding-top: 6px; }
+.dock { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; }
+.dock .btn { flex: 0 1 auto; margin: 0; padding: 9px 16px; font-size: 14px; border-radius: 22px; }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.drawer-head .btn.close { flex: 0 0 auto; margin: 0; padding: 6px 12px; font-size: 13px; }
+.plan.small { font-size: 12px; margin: 6px 0 0; text-align: center; }
+
+/* Room cards: framed previews, a small plan with the door you enter by, hiding places. */
+.cards { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.room-card { aspect-ratio: 16 / 11; border: 0; border-radius: 6px; background: #120b09; box-shadow: 0 0 0 2px #6d5320, 0 0 0 4px #1a1208, 0 0 0 5px rgba(229,192,123,.5), 0 8px 18px rgba(0,0,0,.55); }
+.room-card img { filter: saturate(.9) contrast(1.05); }
+.room-card .rc-name { padding: 26px 10px 22px; font-size: 16px; font-weight: normal; letter-spacing: .02em; color: #f6e7c6; text-shadow: 0 1px 3px #000; }
+.room-card .rc-meta { position: absolute; left: 10px; right: 10px; bottom: 6px; font: 11px system-ui, sans-serif; color: #d9c7a4; text-shadow: 0 1px 2px #000; }
+.room-card .rc-plan { position: absolute; top: 6px; right: 6px; width: 64px; height: 44px; background: rgba(10,6,5,.72); border: 1px solid rgba(229,192,123,.45); border-radius: 4px; }
+.room-card .rc-plan svg { width: 100%; height: 100%; display: block; }
+.room-card .rc-plan .walls { fill: rgba(229,192,123,.08); stroke: #c9a45a; stroke-width: 1.2; }
+.room-card .rc-plan .door { fill: #6b5a3a; }
+.room-card .rc-plan .entry { fill: #ffd98a; stroke: #fff; stroke-width: .6; }
+.room-card .rc-plan .hide { fill: #7fa6d9; }
+.room-card.selected { box-shadow: 0 0 0 2px #ffd98a, 0 0 0 4px #1a1208, 0 0 0 6px #ffd98a, 0 8px 18px rgba(0,0,0,.55); }
+.room-card.current { opacity: .88; }
+.dock .btn { width: auto; display: inline-flex; align-items: center; gap: 6px; background: rgba(24,15,13,.9); }
+
+.hidden-line { margin: 0 0 6px; padding-left: 150px; font-size: 13px; color: var(--muted); }
+.hidden-line b { color: var(--gold); font-weight: normal; letter-spacing: .04em; }
+@media (max-width: 360px) { .hidden-line { padding-left: 0; } }

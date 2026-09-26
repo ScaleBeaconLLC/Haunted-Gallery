@@ -7,7 +7,7 @@
 //  - Smooth transitions between the two. Only people the server says you can perceive
 //    are ever rendered, so no camera angle can reveal anyone else.
 import * as pc from 'playcanvas';
-import { CAMERA_START, CAST, GALLERY, ROOMS, TUNING, hideSpot } from '@game/data.ts';
+import { CAMERA_START, CAST, DOORWAYS, GALLERY, ROOMS, TUNING, hideSpot } from '@game/data.ts';
 import { World, mat, walkRects } from './world.js';
 import { ActorView, castInfo, setScenePhase } from './actors.js';
 
@@ -67,7 +67,8 @@ export class Game3D {
     this.camera = cam;
     this.camPos = new pc.Vec3(-11.75, 14, -2);
     this.camRot = new pc.Quat();
-    this.view = { yawOff: 0, dist: 9.5, pitch: 58, followYaw: 0, fpYaw: 0, fpPitch: 0, orbit: 0 };
+    // Survivors follow close enough to read their immediate surroundings (pinch to widen).
+    this.view = { yawOff: 0, dist: 7.5, pitch: 55, followYaw: 0, fpYaw: 0, fpPitch: 0, orbit: 0 };
     this.bindInput(canvas);
 
     const flash = new pc.Entity('FlashLight');
@@ -80,6 +81,14 @@ export class Game3D {
     lantern.addComponent('light', { type: 'omni', color: new pc.Color(1, 0.86, 0.66), intensity: 1.3, range: 6.5, castShadows: false });
     app.root.addChild(lantern);
     this.lantern = lantern;
+
+    const ring = new pc.Entity('HideRing');
+    const ringMat = new pc.StandardMaterial();
+    ringMat.diffuse = new pc.Color(0, 0, 0); ringMat.emissive = new pc.Color(1, 0.82, 0.45); ringMat.emissiveIntensity = 1.4; ringMat.update();
+    ring.addComponent('render', { type: 'torus', material: ringMat, castShadows: false });
+    ring.enabled = false;
+    app.root.addChild(ring);
+    this.hideRing = ring;
 
     this.stats = { frames: 0, acc: 0, fps: 0, worst: 0, ms: 0 };
     app.on('update', dt => this.update(dt));
@@ -173,9 +182,21 @@ export class Game3D {
     // Camera mode follows the character's real state.
     const hiddenNow = me && (me.hideState === 'hidden') && view.status === 'alive';
     const viewing = me?.viewing && view.status === 'alive' && !me.caught;
-    const next = this.phase === 'opening' ? 'opening' : view?.status === 'escaped' ? 'escaped' : hiddenNow ? 'fp' : viewing ? 'gallery' : me ? 'overhead' : 'menu';
+    // Hidden, and someone walks into your room: pull back to a bird's-eye view of THIS room only
+    // (everyone shown is someone the server already lets you perceive; nobody outside the room).
+    // It triggers on anyone, friend or not, so it never gives away who has turned.
+    let visitor = false;
+    if (hiddenNow && ROOMS[me.room]) {
+      const r = ROOMS[me.room].rect;
+      if ((view.actors || []).some(a => a.id !== this.me && inR(r, a.pos[0], a.pos[1]))) this.visitorUntil = performance.now() + 1800;
+      visitor = performance.now() < (this.visitorUntil || 0);
+    } else this.visitorUntil = 0;
+    const hunter = view?.role === 'hunter';
+    const next = this.phase === 'opening' ? 'opening' : view?.status === 'escaped' ? 'escaped'
+      : hiddenNow ? (visitor ? 'roomview' : 'fp') : viewing ? 'gallery' : me ? (hunter ? 'hunter' : 'overhead') : 'menu';
+    this.world.setRoomMask(next === 'roomview' ? ROOMS[me.room].rect : null);
     if (next === 'gallery' && (this.mode !== 'gallery' || this.galleryStation !== me.viewing)) { this.galleryStation = me.viewing; this.galleryIndex = 1; }
-    if (next === 'fp' && this.mode !== 'fp') { this.view.fpYaw = 0; this.view.fpPitch = me.pose === 'under' ? 6 : 0; }
+    if (next === 'fp' && this.mode !== 'fp' && this.mode !== 'roomview') { this.view.fpYaw = 0; this.view.fpPitch = me.pose === 'under' ? 6 : 0; }
     this.mode = next;
   }
 
@@ -192,7 +213,8 @@ export class Game3D {
     const me = this.me && this.actors.get(this.me);
     const my = this.myView?.me;
     if (this.mode === 'capture') return this.captureShot;
-    if (this.mode === 'fp' && my?.hidePos) {
+    // Holding Peek from the room view looks out from your cover again.
+    if ((this.mode === 'fp' || (this.mode === 'roomview' && this.peeking)) && my?.hidePos) {
       const pose = POSE[my.pose] ?? POSE.behind;
       const look = (my.look ?? 0) * Math.PI / 180;
       // Eye height follows the real clearance of this cover (a bed is lower than a table).
@@ -206,6 +228,33 @@ export class Game3D {
       const yaw = look + v.fpYaw * Math.PI / 180, pitch = v.fpPitch * Math.PI / 180;
       const target = new pc.Vec3(pos.x + Math.sin(yaw) * Math.cos(pitch), pos.y + Math.sin(pitch), pos.z + Math.cos(yaw) * Math.cos(pitch));
       return { pos, target, near: 0.05, fov: pose.fov };
+    }
+    if (this.mode === 'roomview' && my && ROOMS[my.room]) {
+      // Bird's-eye of your room only (the rest of the house is masked out), slightly tilted.
+      const [x0, x1, z0, z1] = ROOMS[my.room].rect;
+      const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, fov = 50;
+      const t = Math.tan(fov * Math.PI / 360);
+      const aspect = this.app.graphicsDevice.width / Math.max(1, this.app.graphicsDevice.height);
+      const h = Math.max((z1 - z0 + 1.2) / 2 / t, (x1 - x0 + 1.2) / 2 / (t * aspect)) + 3.2;
+      return { pos: new pc.Vec3(cx, h, cz - h * 0.3), target: new pc.Vec3(cx, 0, cz + 0.3), near: 0.2, fov };
+    }
+    if (this.mode === 'hunter' && me?.pos) {
+      // Hunters get a grounded camera just behind the shoulder, kept inside the room so it
+      // never looks through walls, and never a bird's-eye view.
+      if (!my?.steering) {
+        const dy = ((me.yaw - v.followYaw + 540) % 360) - 180;
+        v.followYaw += dy * Math.min(1, dt * (me.moving ? 2.5 : 1.2));
+      }
+      const yaw = (v.followYaw + v.yawOff) * Math.PI / 180, fx = Math.sin(yaw), fz = Math.cos(yaw);
+      // Pull the camera in until it is clear of walls and doorways (never inside a door leaf).
+      const r = rectAt(me.pos[0], me.pos[1]);
+      const clear = (x, z) => (!r || (x > r[0] + 0.6 && x < r[1] - 0.6 && z > r[2] + 0.6 && z < r[3] - 0.6))
+        && DOORWAYS.every(d => Math.hypot(d.pos[0] - x, d.pos[1] - z) > 1.4);
+      let d = 3.0;
+      while (d > 0.9 && !clear(me.pos[0] - fx * d, me.pos[1] - fz * d)) d -= 0.2;
+      const cx = me.pos[0] - fx * d, cz = me.pos[1] - fz * d;
+      const cy = 2.3 + (3.0 - d) * 0.35;   // a little higher when it has to come in close
+      return { pos: new pc.Vec3(cx, cy, cz), target: new pc.Vec3(me.pos[0] + fx * 2.4, 1.05, me.pos[1] + fz * 2.4), near: 0.1, fov: 64 };
     }
     if (this.mode === 'gallery' && my?.viewing && me?.pos) {
       // View Gallery: a close look at the actual wall from where the character stands (not a
@@ -224,18 +273,23 @@ export class Game3D {
     }
     if ((this.mode === 'overhead' || this.mode === 'gallery') && me?.pos) {
       // Follow behind the direction of travel; ease slowly so corners don't whip the view.
-      if (me.moving) {
+      // Auto-follow only for trips planned from the room cards: while steering with the stick the
+      // camera holds still (camera-relative controls would otherwise turn under your thumb).
+      if (me.moving && !my?.steering) {
         let dy = ((me.yaw - v.followYaw + 540) % 360) - 180;
         v.followYaw += dy * Math.min(1, dt * 1.6);
       }
       const yaw = (v.followYaw + 180 + v.yawOff) * Math.PI / 180, pitch = v.pitch * Math.PI / 180;
       // Look a little ahead of the character along its heading, then pull the aim point
       // back toward the camera so the character sits above the control panel on screen.
-      const ahead = me.moving ? 1.6 : 0.4;
+      // Look ahead only on planned trips; with the stick keep yourself centred.
+      const ahead = me.moving && !my?.steering ? 1.6 : 0.3;
       const pull = 2.2;
       const tx = me.pos[0] + Math.sin(me.yaw * Math.PI / 180) * ahead + Math.sin(yaw) * pull;
       const tz = me.pos[1] + Math.cos(me.yaw * Math.PI / 180) * ahead + Math.cos(yaw) * pull;
       let cx = tx + Math.sin(yaw) * Math.cos(pitch) * v.dist, cz = tz + Math.cos(yaw) * Math.cos(pitch) * v.dist;
+      // Stay over your room (outside it, the walls would hide you); near a wall the view simply
+      // gets steeper while you stay centred.
       const r = rectAt(me.pos[0], me.pos[1]);
       if (r) { cx = Math.max(r[0] + 0.4, Math.min(r[1] - 0.4, cx)); cz = Math.max(r[2] + 0.4, Math.min(r[3] - 0.4, cz)); }
       return { pos: new pc.Vec3(cx, 1 + Math.sin(pitch) * v.dist, cz), target: new pc.Vec3(tx, 0.9, tz), near: 0.2, fov: 58 };
@@ -256,7 +310,15 @@ export class Game3D {
     for (const a of this.actors.values()) if (a.entity.enabled) a.update(dt);
     const me = this.me && this.actors.get(this.me);
     // In first person you don't see your own body.
-    if (me) me.entity.enabled = this.visible?.has(this.me) && this.mode !== 'fp' && this.mode !== 'gallery';
+    if (me) me.entity.enabled = this.visible?.has(this.me) && this.mode !== 'fp' && this.mode !== 'gallery' && this.mode !== 'roomview';
+    // In the room view, a soft ring marks where you are hiding.
+    const my = this.myView?.me;
+    this.hideRing.enabled = this.mode === 'roomview' && !!my?.hidePos;
+    if (this.hideRing.enabled) {
+      const pulse = 1 + 0.12 * Math.sin(performance.now() / 260);
+      this.hideRing.setLocalPosition(my.hidePos[0], 0.08, my.hidePos[1]);
+      this.hideRing.setLocalScale(1.3 * pulse, 0.3, 1.3 * pulse);
+    }
     this.world.updateLights(dt);
     this.updateArrival(dt);
     this.world.updateDoors(dt, [...this.actors.values()].filter(a => a.entity.enabled && a.pos).map(a => a.pos));

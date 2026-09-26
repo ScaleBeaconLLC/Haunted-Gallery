@@ -1107,6 +1107,30 @@ export class World {
     }
   }
 
+  /**
+   * Mask everything outside one room (for the hider's room view): four black slabs just above
+   * the wall tops with a hole over the room. null removes the mask.
+   */
+  setRoomMask(rect) {
+    if (!this.roomMask) {
+      const m = new pc.StandardMaterial();
+      m.diffuse = new pc.Color(0, 0, 0); m.emissive = new pc.Color(0.01, 0.008, 0.012); m.useLighting = false; m.useFog = false; m.update();
+      this.roomMask = [0, 1, 2, 3].map(i => { const e = new pc.Entity(`RoomMask${i}`); e.addComponent('render', { type: 'box', material: m, castShadows: false }); e.enabled = false; this.root.addChild(e); return e; });
+      this.roomMaskKey = null;
+    }
+    const key = rect ? rect.join(',') : null;
+    if (key === this.roomMaskKey) return;
+    this.roomMaskKey = key;
+    for (const e of this.roomMask) e.enabled = !!rect;
+    if (!rect) return;
+    const [x0, x1, z0, z1] = rect, g = 0.3, B = 200, y = WALL_H + 0.25;
+    const put = (e, cx, cz, sx, sz) => { e.setLocalPosition(cx, y, cz); e.setLocalScale(sx, 0.05, sz); };
+    put(this.roomMask[0], x0 - g - B / 2, (z0 + z1) / 2, B, B * 2);            // west
+    put(this.roomMask[1], x1 + g + B / 2, (z0 + z1) / 2, B, B * 2);            // east
+    put(this.roomMask[2], (x0 + x1) / 2, z0 - g - B / 2, x1 - x0 + 2 * g, B);  // south
+    put(this.roomMask[3], (x0 + x1) / 2, z1 + g + B / 2, x1 - x0 + 2 * g, B);  // north
+  }
+
   setLockdown(on) {
     for (const l of Object.values(this.roomLights)) l.light.color = on ? new pc.Color(1, 0.25, 0.2) : new pc.Color(1, 0.78, 0.55);
   }

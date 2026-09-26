@@ -1,6 +1,6 @@
 // Phone client: join by QR code, pick a guest, then play. Every action is an intent;
 // the server's private "view" (what your character can perceive) is the only truth.
-import { CAST, GALLERY, OPENING_BEATS, ROOMS, SOS_PRESETS, TUNING } from '@game/data.ts';
+import { CAST, DOORWAYS, GALLERY, OPENING_BEATS, ROOMS, SOS_PRESETS, TUNING } from '@game/data.ts';
 import * as pc from 'playcanvas';
 import { Connection, local } from './net.js';
 import { Game3D } from './game3d.js';
@@ -9,6 +9,7 @@ import { castInfo } from './actors.js';
 import { preloadCast } from './characters.js';
 import { allCastParts } from './cast-looks.js';
 import { mapSvg } from './map.js';
+import { Stick } from './stick.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -29,6 +30,7 @@ let pending = null;       // { label, at } an intent sent but not yet reflected 
 let lastIntentSeq = 0;
 let lastInterrupted = null;
 let expanded = null;      // room card expanded to show its hiding places
+let roomsOpen = false;    // the room chooser drawer (otherwise the panel is a slim dock)
 let pace = local?.getItem('hg.pace') === 'run' ? 'run' : 'walk';
 
 if (captureRoom) {
@@ -75,6 +77,34 @@ $('join-go').addEventListener('click', async () => {
 document.addEventListener('pointerdown', () => audio.unlock(), { passive: true });
 async function requestWakeLock() { try { wakeLock = await navigator.wakeLock?.request('screen'); } catch { /* unsupported */ } }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && conn.room) requestWakeLock(); });
+
+// ------------------------------------------------------------------ direct movement (thumb stick)
+// The stick is camera-relative: push up to go where the camera looks. The phone resends the
+// direction ~8x a second; the server moves the character (walls, furniture, doorways).
+let stickValue = { x: 0, y: 0, s: 0 }, steerActive = false;
+const stick = new Stick($('stick'), v => { stickValue = v; if (v.s >= 0.12) steerTip(); });
+const canSteer = () => pub?.phase === 'hunt' && !pub.paused && view?.me && view.status !== 'escaped'
+  && !view.me.caught && !view.me.grabbing && !view.me.stunned;
+setInterval(() => {
+  if (!conn.room) return;
+  const v = stickValue;
+  if (v.s >= 0.12 && canSteer()) {
+    const fw = game.camera.forward, rt = game.camera.right;
+    const fl = Math.hypot(fw.x, fw.z) || 1, rl = Math.hypot(rt.x, rt.z) || 1;
+    const x = rt.x / rl * v.x + fw.x / fl * v.y, z = rt.z / rl * v.x + fw.z / fl * v.y;
+    conn.send('steer', { x: +x.toFixed(3), z: +z.toFixed(3), s: +v.s.toFixed(2) });
+    steerActive = true;
+  } else if (steerActive) {
+    conn.send('steer', { x: 0, z: 0, s: 0 });
+    steerActive = false;
+  }
+}, 120);
+/** Explain the sound rule once, at the first real move (not a wall of instructions). */
+function steerTip(force = false) {
+  if (!force && local?.getItem('hg.tip.steer')) return;
+  local?.setItem('hg.tip.steer', '1');
+  caption('Push gently to walk — quiet. Push all the way to run — faster, but anyone nearby hears you.', true);
+}
 
 // ------------------------------------------------------------------ network
 conn.addEventListener('state', e => { pub = e.detail; render(); });
@@ -301,6 +331,7 @@ function render() {
   if (inLobby) { if (joined) renderLobby(); $('panel').hidden = true; $('inbox').innerHTML = ''; $('screen-results').hidden = true; return; }
   renderHud();
   renderPanel();
+  renderActions();
   renderInbox();
   renderResults();
   const caught = view?.me?.caught;
@@ -374,10 +405,77 @@ function btn(act, label, { active = false, disabled = false, cls = '', data = {}
   return `<button class="btn ${cls} ${active ? 'active' : ''}" data-act="${act}"${d} ${disabled ? 'disabled' : ''}>${label}</button>`;
 }
 
-function roomCard(r, { current = false, selected = false, blocked = false } = {}) {
+function roomCard(r, { current = false, selected = false, entry = null } = {}) {
+  const side = entry ? doorSide(r, entry.pos) : null;
+  const n = ROOMS[r].hides.length;
   return `<button class="room-card ${current ? 'current' : ''} ${selected ? 'selected' : ''}" data-act="room-card" data-room="${r}">
     <img src="/rooms/${r}.jpg" alt="" loading="lazy" onerror="this.style.visibility='hidden'" />
-    <span class="rc-name">${esc(roomName(r))}</span>${current ? '<span class="rc-tag">You are here</span>' : ''}${blocked ? '' : ''}</button>`;
+    <span class="rc-plan">${roomPlan(r, entry?.key)}</span>
+    <span class="rc-name">${esc(roomName(r))}</span>
+    <span class="rc-meta">${current ? 'You are here' : side ? `Enter by the ${side} door` : ''}${n ? ` · ${n} hiding places` : ''}</span>
+    ${current ? '<span class="rc-tag">You are here</span>' : ''}</button>`;
+}
+
+/** The doorway you would come in through to reach room r from where you are. */
+function entryDoor(r) {
+  const here = view?.options?.currentRoom ?? view?.me?.room;
+  return DOORWAYS.find(d => d.room === r && d.to === here)
+    ?? DOORWAYS.filter(d => d.room === r).sort((a, b) => Math.hypot(a.pos[0] - view.me.pos[0], a.pos[1] - view.me.pos[1]) - Math.hypot(b.pos[0] - view.me.pos[0], b.pos[1] - view.me.pos[1]))[0] ?? null;
+}
+function doorSide(r, [x, z]) {
+  const [x0, x1, z0, z1] = ROOMS[r].rect;
+  const d = [[Math.abs(z - z0), 'south'], [Math.abs(z - z1), 'north'], [Math.abs(x - x0), 'west'], [Math.abs(x - x1), 'east']].sort((a, b) => a[0] - b[0]);
+  return d[0][1];
+}
+/** Tiny floor plan: walls, every door (the one you enter by in gold), hiding places as dots. */
+function roomPlan(r, entryKey) {
+  const [x0, x1, z0, z1] = ROOMS[r].rect;
+  const W = 64, H = 44, pad = 4;
+  const sc = Math.min((W - pad * 2) / (x1 - x0), (H - pad * 2) / (z1 - z0));
+  const w = (x1 - x0) * sc, h = (z1 - z0) * sc, ox = (W - w) / 2, oy = (H - h) / 2;
+  const X = x => ox + (x - x0) * sc, Y = z => oy + (z1 - z) * sc;
+  const doors = DOORWAYS.filter(d => d.room === r).map(d => `<circle cx="${X(d.pos[0]).toFixed(1)}" cy="${Y(d.pos[1]).toFixed(1)}" r="${d.key === entryKey ? 3.4 : 2.2}" class="${d.key === entryKey ? 'entry' : 'door'}"/>`).join('');
+  const hides = ROOMS[r].hides.map(hh => `<rect x="${(X(hh.pos[0]) - 1.6).toFixed(1)}" y="${(Y(hh.pos[1]) - 1.6).toFixed(1)}" width="3.2" height="3.2" class="hide"/>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true"><rect x="${ox.toFixed(1)}" y="${oy.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" class="walls"/>${hides}${doors}</svg>`;
+}
+
+function actBtn(act, icon, label, data = {}, title = label, cls = '') {
+  const d = Object.entries(data).map(([k, v]) => ` data-${k}="${esc(v)}"`).join('');
+  return `<button class="act ${cls}" data-act="${act}"${d} title="${esc(title)}"><b>${icon}</b><span>${esc(label)}</span></button>`;
+}
+
+/** Small contextual buttons beside the stick: only what you can do right here, right now. */
+function renderActions() {
+  const box = $('actions'), st = $('stick');
+  const m = view?.me;
+  const live = pub?.phase === 'hunt' && !!m && view.status !== 'escaped' && !pub.paused && !captureRoom;
+  const blocked = !live || m.caught || m.grabbing || m.stunned || (m.viewing && !m.moving);
+  st.hidden = !!blocked;
+  if (blocked && stickValue.s) stick.release();
+  if (!live) { box.hidden = true; return; }
+  const acts = [];
+  const cam = view.camera || {};
+  if (view.role === 'survivor') {
+    if (m.hideState === 'hidden' || m.hideState === 'entering') {
+      acts.push(`<button class="act peek ${game.peeking ? 'active' : ''}" data-hold="peek" ${m.hideState !== 'hidden' ? 'disabled' : ''}><b>👁</b><span>Peek</span></button>`);
+      if (m.snares && m.hideState === 'hidden') acts.push(actBtn('snare', '🪢', 'Snare', {}, 'Rig a snare outside'));
+    } else if (!m.caught) {
+      for (const hs of view.options.nearHides ?? []) acts.push(actBtn('hide', hs.pose === 'under' ? '⬇' : '▮', 'Hide', { spot: hs.id }, hs.label, 'hide'));
+      for (const g of view.options.gallery ?? []) acts.push(actBtn('gallery', '🖼', 'View Gallery', { station: g.id }, g.label));
+    }
+    const clue = view.options.inspect?.find(c => !c.read) ?? null;
+    if (clue && !m.caught) acts.push(actBtn('inspect', '🔎', 'Inspect', { clue: clue.id }, clue.label));
+    if (cam.mine) acts.push(actBtn('flash', '📷', 'Photo', {}, 'Take Photo', 'flash-btn'));
+  } else if (!m.grabbing && !m.stunned) {
+    const ho = view.huntOptions || {};
+    for (const sp of ho.nearSearch ?? []) acts.push(actBtn('search', '✋', 'Search', { spot: sp.id }, sp.label, m.searching === sp.id ? 'active' : ''));
+    for (const d of ho.doors ?? []) {
+      const dw = DOORWAYS.find(x => x.key === d.key);
+      if (dw && Math.hypot(dw.pos[0] - m.pos[0], dw.pos[1] - m.pos[1]) < 2.4) acts.push(actBtn('block', '⛔', 'Block', { door: d.key }, d.label, m.blocking === d.key ? 'active' : ''));
+    }
+  }
+  box.hidden = !acts.length;
+  setHtml(box, acts.join(''));
 }
 
 function intentBadge() {
@@ -421,16 +519,10 @@ function renderPanel() {
       setHtml(p, html.join('')); return;
     }
     if (m.hideState === 'hidden' || m.hideState === 'entering') {
-      const clue = view.options.inspect?.[0];
-      html.push(`<h3>${m.hideState === 'hidden' ? 'Hidden — stay alert' : 'Getting into cover…'}</h3>
-        <p class="plan">Drag to look around. Hold <b>Peek</b> to lean out (people nearby can see you while you peek).</p>
-        <div class="row">
-          <button class="btn peek ${game.peeking ? 'active' : ''}" data-hold="peek" ${m.hideState !== 'hidden' ? 'disabled' : ''}>👁 Hold to Peek</button>
-          ${clue ? btn('inspect', `🔎 Inspect ${esc(clue.label)}`, { data: { clue: clue.id } }) : ''}
-          ${m.snares ? btn('snare', '🪢 Rig snare outside') : ''}
-        </div>
-        ${photo ? `<div class="row">${photo}</div>` : ''}
-        <div class="row">${btn('leave', 'Leave hiding…')}${sosButton()}</div>`);
+      const visitor = game.mode === 'roomview';
+      html.push(`<p class="hidden-line"><b>${m.hideState === 'hidden' ? (visitor ? 'Someone is in the room' : 'Hidden') : 'Getting into cover…'}</b> · ${visitor ? 'stay still, or slip out while they are busy' : 'drag to look · hold Peek to lean out'}</p>
+        <div class="dock">${btn('leave', 'Leave hiding…')}${sosButton()}</div>`);
+      if (expanded !== '__leave') p.classList.add('slim');
       if (expanded === '__leave') html.push(roomChooser(true));
       setHtml(p, html.join('')); return;
     }
@@ -446,12 +538,19 @@ function renderPanel() {
         <div class="row">${btn('gal-back', 'Back to Game', { cls: 'primary' })}${sosButton()}</div>`);
       setHtml(p, html.join('')); return;
     }
+    // Walking with the stick: keep the screen clear (just the dock).
+    if (!roomsOpen && expanded === null) {
+      html.push(`<div class="dock">${btn('rooms', '🗺 Rooms')}${photo}${sosButton()}${m.moving && !m.steering ? btn('stop', 'Stop') : ''}</div>`);
+      const out = view.sos?.outbox?.[0];
+      if (out) html.push(`<p class="plan small">SOS to <b>${esc(out.recipientName)}</b>: ${out.reply === 'coming' ? '<b style="color:var(--ok)">Coming!</b>' : out.reply === 'cant' ? "Can't risk it" : 'no reply yet'}</p>`);
+      setHtml(p, html.join('')); p.classList.add('slim'); return;
+    }
     // While travelling, keep the panel slim so the journey stays visible.
-    if (m.moving && expanded !== '__change') {
+    if (m.moving && !m.steering && expanded !== '__change') {
       html.push(`<div class="row">${btn('change', 'Change destination')}${btn('stop', 'Stop here')}${photo}</div><div class="row">${paceToggle()}</div>`);
       setHtml(p, html.join('')); p.classList.add('slim'); return;
     }
-    html.push(`<h3>Where to? · ${esc(zoneLabel(m))}</h3>`);
+    html.push(`<div class="drawer-head"><h3>Where to? · ${esc(zoneLabel(m))}</h3>${btn('rooms', '✕ Close', { cls: 'close' })}</div>`);
     html.push(roomChooser(false));
     const extra = [];
     if (photo) extra.push(photo);
@@ -476,11 +575,15 @@ function renderPanel() {
   const h = view.huntOptions;
   if (m.grabbing) { html.push(`<h3>You have ${esc(first(m.grabbing))}</h3><p class="plan">Hold on…</p>`); setHtml(p, html.join('')); return; }
   if (m.stunned) { html.push(`<h3>${m.stunned === 'frozen' ? 'Frozen by the flash' : 'Tangled in rope'}</h3><p class="plan">You'll recover in a moment.</p>`); setHtml(p, html.join('')); return; }
-  html.push(`<h3>Hunt · ${esc(zoneLabel(m))}</h3>`);
+  if (!roomsOpen) {
+    html.push(`<div class="dock">${btn('rooms', '🗺 Hunt · rooms')}${m.searching ? '<span class="plan small">Searching…</span>' : ''}</div>`);
+    setHtml(p, html.join('')); p.classList.add('slim'); return;
+  }
+  html.push(`<div class="drawer-head"><h3>Hunt · ${esc(zoneLabel(m))}</h3>${btn('rooms', '✕ Close', { cls: 'close' })}</div>`);
   if (h.chase.length) html.push(`<div class="row">${h.chase.map(id => btn('chase', `Go after ${esc(first(id))}`, { cls: 'danger', data: { target: id } })).join('')}</div>`);
   if (h.searchSpots.length) html.push(`<div class="row">${h.searchSpots.map(s => btn('search', `Search: ${esc(s.label)}`, { active: m.searching === s.id, data: { spot: s.id } })).join('')}</div>`);
   if (h.doors.length) html.push(`<details class="doors"><summary>Block a doorway</summary><div class="row">${h.doors.map(d => btn('block', esc(d.label), { active: m.blocking === d.key, data: { door: d.key } })).join('')}</div></details>`);
-  html.push(`<div class="cards">${h.rooms.map(r => roomCard(r)).join('')}</div>`);
+  html.push(`<div class="cards">${h.rooms.map(r => roomCard(r, { entry: entryDoor(r) })).join('')}</div>`);
   html.push(`<div class="row">${paceToggle()}${btn('wait', 'Wait here')}</div>`);
   setHtml(p, html.join(''));
 }
@@ -491,7 +594,7 @@ function roomChooser(fromCover) {
   const cur = o.currentRoom;
   const rooms = [...(cur ? [cur] : []), ...o.rooms];
   const sel = expanded && !expanded.startsWith('__') ? expanded : null;
-  const parts = [`<div class="cards">${rooms.map(r => roomCard(r, { current: r === cur, selected: r === sel })).join('')}</div>`];
+  const parts = [`<div class="cards">${rooms.map(r => roomCard(r, { current: r === cur, selected: r === sel, entry: r === cur ? null : entryDoor(r) })).join('')}</div>`];
   const chosen = sel ?? (fromCover ? cur : null);
   if (chosen) {
     const hides = o.hides.filter(h => h.room === chosen && h.id !== m.hide);
@@ -505,16 +608,17 @@ function roomChooser(fromCover) {
 
 function sosButton() { return view.sos ? btn('sos-open', '🆘 Ask for help', { disabled: !view.sos.canSend }) : ''; }
 
-$('panel').addEventListener('click', e => {
+function onAct(e) {
   const b = e.target.closest('[data-act]');
   if (!b || b.disabled) return;
   const d = b.dataset;
   switch (d.act) {
+    case 'rooms': roomsOpen = !roomsOpen; expanded = null; render(); break;
     case 'room-card':
-      if (view.role === 'hunter') { intent({ kind: 'room', room: d.room }, `to the ${roomName(d.room)}`); break; }
+      if (view.role === 'hunter') { roomsOpen = false; intent({ kind: 'room', room: d.room }, `to the ${roomName(d.room)}`); break; }
       expanded = expanded === d.room ? (view.me.moving ? '__change' : null) : d.room; render(); break;
-    case 'go': expanded = null; intent({ kind: 'room', room: d.room }, `to the ${roomName(d.room)}`); break;
-    case 'hide': expanded = null; intent({ kind: 'hide', spot: d.spot }, 'to cover'); break;
+    case 'go': expanded = null; roomsOpen = false; intent({ kind: 'room', room: d.room }, `to the ${roomName(d.room)}`); break;
+    case 'hide': expanded = null; roomsOpen = false; stick.release(); intent({ kind: 'hide', spot: d.spot }, 'to cover'); break;
     case 'exit': intent({ kind: 'exit' }, 'to the exit'); break;
     case 'gallery': game.galleryIndex = 1; intent({ kind: 'gallery', station: d.station }, 'to the portrait wall'); break;
     case 'gal-step': game.galleryIndex = (game.galleryIndex ?? 1) + Number(d.step); render(); break;
@@ -533,15 +637,19 @@ $('panel').addEventListener('click', e => {
     case 'sos-update': send('sos:update', { id: d.id }); break;
     case 'map-open': openMapSheet(); break;
     case 'chase': intent({ kind: 'chase', target: d.target }, `after ${first(d.target)}`); break;
-    case 'search': intent({ kind: 'search', spot: d.spot }, 'search'); break;
+    case 'search': roomsOpen = false; stick.release(); intent({ kind: 'search', spot: d.spot }, 'search'); break;
     case 'block': intent({ kind: 'block', door: d.door }, 'block the doorway'); break;
     case 'wait': intent({ kind: 'idle' }, 'wait'); break;
   }
-});
+}
+$('panel').addEventListener('click', onAct);
+$('actions').addEventListener('click', onAct);
 // Peek is press-and-hold.
 const peekOn = e => { const b = e.target.closest('[data-hold="peek"]'); if (!b || b.disabled) return; e.preventDefault(); game.setPeek(true); send('peek', { on: true }); b.classList.add('active'); };
 const peekOff = () => { if (!game.peeking) return; game.setPeek(false); send('peek', { on: false }); document.querySelector('[data-hold="peek"]')?.classList.remove('active'); };
 $('panel').addEventListener('pointerdown', peekOn);
+$('actions').addEventListener('pointerdown', peekOn);
+$('actions').addEventListener('contextmenu', e => e.preventDefault());
 window.addEventListener('pointerup', peekOff);
 window.addEventListener('pointercancel', peekOff);
 $('panel').addEventListener('contextmenu', e => e.preventDefault());
