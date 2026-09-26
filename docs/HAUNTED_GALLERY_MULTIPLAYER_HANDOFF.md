@@ -12,7 +12,20 @@ _Written 2026-09-25, updated 2026-09-26 after the Colyseus Cloud deployment. No 
 | Working branch | `multiplayer-foundation` (branched from `6f65621`), then **`mansion-rooms`** (branched from `multiplayer-foundation`: bedroom wing, reference-based room art, 15-minute spec timing; see `docs/MANSION_REFERENCE_MAPPING.md`) |
 | Deployed to Colyseus Cloud? | **Yes**: now commit **`b1581a4`** on **`mansion-rooms`** (2026-09-26). Previously `fd998c0` on `multiplayer-foundation`. |
 
-## Current deployment: `mansion-rooms` @ `b1581a4` (2026-09-26)
+## Current deployment: `visual-upgrade` @ `68f7588` (2026-09-26)
+
+- **Merge:** `mansion-rooms` was fast-forward merged into `main` (tag `checkpoint-mansion-merged`) and verified live on Cloud as `main` @ `0e0c2c1`.
+- **Deploy:** the tested `visual-upgrade` branch was then deployed with `--branch visual-upgrade`. `/version` reports `{"commit":"68f7588"}`.
+- **Checks against Cloud:**
+  - `remote-multiplayer.mjs` 15/15.
+  - 12 bots: 0 privacy violations in 6,146 views.
+  - `cloud-tour.mjs`: two phone-sized players and one desktop player walk room by room and hide under the four-poster, inside the wardrobe and under the single bed.
+  - `arrival.mjs`: the limousine and all 12 arriving guests as real models.
+- **Screenshots:** `docs/screenshots/visual-upgrade/`.
+- **To go back to `main` on Cloud:** `npx @colyseus/cloud@1.0.12 deploy --env production --branch main --remote https://github.com/ScaleBeaconLLC/Haunted-Gallery.git`.
+- **`/version`** (added in `0e0c2c1`) reports the running commit and start time, so any deploy can be verified from outside.
+
+## Previous deployment: `mansion-rooms` @ `b1581a4` (2026-09-26)
 
 | Check | Result |
 |---|---|
