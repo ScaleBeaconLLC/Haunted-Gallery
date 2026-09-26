@@ -252,8 +252,14 @@ export class Game3D {
         && DOORWAYS.every(d => Math.hypot(d.pos[0] - x, d.pos[1] - z) > 1.4);
       let d = 3.0;
       while (d > 0.9 && !clear(me.pos[0] - fx * d, me.pos[1] - fz * d)) d -= 0.2;
-      const cx = me.pos[0] - fx * d, cz = me.pos[1] - fz * d;
-      const cy = 2.3 + (3.0 - d) * 0.35;   // a little higher when it has to come in close
+      let cx = me.pos[0] - fx * d, cz = me.pos[1] - fz * d;
+      let cy = 2.3 + (3.0 - d) * 0.35;   // a little higher when it has to come in close
+      if (!clear(cx, cz)) {
+        // In a doorway there is no room behind: rise above the door (leaves are 2.3 m tall)
+        // and lean into the room, looking down and ahead.
+        cx = me.pos[0] - fx * 0.5; cz = me.pos[1] - fz * 0.5; cy = 3.8;
+        return { pos: new pc.Vec3(cx, cy, cz), target: new pc.Vec3(me.pos[0] + fx * 3.2, 0.8, me.pos[1] + fz * 3.2), near: 0.1, fov: 66 };
+      }
       return { pos: new pc.Vec3(cx, cy, cz), target: new pc.Vec3(me.pos[0] + fx * 2.4, 1.05, me.pos[1] + fz * 2.4), near: 0.1, fov: 64 };
     }
     if (this.mode === 'gallery' && my?.viewing && me?.pos) {

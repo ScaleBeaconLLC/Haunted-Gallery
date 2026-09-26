@@ -449,10 +449,12 @@ function renderActions() {
   const box = $('actions'), st = $('stick');
   const m = view?.me;
   const live = pub?.phase === 'hunt' && !!m && view.status !== 'escaped' && !pub.paused && !captureRoom;
-  const blocked = !live || m.caught || m.grabbing || m.stunned || (m.viewing && !m.moving);
+  // The drawer (room chooser, leave menu) takes the screen: no stick or buttons over its cards.
+  const drawer = roomsOpen || (expanded !== null && expanded !== undefined);
+  const blocked = !live || m.caught || m.grabbing || m.stunned || (m.viewing && !m.moving) || drawer;
   st.hidden = !!blocked;
   if (blocked && stickValue.s) stick.release();
-  if (!live) { box.hidden = true; return; }
+  if (!live || drawer) { box.hidden = true; return; }
   const acts = [];
   const cam = view.camera || {};
   if (view.role === 'survivor') {

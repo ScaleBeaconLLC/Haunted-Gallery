@@ -70,7 +70,7 @@ try {
   await shot(julian, '01-phone-corridor-room-cards');
   await openRooms(julian); await julian.click('.room-card[data-room="master_bedroom"]');
   await shot(julian, '02-phone-master-bedroom-card-open');
-  await julian.click('[data-act="pace"][data-pace="run"]').catch(() => {});
+  await julian.click('[data-act="pace"][data-pace="run"]', { timeout: 3000 }).catch(() => {});
   await julian.click('[data-act="hide"][data-spot="under_fourposter"]');
   await sleep(1600);
   await shot(julian, '03-phone-running-down-the-portrait-corridor');

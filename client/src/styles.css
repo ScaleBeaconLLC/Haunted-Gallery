@@ -183,3 +183,9 @@ details summary { cursor: pointer; color: var(--gold); }
 .hidden-line { margin: 0 0 6px; padding-left: 150px; font-size: 13px; color: var(--muted); }
 .hidden-line b { color: var(--gold); font-weight: normal; letter-spacing: .04em; }
 @media (max-width: 360px) { .hidden-line { padding-left: 0; } }
+
+#panel.slim .intent { position: fixed; right: 12px; bottom: calc(160px + var(--safe-b)); margin: 0; }
+.drawer-head h3 { margin: 0; }
+.drawer-head .btn.close { width: auto; }
+.room-card .rc-name { padding-bottom: 24px; line-height: 1.15; }
+.room-card .rc-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 10.5px; }

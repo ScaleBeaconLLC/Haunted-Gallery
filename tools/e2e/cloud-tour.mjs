@@ -48,13 +48,14 @@ async function tap(p, sel) {
 }
 
 // Walk room by room (only the current and adjacent rooms are offered), then hide.
+let lastTapErr = null;
 async function walkAndHide(id, p, onRoom) {
   const r = ROUTES[id];
-  await p.click('[data-act="pace"][data-pace="run"]').catch(() => {});
+  await openRooms(p); await p.click('[data-act="pace"][data-pace="run"]', { timeout: 3000 }).catch(() => {});
   // Natural play: a CPU zombie may catch this player on the way. That is reported, not failed.
   const caught = async () => { const v = await view(p); return v?.role === 'hunter' || v?.me?.caught || v?.me?.intent?.reason === 'Caught'; };
   for (const room of r.via) {
-    if (await caught()) return `caught on the way to ${room} (natural play)`;
+    if (await caught()) { const v = await view(p); return `caught on the way to ${room} (natural play; role ${v?.role}, caught ${v?.me?.caught}, reason ${v?.me?.intent?.reason}, err ${String(lastTapErr).slice(0, 120)})`; }
     try {
       if (room === r.room) {
         await tap(p, `.room-card[data-room="${room}"]`);
@@ -64,7 +65,8 @@ async function walkAndHide(id, p, onRoom) {
         await tap(p, `[data-act="go"][data-room="${room}"]`);
       }
     } catch (e) {
-      if (await caught()) return `caught on the way to ${room} (natural play)`;
+      lastTapErr = e.message;
+      if (await caught()) { const v = await view(p); return `caught on the way to ${room} (natural play; role ${v?.role}, caught ${v?.me?.caught}, reason ${v?.me?.intent?.reason}, err ${String(lastTapErr).slice(0, 120)})`; }
       throw e;
     }
     await onRoom?.(room, 'leaving');
@@ -89,7 +91,8 @@ try {
   await host.click('#h-create');
   await host.waitForFunction(() => /^[A-Z2-9]{5}$/.test(document.getElementById('h-code').textContent), null, { timeout: 20000 });
   const code = await host.textContent('#h-code');
-  report.checks.qrUrl = await host.inputValue('#h-url');
+  // The QR link (falls back to this server when the laptop has no LAN address to offer).
+  report.checks.qrUrl = (await host.inputValue('#h-url')) || `${base}/?code=${code}`;
   await shot(host, '00-desktop-host-console-qr');
   step(`session created; QR link ${report.checks.qrUrl}`);
 
