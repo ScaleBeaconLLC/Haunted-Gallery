@@ -36,7 +36,9 @@ async function tap(p, sel) {
     if (await p.locator(sel).first().click({ timeout: 4000 }).then(() => true, () => false)) return;
     await sleep(300);
   }
-  throw new Error(`could not tap ${sel}`);
+  await p.screenshot({ path: join(out, `failed-tap-${Date.now()}.png`) }).catch(() => {});
+  const v = await p.evaluate(() => window.__hgView?.me).catch(() => null);
+  throw new Error(`could not tap ${sel} (room ${v?.room}, zone ${v?.zone}, caught ${v?.caught}, moving ${v?.moving}, intent ${JSON.stringify(v?.intent)})`);
 }
 
 // Walk room by room (only the current and adjacent rooms are offered), then hide.
@@ -70,7 +72,7 @@ const browser = await chromium.launch({ executablePath: process.env.BROWSER, hea
 try {
   const host = await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage();
   host.on('pageerror', e => report.errors.push(`host: ${e.message}`));
-  await host.goto(`${base}/host.html`);
+  await host.goto(`${base}/host.html`, { timeout: 120000 });
   await host.fill('#h-key', process.env.HOST_KEY || '');
   await host.click('#h-create');
   await host.waitForFunction(() => /^[A-Z2-9]{5}$/.test(document.getElementById('h-code').textContent), null, { timeout: 20000 });
@@ -87,7 +89,7 @@ try {
       : await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const p = await ctx.newPage();
     p.on('pageerror', e => report.errors.push(`${id}: ${e.message}`));
-    await p.goto(report.checks.qrUrl); // exactly what scanning the QR opens
+    await p.goto(report.checks.qrUrl, { timeout: 120000 }); // exactly what scanning the QR opens
     await p.fill('#join-name', name);
     await p.click('#join-go');
     await p.waitForSelector('#screen-lobby:not([hidden])');

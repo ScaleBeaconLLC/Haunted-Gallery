@@ -7,7 +7,7 @@
 //  - Smooth transitions between the two. Only people the server says you can perceive
 //    are ever rendered, so no camera angle can reveal anyone else.
 import * as pc from 'playcanvas';
-import { CAMERA_START, GALLERY, ROOMS, TUNING, hideSpot } from '@game/data.ts';
+import { CAMERA_START, CAST, GALLERY, ROOMS, TUNING, hideSpot } from '@game/data.ts';
 import { World, mat, walkRects } from './world.js';
 import { ActorView, castInfo, setScenePhase } from './actors.js';
 
@@ -135,6 +135,7 @@ export class Game3D {
     this.myView = view;
     this.phase = view?.phase ?? pub?.phase ?? 'lobby';
     setScenePhase(this.phase);
+    if (this.world.exterior) this.world.exterior.enabled = this.phase === 'lobby' || this.phase === 'opening';
     const now = this.now();
     const seen = new Set();
     if (view?.me) {
@@ -239,6 +240,11 @@ export class Game3D {
       if (r) { cx = Math.max(r[0] + 0.4, Math.min(r[1] - 0.4, cx)); cz = Math.max(r[2] + 0.4, Math.min(r[3] - 0.4, cz)); }
       return { pos: new pc.Vec3(cx, 1 + Math.sin(pitch) * v.dist, cz), target: new pc.Vec3(tx, 0.9, tz), near: 0.2, fov: 58 };
     }
+    if (this.mode === 'opening' && this.arrival) {
+      // Establishing shot of the front of the house as the limousine arrives.
+      const { ex, face } = this.arrival;
+      return { pos: new pc.Vec3(ex + 10, 3.4, face - 12.5), target: new pc.Vec3(ex + 0.5, 1.6, face - 2.2), near: 0.2, fov: 52 };
+    }
     // Opening, lobby and escaped: a slow orbit of the gallery (or the exit).
     v.orbit += dt * (this.mode === 'opening' ? 7 : 4);
     const focus = this.mode === 'escaped' ? [0, 24] : ROOMS.portrait.center;
@@ -252,6 +258,7 @@ export class Game3D {
     // In first person you don't see your own body.
     if (me) me.entity.enabled = this.visible?.has(this.me) && this.mode !== 'fp' && this.mode !== 'gallery';
     this.world.updateLights(dt);
+    this.updateArrival(dt);
     this.world.updateDoors(dt, [...this.actors.values()].filter(a => a.entity.enabled && a.pos).map(a => a.pos));
 
     if (this.cameraHolder && this.actors.get(this.cameraHolder)?.pos) {
@@ -345,6 +352,58 @@ export class Game3D {
     this.app.scene.fog.start = 60; this.app.scene.fog.end = 120;
     for (const a of this.actors.values()) a.entity.enabled = false;
     this.world.cameraProp.enabled = false;
+    if (this.world.exterior) this.world.exterior.enabled = false;   // cards show the rooms, not the front of the house
+  }
+
+  // ---------------------------------------------------------------- arrival (spec §12, 0–4 s)
+  /**
+   * The limousine pulls up to the front steps and the arriving guests (everyone except the
+   * birthday guest, who is already inside) step out and walk to the doors. These are cinematic
+   * doubles on this phone only; the real match state is untouched. Your own guest wears the ring.
+   */
+  startArrival(pub) {
+    this.endArrival();
+    const w = this.world;
+    const { x: ex, z: face } = w.frontEntrance;
+    const ids = CAST.map(c => c.id).filter(id => pub?.seats?.get?.(id)?.taken && id !== pub.birthday);
+    this.arrival = { t: 0, ex, face, doubles: ids.map((id, i) => {
+      const a = new ActorView(this.app, id);   // a separate double of the guest (same look)
+      a.entity.name = `Arrival_${id}`;
+      a.entity.enabled = false;
+      a.ring.enabled = id === this.me;
+      const [lx, lz] = w.limoParked;
+      const start = [lx - 1.6 + (i % 4) * 1.0, lz + 1.3];
+      const goal = [ex + ((i % 5) - 2) * 0.55, face - 1.8 - Math.floor(i / 5) * 0.6];
+      a.pos = [...start]; a.target = [...start]; a.yaw = 0;
+      return { a, start, goal, at: 1.5 + i * 0.16 };
+    }) };
+    w.setLimo(0);
+  }
+
+  endArrival() {
+    if (!this.arrival) return;
+    for (const d of this.arrival.doubles) d.a.destroy();
+    this.arrival = null;
+    this.world.setLimo(1);
+  }
+
+  updateArrival(dt) {
+    const ar = this.arrival;
+    if (!ar) return;
+    dt *= this.arrivalTimeScale ?? 1;
+    ar.t += dt;
+    this.world.setLimo(ar.t / 1.5);
+    for (const d of ar.doubles) {
+      if (ar.t < d.at) continue;
+      const a = d.a;
+      if (!a.entity.enabled) { a.entity.enabled = true; }
+      const dx = d.goal[0] - a.target[0], dz = d.goal[1] - a.target[1], dist = Math.hypot(dx, dz);
+      const step = Math.min(dist, 1.7 * dt);
+      a.moving = dist > 0.05;
+      if (a.moving) { a.target = [a.target[0] + dx / dist * step, a.target[1] + dz / dist * step]; a.targetYaw = Math.atan2(dx, dz) * 180 / Math.PI; }
+      a.update(dt);
+    }
+    if (ar.t > 6) this.endArrival();
   }
 
   // ---------------------------------------------------------------- opening cinematic staging
@@ -352,10 +411,14 @@ export class Game3D {
     const w = this.world;
     const portrait = ROOMS.portrait;
     if (id === 'arrival') {
+      this.startArrival(pub);
       w.restoreLamps();
       w.setLockdown(false);
       if (w.paintingVeil) w.paintingVeil.enabled = true;
       this.openingCameraHolder = pub.photographer;
+    } else if (id === 'welcome') {
+      // (Slow motion is a debug aid for screenshots: the shot then ends on its own.)
+      if ((this.arrivalTimeScale ?? 1) >= 1) this.endArrival();
     } else if (id === 'unveiling') {
       if (w.paintingVeil) w.paintingVeil.enabled = false;
     } else if (id === 'freeze') {

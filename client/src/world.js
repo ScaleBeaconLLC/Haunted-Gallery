@@ -239,6 +239,9 @@ export class World {
     for (const c of CORRIDORS) for (const d of c.doors) this.buildDoor(d.pos, d.axis, false);
     this.exitDoor = this.buildDoor(EXIT_CORRIDOR.door.pos, 'z', true);
     this.buildGardenGate();
+    this.buildCourtyard();
+    this.buildExterior();
+    this.buildFoyerStairs();
 
     // The single antique camera prop (position driven by game state).
     const cam = new pc.Entity('AntiqueCamera');
@@ -307,6 +310,74 @@ export class World {
     this.exitLight = exitLight;
     // Two iron lanterns flanking the gate.
     for (const s of [-1, 1]) this.prim(root, 'sphere', 'GateLantern', [s * 0.8, 2.2, 18.9], [0.18, 0.24, 0.18], mat('#221', { emissive: '#ffb45a', emissiveIntensity: 1.2 }));
+  }
+
+  /**
+   * Beyond the Garden Gate (spec §10): a walled garden courtyard between the two wings, seen
+   * through the gate bars and on the way out. Crossing the gate is the escape; the courtyard
+   * is scenery, not a second chase. Wayfinding in the Sealed Exhibition Room: Garden Gate · Courtyard.
+   */
+  buildCourtyard() {
+    const root = this.root;
+    const x0 = ROOMS.portrait.rect[1] + WALL_T / 2, x1 = ROOMS.archive.rect[0] - WALL_T / 2;
+    const zN = EXIT_CORRIDOR.rect[2], zS = ROOMS.portrait.rect[2] + WALL_T / 2;
+    const cx = (x0 + x1) / 2, cz = (zN + zS) / 2;
+    this.wbox(root, 'CourtyardPaving', [cx, 0.0, cz], [x1 - x0, 0.1, zN - zS], tmat('stone', { tint: '#6a6f76', gloss: 0.7 }), 2);
+    this.wbox(root, 'CourtyardPath', [cx, 0.03, cz], [1.4, 0.06, zN - zS], tmat('tile', { tint: '#8a8478', gloss: 0.6 }), 1.4);
+    for (const sx of [-1, 1]) {
+      for (let z = zS + 1.2; z < zN - 1.2; z += 2.4) this.box(root, 'CourtyardHedge', [cx + sx * 1.9, 0.45, z], [0.9, 0.9, 2.0], mat('#1e3322', { gloss: 0.1 }));
+    }
+    // A small fountain halfway down, with a lantern glow, and the arch out to the front drive.
+    const fz = cz - 1;
+    this.prim(root, 'cylinder', 'FountainBasin', [cx, 0.25, fz], [1.6, 0.5, 1.6], mat('#9c968a', { gloss: 0.4 }));
+    this.prim(root, 'cylinder', 'FountainWater', [cx, 0.46, fz], [1.4, 0.06, 1.4], mat('#1a2a3a', { gloss: 0.95, metalness: 0.2, emissive: '#1a2a40', emissiveIntensity: 0.4 }));
+    this.prim(root, 'cylinder', 'FountainStem', [cx, 0.9, fz], [0.18, 1.0, 0.18], mat('#9c968a'));
+    this.plantAt(root, cx, fz, 0.6, 'houseplant_5');
+    for (const z of [zN - 1.4, zS + 1.6]) {
+      this.box(root, 'CourtyardLantern', [cx - 1.25, 2.3, z], [0.26, 0.38, 0.26], mat('#221', { emissive: '#ffb45a', emissiveIntensity: 1.2 }));
+      this.practical(root, cx - 1.25, 2.1, z, 5.5, 0.8);
+    }
+    this.box(root, 'CourtyardArch', [cx, 3.4, zS + 0.1], [x1 - x0, 0.5, 0.4], mat('#a8a296'));
+    // Wayfinding inside the Sealed Exhibition Room, beside the service door.
+    const sign = this.grp(root, 'GateSign', EXIT_CORRIDOR.door.pos[0] + 2.1, EXIT_CORRIDOR.door.pos[1] + WALL_T / 2 + 0.01, 0);
+    this.wbox(sign, 'GateSignBoard', [0, 2.05, 0.02], [1.7, 0.34, 0.03], tmat('plaque', { args: ['GARDEN GATE  ·  COURTYARD  →'], metalness: 0.6, gloss: 0.6 }), 1.7, 0.34);
+  }
+
+  /**
+   * The foyer's twin staircases and balcony (reference 02): two short flights along the south
+   * wall rising to a landing above the front doors. Decorative only: velvet ropes close the
+   * foot of each flight and a plaque says the upper gallery is closed, so no route is implied.
+   */
+  buildFoyerStairs() {
+    const node = this.root;
+    const [x0, x1, z0] = ROOMS.portrait.rect;
+    const ex = ROOMS.portrait.center[0], wall = z0 + WALL_T / 2;
+    const tread = mat('#4a2c18', { gloss: 0.55 }), rail = mat('#2a1a10', { gloss: 0.6 }), gilt = mat('#b08a3a', { metalness: 0.9, gloss: 0.7 });
+    const steps = 9, rise = 2.9 / steps, run = 0.28, width = 1.1, depth = width;
+    for (const side of [-1, 1]) {
+      // Each flight starts away from the doors and climbs toward the landing above them.
+      const startX = ex + side * (1.8 + steps * run);
+      for (let i = 0; i < steps; i++) {
+        const x = startX - side * (i + 0.5) * run;
+        this.box(node, 'Stair', [x, (i + 1) * rise / 2, wall + depth / 2], [run + 0.02, (i + 1) * rise, depth], tread);
+      }
+      // Banister along the open side of the flight.
+      const midX = startX - side * steps * run / 2, len = Math.hypot(steps * run, 2.9);
+      const bannister = this.box(node, 'Banister', [midX, 1.45 + 0.9, wall + depth - 0.04], [len, 0.07, 0.07], rail);
+      bannister.setLocalEulerAngles(0, 0, side * Math.atan2(2.9, steps * run) * 180 / Math.PI);
+      for (let i = 0; i <= steps; i += 3) this.box(node, 'Baluster', [startX - side * i * run, i * rise + 0.45, wall + depth - 0.04], [0.05, 0.9, 0.05], rail);
+      // Velvet rope across the foot of the flight.
+      const footX = startX + side * 0.25;
+      for (const dz of [0.1, depth - 0.1]) this.prim(node, 'cylinder', 'Stanchion', [footX, 0.45, wall + dz], [0.07, 0.9, 0.07], gilt);
+      this.box(node, 'StairRope', [footX, 0.82, wall + depth / 2], [0.05, 0.05, depth - 0.2], mat('#6e1c24'));
+    }
+    // Landing / balcony above the doors, with a balustrade.
+    const lw = 3.8;
+    this.box(node, 'Landing', [ex, 2.9, wall + 0.65], [lw, 0.14, 1.3], tread);
+    this.box(node, 'BalconyRail', [ex, 3.75, wall + 1.28], [lw, 0.08, 0.08], rail);
+    for (let x = -lw / 2; x <= lw / 2 + 0.01; x += 0.38) this.box(node, 'BalconyBaluster', [ex + x, 3.35, wall + 1.28], [0.05, 0.8, 0.05], rail);
+    const plaque = this.grp(node, 'UpperGalleryClosed', ex, wall + 1.31, 0);
+    this.wbox(plaque, 'ClosedPlaque', [0, 3.2, 0.01], [1.3, 0.24, 0.02], tmat('plaque', { args: ['UPPER GALLERY CLOSED'], metalness: 0.6, gloss: 0.6 }), 1.3, 0.24);
   }
 
   // ------------------------------------------------------------------ hiding places
@@ -821,6 +892,105 @@ export class World {
   }
 
   /**
+   * The front of the house (spec §6 / §12): a rain-darkened forecourt and driveway, a stone
+   * façade with warm windows over the foyer and archive, a columned entrance with steps and
+   * heavy double doors, lanterns and a moon. Seen in the arrival shot; it is not a playable
+   * space and not an exit (the Garden Gate is the only way out).
+   */
+  buildExterior() {
+    // Only shown in the lobby and the opening: during play the tall front would block the
+    // overhead camera near the foyer's south wall (nobody goes outside anyway).
+    const root = this.exterior = this.grp(this.root, 'Exterior', 0, 0);
+    const face = ROOMS.portrait.rect[2] - WALL_T / 2;          // outer surface of the south wall
+    const ex = ROOMS.portrait.center[0];                        // the arrival entrance (foyer)
+    this.frontEntrance = { x: ex, z: face };
+    const wet = tmat('stone', { tint: '#5a5f68', gloss: 0.82 });
+    this.wbox(root, 'Forecourt', [0, 0.0, face - 9], [64, 0.1, 18], wet, 3);
+    this.wbox(root, 'Drive', [0, 0.03, face - 4.4], [64, 0.06, 4.2], tmat('tile', { tint: '#3e424a', gloss: 0.88 }), 2.4);
+    this.box(root, 'Lawn', [0, 0.04, face - 12.6], [64, 0.08, 6], mat('#142018', { gloss: 0.15 }));
+    for (let x = -30; x <= 30; x += 4) this.box(root, 'Hedge', [x, 0.5, face - 9.9], [3.4, 1.0, 0.9], mat('#1b2e1f', { gloss: 0.1 }));
+    // Two-storey stone front with a string course, cornice and rows of lit windows.
+    const fx0 = ROOMS.portrait.rect[0] - 0.4, fx1 = ROOMS.archive.rect[1] + 0.4, H = 7.4;
+    this.wbox(root, 'Facade', [(fx0 + fx1) / 2, H / 2, face - 0.09], [fx1 - fx0, H, 0.18], tmat('stonewall', { tint: '#c4bdb0' }), 3, 3);
+    this.box(root, 'StringCourse', [(fx0 + fx1) / 2, 3.55, face - 0.25], [fx1 - fx0, 0.18, 0.3], mat('#9c968a'));
+    this.box(root, 'Cornice', [(fx0 + fx1) / 2, H + 0.1, face - 0.3], [fx1 - fx0 + 0.6, 0.35, 0.6], mat('#a8a296'));
+    const warm = mat('#3a2410', { emissive: '#ffc66a', emissiveIntensity: 0.85 });
+    const sash = mat('#1a1614');
+    for (let x = fx0 + 2.2; x < fx1 - 1.5; x += 3.3) {
+      if (Math.abs(x - ex) < 3.6) continue;
+      for (const [y, h] of [[1.95, 2.3], [5.4, 1.9]]) {
+        this.box(root, 'LitWindow', [x, y, face - 0.19], [1.25, h, 0.04], warm);
+        this.box(root, 'Mullion', [x, y, face - 0.22], [0.06, h, 0.03], sash);
+        this.box(root, 'Transom', [x, y + h * 0.18, face - 0.22], [1.25, 0.06, 0.03], sash);
+        this.box(root, 'Sill', [x, y - h / 2 - 0.06, face - 0.3], [1.5, 0.1, 0.25], mat('#a8a296'));
+      }
+    }
+    // Entrance: steps, marble columns, entablature, heavy doors, lanterns.
+    for (let i = 0; i < 3; i++) {
+      const d = 1.6 - i * 0.45;
+      this.box(root, 'Step', [ex, 0.09 + i * 0.16, face - d / 2], [6.4 - i * 0.5, 0.18 + i * 0.32, d], mat('#b8b2a6', { gloss: 0.5 }));
+    }
+    for (const s of [-1, 1]) this.propAt(root, 'column_round2', ex + s * 2.45, face - 1.05, 0, { h: 4.6, y: 0.5, tints: { Marble: { color: '#ddd6c8', gloss: 0.55 } } });
+    this.box(root, 'Entablature', [ex, 5.35, face - 0.95], [6.6, 0.55, 2.0], mat('#b8b2a6'));
+    this.propAt(root, 'door_double', ex, face - 0.2, 180, { h: 3.3, y: 0.5, tints: { Wood: { color: '#2a160c', gloss: 0.45 }, Gold: { color: '#b08a3a', gloss: 0.75 } } });
+    const glass = mat('#221a10', { emissive: '#ffcf7a', emissiveIntensity: 1.3 });
+    for (const s of [-1, 1]) {
+      this.box(root, 'LanternBracket', [ex + s * 1.6, 2.9, face - 0.35], [0.08, 0.5, 0.35], sash);
+      this.box(root, 'Lantern', [ex + s * 1.6, 2.6, face - 0.5], [0.28, 0.42, 0.28], glass);
+      this.practical(root, ex + s * 1.6, 2.4, face - 1.0, 5, 0.9);
+    }
+    // Lamp posts along the drive.
+    for (let x = -26; x <= 26; x += 13) {
+      this.prim(root, 'cylinder', 'LampPost', [x, 1.6, face - 7.2], [0.12, 3.2, 0.12], sash);
+      this.box(root, 'PostLantern', [x, 3.35, face - 7.2], [0.32, 0.45, 0.32], glass);
+      this.practical(root, x, 3.0, face - 7.2, 7, 0.8);
+    }
+    // A low moon over the lawn (not fogged out), and restrained ground mist.
+    const moon = new pc.StandardMaterial();
+    moon.emissive = new pc.Color(0.8, 0.86, 0.98); moon.useFog = false; moon.useLighting = false; moon.update();
+    this.prim(root, 'sphere', 'Moon', [26, 26, face - 60], [5, 5, 5], moon, false);
+    const mist = new pc.StandardMaterial();
+    mist.diffuse = new pc.Color(0, 0, 0); mist.emissive = new pc.Color(0.16, 0.18, 0.24); mist.opacity = 0.18;
+    mist.blendType = pc.BLEND_NORMAL; mist.depthWrite = false; mist.update();
+    for (const [x, z, w] of [[-14, face - 12, 22], [12, face - 13, 26], [0, face - 16, 40]]) this.prim(root, 'plane', 'Mist', [x, 0.35, z], [w, 1, 4], mist, false);
+    // The limousine (a stretched CC0 sedan, placeholder), parked until the arrival drives it in.
+    this.limo = this.grp(root, 'Limousine', ex + 3, face - 4.4, 270);
+    this.limoParked = [ex + 3, face - 4.4];
+    // Headlights, tail lights and a light that travels with the car, so it reads at night.
+    const head = mat('#fff', { emissive: '#fff4d6', emissiveIntensity: 2 }), tail = mat('#300', { emissive: '#ff2a1a', emissiveIntensity: 1.4 });
+    for (const s of [-1, 1]) {
+      this.box(this.limo, 'Headlight', [s * 0.62, 0.62, 3.25], [0.3, 0.14, 0.05], head, false);
+      this.box(this.limo, 'TailLight', [s * 0.66, 0.72, -3.25], [0.24, 0.12, 0.05], tail, false);
+    }
+    const beam = new pc.Entity('LimoLight');
+    beam.addComponent('light', { type: 'omni', color: new pc.Color(1, 0.93, 0.8), intensity: 1.6, range: 9, castShadows: false });
+    beam.setLocalPosition(0, 2.2, 1.2);
+    this.limo.addChild(beam);
+    new Promise((resolve, reject) => {
+      const asset = new pc.Asset('limo', 'container', { url: '/models/vehicles/sedan.glb' });
+      asset.on('load', a => resolve(a.resource)); asset.on('error', reject);
+      this.app.assets.add(asset); this.app.assets.load(asset);
+    }).then(res => {
+      const car = res.instantiateRenderEntity({ castShadows: false });
+      car.setLocalScale(1.35, 1.3, 1.35);
+      const body = car.findByName('body');
+      if (body) body.setLocalScale(1, 1, 2.3);
+      for (const w of car.children) if (/wheel/.test(w.name)) { const p = w.getLocalPosition(); w.setLocalPosition(p.x, p.y, p.z * 2.1); }
+      for (const r of car.findComponents('render')) for (const mi of r.meshInstances) {
+        const m = mi.material.clone(); m.diffuse = new pc.Color(0.13, 0.13, 0.15); m.gloss = 0.85; m.metalness = 0.4; m.update(); mi.material = m;
+      }
+      this.limo.addChild(car);
+    }).catch(err => console.warn('limousine model unavailable', err));
+  }
+
+  /** Drive the limousine along the forecourt: t from 0 (entering) to 1 (stopped at the steps). */
+  setLimo(t) {
+    const [px, pz] = this.limoParked;
+    const e = 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);
+    this.limo.setLocalPosition(px + 34 * (1 - e), 0, pz);
+  }
+
+  /**
    * View Gallery (spec §22): three curated sections on the corridor's north wall, each with
    * three works in aged gilt frames, an engraved plaque under each and a picture light.
    * `galleryFocus` gives the camera the world position of every work, by station.
@@ -948,9 +1118,10 @@ function subtract(a, b, cuts) {
 export function computeWalls() {
   const rects = walkRects();
   const walls = [];
-  rects.forEach(({ r: [x0, x1, z0, z1] }, i) => {
+  rects.forEach(({ r: [x0, x1, z0, z1], kind }, i) => {
     const others = rects.filter((_, j) => j !== i).map(o => o.r);
     for (const [z, side] of [[z0, -1], [z1, 1]]) {
+      if (kind === 'exit' && side < 0) continue;   // the Garden Gate end opens onto the courtyard
       const cuts = others.filter(([, , oz0, oz1]) => side > 0 ? (oz0 <= z + EPS && oz1 > z + EPS) : (oz1 >= z - EPS && oz0 < z - EPS))
         .map(([ox0, ox1]) => [ox0, ox1]);
       for (const [a, b] of subtract(x0, x1, cuts)) walls.push({ axis: 'x', z, a, b });

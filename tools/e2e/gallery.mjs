@@ -26,7 +26,7 @@ async function tap(p, sel) {
 const browser = await chromium.launch({ executablePath: process.env.BROWSER, headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 try {
   const host = await (await browser.newContext({ viewport: { width: 1000, height: 700 } })).newPage();
-  await host.goto(`${base}/host.html`);
+  await host.goto(`${base}/host.html`, { timeout: 120000 });
   await host.click('#h-create');
   await host.waitForFunction(() => /^[A-Z2-9]{5}$/.test(document.getElementById('h-code').textContent));
   const code = await host.textContent('#h-code');
@@ -38,7 +38,7 @@ try {
       : await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const p = await ctx.newPage();
     p.on('pageerror', e => report.errors.push(`${id}: ${e.message}`));
-    await p.goto(`${base}/?code=${code}`);
+    await p.goto(`${base}/?code=${code}`, { timeout: 120000 });
     await p.fill('#join-name', name);
     await p.click('#join-go');
     await p.waitForSelector('#screen-lobby:not([hidden])');

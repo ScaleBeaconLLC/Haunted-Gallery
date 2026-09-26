@@ -35,6 +35,8 @@ These are unchanged by the character work; see `docs/MANSION_REFERENCE_MAPPING.m
 | Hiding covers (beds, wardrobes, screens, tables) | **Primitive assemblies on purpose.** Their clearances and hollow interiors are tuned to the hiding rules and first-person cameras. The pack's beds leave only ~0.17 m under the mattress, too little for the under-bed hide. Modelled covers with matching clearances are still missing. |
 | Room shells (floors, walls), statues, fireplaces, chandeliers | **Placeholder.** Primitive geometry with procedural canvas textures. The chandelier model was tried and rejected because it hides people from the overhead camera. |
 | Lighting | **Improved, not final.** One warm light per room, plus 34 small practical lights at lamps and sconces (clustered lighting); a fire glow; contact shadows under every character; about a third of the lamps flicker and fail after the attack. **No baked lightmaps and no real-time shadows yet.** |
-| Portraits | **Placeholder.** Generated in code. |
+| Portraits, View Gallery works (9), plaques | **Placeholder art painted in code** (`client/src/textures.js`). Era treatments: oil, sepia, faded film, flash, digital. |
+| Exterior (façade, portico, forecourt, courtyard, foyer staircases) | Primitive geometry plus CC0 props (marble columns, double doors, plants). **Usable blockout, not final architecture.** |
+| Limousine | **Placeholder:** Kenney *Car Kit* sedan (**CC0 1.0**, `client/public/models/vehicles/`), stretched and tinted black at runtime, with added head- and tail-lights. |
 | Voices | 52 AI voice auditions, **not approved** |
 | Sound effects | **Placeholder.** Synthesized in `client/src/audio.js`. |

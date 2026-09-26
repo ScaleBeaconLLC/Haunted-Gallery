@@ -24,7 +24,7 @@ const shot = (p, name) => p.screenshot({ path: join(out, `${name}.png`) });
 const browser = await chromium.launch({ executablePath: process.env.BROWSER, headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
 try {
   const host = await (await browser.newContext({ viewport: { width: 1200, height: 800 } })).newPage();
-  await host.goto(`${base}/host.html`);
+  await host.goto(`${base}/host.html`, { timeout: 120000 });
   await host.click('#h-create');
   await host.waitForFunction(() => /^[A-Z2-9]{5}$/.test(document.getElementById('h-code').textContent));
   const code = await host.textContent('#h-code');
@@ -36,7 +36,7 @@ try {
     const p = await (await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true })).newPage();
     p.on('pageerror', e => report.errors.push(`${id}: ${e.message}`));
     p.on('websocket', ws => ws.on('framereceived', f => { (p._ws ??= []).push(typeof f.payload === 'string' ? f.payload : Buffer.from(f.payload).toString('latin1')); }));
-    await p.goto(`${base}/?code=${code}&debug=1`);
+    await p.goto(`${base}/?code=${code}&debug=1`, { timeout: 120000 });
     await p.fill('#join-name', name);
     await p.click('#join-go');
     await p.waitForSelector('#screen-lobby:not([hidden])');

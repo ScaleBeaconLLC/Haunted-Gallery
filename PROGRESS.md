@@ -1,10 +1,30 @@
 # Haunted Gallery: progress log
 
-_Last updated: 2026-09-26 (mansion rooms from the 15-image reference package, branch `mansion-rooms`)_
+_Last updated: 2026-09-26 (visual upgrade: real characters, furniture, lighting, View Gallery, arrival, courtyard — branch `visual-upgrade`; `main` = mansion rooms, merged and live)_
 
 This log separates what is **verified**, what is **built but not verified on real phones**, and what is **missing**. It is a playable multiplayer blockout with placeholder characters, not a finished production game.
 
 Recoverable checkpoint of the previous round-based build: git tag **`checkpoint-rounds-v1`** (commit `a2fbac9`).
+
+## Visual upgrade (branch `visual-upgrade`, 2026-09-26)
+
+What changed and what is still placeholder: `docs/ASSET_MANIFEST.md`. Image-by-image mapping: `docs/MANSION_REFERENCE_MAPPING.md`.
+
+- **Characters:** real rigged, animated models for all 13 guests and Elias (CC0 Quaternius), in each guest's established colours.
+  - 22 animation clips, some converted from another rig; playback is matched to walking speed.
+  - When a hunter searches under a bed, their face comes down into the hidden player's view.
+- **Furniture:** real models for bookcases, nightstands, dressers, velvet seating, lamps and plants (CC0), statically batched. Hiding covers keep their tuned primitive geometry.
+- **Lighting:** 40+ small practical lights at lamps and sconces, contact shadows under characters, and about a third of the lamps flicker and fail after the attack. No baked lightmaps yet.
+- **View Gallery (spec §22):** three curated sections on the Portrait Corridor with nine works in three layers.
+  - Players walk up and look at the real wall.
+  - The timer keeps running and the viewer stays visible; moving or being grabbed ends it; the section is only available within reach.
+- **Arrival (spec §6 and §12):** a stone façade, portico with columns and doors, wet forecourt and moon. The limousine (a stretched CC0 sedan, placeholder) pulls up and the arriving guests walk to the doors. It is shown only in the lobby and the opening.
+- **Garden Gate courtyard (spec §10)** with "Garden Gate · Courtyard →" wayfinding.
+- **Foyer twin staircases and balcony (reference 02):** decorative, roped off and marked *Upper gallery closed*.
+- **Tests:**
+  - 28 server tests pass, including a new View Gallery engine test.
+  - Browser scenarios pass: `bedrooms`, `gallery` (new), `arrival` (new) and `cloud-tour` (desktop plus phone-sized).
+- **Not verified on real phones** (frame rate, heat, load time): about 17 MB of models and room cards in total, of which each guest needs about 370 KB.
 
 ## Mansion rooms update (branch `mansion-rooms`, 2026-09-26)
 
