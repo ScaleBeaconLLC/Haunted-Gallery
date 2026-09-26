@@ -299,14 +299,14 @@ function render() {
 
 function renderLobby() {
   const seats = pub.seats;
-  $('cast-grid').innerHTML = CAST.map(c => {
+  setHtml($('cast-grid'), CAST.map(c => {
     const seat = seats.get(c.id);
     const mine = me === c.id;
     const taken = seat?.taken && !mine;
     return `<button class="cast ${mine ? 'mine' : ''} ${taken ? 'taken' : ''}" data-claim="${c.id}" ${taken ? 'disabled' : ''}>
       <div class="n"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</div>
       <div class="t">${mine ? 'You' : taken ? esc(seat.displayName) : 'Available'} · <span class="shoe" style="background:${c.shoes}"></span> shoes</div></button>`;
-  }).join('');
+  }).join(''));
   $('lobby-sub').textContent = me ? `You are ${castInfo(me).name}. Tap another guest to switch.` : 'Tap a guest. Each can be chosen once.';
   $('lobby-wait').textContent = `${pub.humanCount} of 12 joined · waiting for the host to start. ${pub.cpuFill ? 'Empty seats will be played by the computer.' : ''}`;
 }
@@ -378,16 +378,23 @@ function paceToggle() {
   return `<div class="pace">${btn('pace', 'Walk', { active: pace === 'walk', data: { pace: 'walk' } })}${btn('pace', 'Run', { active: pace === 'run', data: { pace: 'run' } })}</div>`;
 }
 
+// Views arrive ~10x a second: only touch the DOM when content actually changes, so a
+// finger that is mid-tap (or holding Peek) never has its button replaced under it.
+function setHtml(el, html) {
+  if (el.__html === html) return;
+  el.innerHTML = html; el.__html = html;
+}
+
 function renderPanel() {
   const p = $('panel');
   if (!view || !view.me || pub.phase === 'opening' || pub.phase === 'ended' || view.status === 'escaped') {
     p.hidden = !(view?.status === 'escaped' && pub.phase !== 'ended');
-    if (!p.hidden) p.innerHTML = `<h3>You escaped</h3><p class="plan">You're out alive with <b>${view.score}</b> points. Others may still get out.</p>`;
+    if (!p.hidden) setHtml(p, `<h3>You escaped</h3><p class="plan">You're out alive with <b>${view.score}</b> points. Others may still get out.</p>`);
     return;
   }
   p.hidden = false;
   p.classList.remove('slim');
-  if (pub.paused) { p.innerHTML = '<h3>Paused</h3><p class="plan">The host paused the game.</p>'; return; }
+  if (pub.paused) { setHtml(p, '<h3>Paused</h3><p class="plan">The host paused the game.</p>'); return; }
   const m = view.me;
   const html = [intentBadge()];
 
@@ -396,26 +403,26 @@ function renderPanel() {
     const photo = cam.mine ? btn('flash', '📷 Take Photo', { cls: 'flash-btn' }) : '';
     if (m.caught) {
       html.push(`<h3>Caught by ${esc(first(m.caughtBy))}</h3><p class="plan">You can't pull free alone.</p>${photo}`);
-      p.innerHTML = html.join(''); return;
+      setHtml(p, html.join('')); return;
     }
     if (m.hideState === 'hidden' || m.hideState === 'entering') {
       const clue = view.options.inspect?.[0];
       html.push(`<h3>${m.hideState === 'hidden' ? 'Hidden — stay alert' : 'Getting into cover…'}</h3>
         <p class="plan">Drag to look around. Hold <b>Peek</b> to lean out (people nearby can see you while you peek).</p>
         <div class="row">
-          <button class="btn peek" data-hold="peek" ${m.hideState !== 'hidden' ? 'disabled' : ''}>👁 Hold to Peek</button>
+          <button class="btn peek ${game.peeking ? 'active' : ''}" data-hold="peek" ${m.hideState !== 'hidden' ? 'disabled' : ''}>👁 Hold to Peek</button>
           ${clue ? btn('inspect', `🔎 Inspect ${esc(clue.label)}`, { data: { clue: clue.id } }) : ''}
           ${m.snares ? btn('snare', '🪢 Rig snare outside') : ''}
         </div>
         ${photo ? `<div class="row">${photo}</div>` : ''}
         <div class="row">${btn('leave', 'Leave hiding…')}${sosButton()}</div>`);
       if (expanded === '__leave') html.push(roomChooser(true));
-      p.innerHTML = html.join(''); return;
+      setHtml(p, html.join('')); return;
     }
     // While travelling, keep the panel slim so the journey stays visible.
     if (m.moving && expanded !== '__change') {
       html.push(`<div class="row">${btn('change', 'Change destination')}${btn('stop', 'Stop here')}${photo}</div><div class="row">${paceToggle()}</div>`);
-      p.innerHTML = html.join(''); p.classList.add('slim'); return;
+      setHtml(p, html.join('')); p.classList.add('slim'); return;
     }
     html.push(`<h3>Where to? · ${esc(zoneLabel(m))}</h3>`);
     html.push(roomChooser(false));
@@ -432,20 +439,20 @@ function renderPanel() {
     const out = view.sos?.outbox?.[0];
     if (out) html.push(`<p class="plan">SOS to <b>${esc(out.recipientName)}</b>: “${esc(out.text)}” · ${out.reply === 'coming' ? '<b style="color:var(--ok)">Coming!</b>' : out.reply === 'cant' ? "Can't risk it" : 'no reply yet'}${out.stale ? ` · ${btn('sos-update', 'Update my location', { data: { id: out.id } })}` : ''}</p>`);
     if (view.clues?.length) html.push(`<details class="clues"><summary>Notes you've found (${view.clues.length})</summary>${view.clues.map(c => `<p><b>${esc(c.label)}:</b> ${esc(c.text)}</p>`).join('')}</details>`);
-    p.innerHTML = html.join(''); return;
+    setHtml(p, html.join('')); return;
   }
 
   // Hunter controls: move, search, block, chase, wait.
   const h = view.huntOptions;
-  if (m.grabbing) { html.push(`<h3>You have ${esc(first(m.grabbing))}</h3><p class="plan">Hold on…</p>`); p.innerHTML = html.join(''); return; }
-  if (m.stunned) { html.push(`<h3>${m.stunned === 'frozen' ? 'Frozen by the flash' : 'Tangled in rope'}</h3><p class="plan">You'll recover in a moment.</p>`); p.innerHTML = html.join(''); return; }
+  if (m.grabbing) { html.push(`<h3>You have ${esc(first(m.grabbing))}</h3><p class="plan">Hold on…</p>`); setHtml(p, html.join('')); return; }
+  if (m.stunned) { html.push(`<h3>${m.stunned === 'frozen' ? 'Frozen by the flash' : 'Tangled in rope'}</h3><p class="plan">You'll recover in a moment.</p>`); setHtml(p, html.join('')); return; }
   html.push(`<h3>Hunt · ${esc(zoneLabel(m))}</h3>`);
   if (h.chase.length) html.push(`<div class="row">${h.chase.map(id => btn('chase', `Go after ${esc(first(id))}`, { cls: 'danger', data: { target: id } })).join('')}</div>`);
   if (h.searchSpots.length) html.push(`<div class="row">${h.searchSpots.map(s => btn('search', `Search: ${esc(s.label)}`, { active: m.searching === s.id, data: { spot: s.id } })).join('')}</div>`);
   if (h.doors.length) html.push(`<details class="doors"><summary>Block a doorway</summary><div class="row">${h.doors.map(d => btn('block', esc(d.label), { active: m.blocking === d.key, data: { door: d.key } })).join('')}</div></details>`);
   html.push(`<div class="cards">${h.rooms.map(r => roomCard(r)).join('')}</div>`);
   html.push(`<div class="row">${paceToggle()}${btn('wait', 'Wait here')}</div>`);
-  p.innerHTML = html.join('');
+  setHtml(p, html.join(''));
 }
 
 /** Room picture cards for reachable rooms; tapping one opens its hiding places. */
@@ -510,14 +517,14 @@ function renderInbox() {
   const box = $('inbox');
   const inbox = view?.status === 'alive' ? view.sos?.inbox ?? [] : [];
   const now = conn.now();
-  box.innerHTML = inbox.map(s => {
+  setHtml(box, inbox.map(s => {
     const ago = Math.max(0, Math.round((now - s.updatedAt) / 1000));
     return `<div class="sos"><div class="who">${esc(s.senderName)} needs help</div>
       <div class="where">“${esc(s.text)}” · ${esc(s.roomName)}${s.lastSeen ? ' (last seen)' : ''} · ${ago < 10 ? 'just now' : `${ago}s ago`}</div>
       <div class="row">${btn('sos-reply', s.reply === 'coming' ? '✓ Coming' : "I'm coming", { active: s.reply === 'coming', data: { id: s.id, reply: 'coming' } })}
       ${btn('sos-reply', "I can't risk it", { active: s.reply === 'cant', data: { id: s.id, reply: 'cant' } })}
       ${btn('sos-map', 'Open map', { data: { id: s.id } })}</div></div>`;
-  }).join('');
+  }).join(''));
 }
 $('inbox').addEventListener('click', e => {
   const b = e.target.closest('[data-act]');

@@ -73,31 +73,37 @@ function render() {
   $('h-phase').textContent = pub.paused ? `${label} — PAUSED` : label;
   const secs = pub.phaseEndsAt ? Math.max(0, Math.ceil((pub.phaseEndsAt - conn.now()) / 1000)) : null;
   const left = secs == null ? '—' : `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
-  $('h-stats').innerHTML = lobby
+  setHtml($('h-stats'), lobby
     ? `<div><b>${pub.humanCount}</b>joined</div><div><b>${12 - pub.humanCount}</b>open seats</div>`
     // Public numbers only: who has turned is secret until the recap.
-    : `<div><b>${pub.insideCount}</b>still inside</div><div><b>${pub.escapedCount}</b>escaped</div><div><b>${pub.teamScore}</b>team pts</div><div><b>${pub.paused ? 'II' : left}</b>left</div>`;
+    : `<div><b>${pub.insideCount}</b>still inside</div><div><b>${pub.escapedCount}</b>escaped</div><div><b>${pub.teamScore}</b>team pts</div><div><b>${pub.paused ? 'II' : left}</b>left</div>`);
   $('h-start').disabled = !lobby || pub.humanCount === 0;
   $('h-pause').disabled = lobby || pub.phase === 'ended';
   $('h-pause').textContent = pub.paused ? 'Resume' : 'Pause';
   $('h-cpu').checked = pub.cpuFill;
   $('h-cpu').disabled = !lobby;
-  $('h-roster').innerHTML = CAST.map(c => {
+  setHtml($('h-roster'), CAST.map(c => {
     const s = pub.seats.get(c.id);
     const who = s?.taken ? (s.isCpu ? 'CPU' : esc(s.displayName)) : 'open';
     const status = s?.birthday ? 'birthday guest' : s?.status === 'escaped' ? 'escaped' : s?.status === 'inside' ? (s.isCpu || s.connected ? 'inside' : 'inside · reconnecting') : (s?.taken ? (s.connected ? 'ready' : 'disconnected') : '');
     return `<div class="h-seat ${s?.taken ? '' : 'off'}"><div><div>${esc(c.name)}</div><div class="s">${who}${status ? ' · ' + status : ''}</div></div>
       ${lobby && s?.taken && !s.isCpu ? `<button data-kick="${c.id}">Free</button>` : ''}</div>`;
-  }).join('');
+  }).join(''));
   if (pub.phase === 'ended' && pub.results) {
     const r = JSON.parse(pub.results);
     const n = ids => ids.map(id => CAST.find(c => c.id === id)?.name ?? id).join(', ') || 'nobody';
     const mmss = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-    $('h-results').innerHTML = `<h3>Results</h3><p>${r.escaped.length} escaped · team ${r.teamScore} pts · ${r.rescues} verified rescue(s)</p><p class="fine">Escaped: ${esc(n(r.escaped))}${r.trapped.length ? `<br/>Trapped at dawn: ${esc(n(r.trapped))}` : ''}</p>
+    $('h-results').innerHTML = `<h3>Results</h3><p>${r.escaped.length} escaped · team ${r.teamScore} pts · ${r.rescues} verified rescue(s)</p><p class="fine">Escaped: ${esc(n(r.escaped))}${r.trapped.length ? `<br/>Trapped at lockdown: ${esc(n(r.trapped))}` : ''}</p>
       <p class="fine">Infection history:<br/>${r.infections.map(i => `${mmss(i.atSec)} ${esc(n([i.victim]))} ← ${esc(i.by === 'elias' ? 'Elias Voss' : n([i.by]))}`).join('<br/>')}</p>`;
   } else $('h-results').innerHTML = '';
 }
 setInterval(render, 500);
+
+// Only touch the DOM when content changes, so host taps (Free a seat) are never lost.
+function setHtml(el, html) {
+  if (el.__html === html) return;
+  el.innerHTML = html; el.__html = html;
+}
 
 // Return to an existing session after a refresh.
 const saved = (() => { try { return JSON.parse(session?.getItem('hg.host') || 'null'); } catch { return null; } })();
