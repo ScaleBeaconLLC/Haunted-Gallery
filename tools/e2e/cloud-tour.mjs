@@ -19,6 +19,11 @@ const base = process.argv[2] || 'http://localhost:2567';
 const out = process.argv[3] || 'cloud-tour-out';
 mkdirSync(out, { recursive: true });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/** The room chooser lives in a drawer now: open it if its cards aren't on screen. */
+async function openRooms(p) {
+  if (await p.locator('.room-card').count() === 0) await p.click('[data-act="rooms"]', { timeout: 5000 }).catch(() => {});
+}
 const report = { steps: [], errors: [], checks: {} };
 const step = s => { report.steps.push(s); console.log(s); };
 const shot = (p, name) => p.screenshot({ path: join(out, `${name}.png`) }).catch(e => report.errors.push(`shot ${name}: ${e.message}`));
@@ -32,6 +37,7 @@ const ROUTES = {
 
 // Tap like a person: if the button was redrawn mid-tap, look again and tap again.
 async function tap(p, sel) {
+  if (sel.includes('room-card')) await openRooms(p);
   for (let i = 0; i < 8; i++) {
     if (await p.locator(sel).first().click({ timeout: 4000 }).then(() => true, () => false)) return;
     await sleep(300);

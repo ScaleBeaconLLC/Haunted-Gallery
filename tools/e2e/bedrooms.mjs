@@ -16,6 +16,11 @@ const base = process.argv[2] || 'http://localhost:2570';
 const out = process.argv[3] || 'bedrooms-out';
 mkdirSync(out, { recursive: true });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/** The room chooser lives in a drawer now: open it if its cards aren't on screen. */
+async function openRooms(p) {
+  if (await p.locator('.room-card').count() === 0) await p.click('[data-act="rooms"]', { timeout: 5000 }).catch(() => {});
+}
 const report = { steps: [], errors: [], checks: {} };
 const step = s => { report.steps.push(s); console.log(s); };
 const shot = (p, name) => p.screenshot({ path: join(out, `${name}.png`) });
@@ -61,9 +66,9 @@ try {
   step(`hunt started; countdown ${report.checks.countdown} (${report.checks.clock})`);
 
   // 1. Julian: Master Bedroom card -> under the four-poster.
-  await julian.waitForSelector('.room-card[data-room="master_bedroom"]');
+  await openRooms(julian); await julian.waitForSelector('.room-card[data-room="master_bedroom"]');
   await shot(julian, '01-phone-corridor-room-cards');
-  await julian.click('.room-card[data-room="master_bedroom"]');
+  await openRooms(julian); await julian.click('.room-card[data-room="master_bedroom"]');
   await shot(julian, '02-phone-master-bedroom-card-open');
   await julian.click('[data-act="pace"][data-pace="run"]').catch(() => {});
   await julian.click('[data-act="hide"][data-spot="under_fourposter"]');
@@ -79,7 +84,7 @@ try {
   step(`julian hidden under the four-poster (pose ${report.checks.julianPose})`);
 
   // 2. Anika (desktop): guest wardrobe.
-  await anika.click('.room-card[data-room="guest_bedroom"]');
+  await openRooms(anika); await anika.click('.room-card[data-room="guest_bedroom"]');
   await anika.click('[data-act="hide"][data-spot="guest_wardrobe"]');
   await sleep(1500);
   await shot(anika, '06-desktop-travel-into-guest-bedroom');
@@ -94,9 +99,9 @@ try {
   await hook({ infect: ['marcus'], searchMs: 9000 });
   await marcus.waitForSelector('#briefing:not([hidden])', { timeout: 10000 });
   await marcus.click('#briefing-ok');
-  await marcus.click('.room-card[data-room="corridor"]');
+  await openRooms(marcus); await marcus.click('.room-card[data-room="corridor"]');
   await marcus.waitForFunction(() => window.__hgView?.me?.room === 'corridor' && !window.__hgView?.me?.moving, null, { timeout: 30000 });
-  await marcus.click('.room-card[data-room="master_bedroom"]');
+  await openRooms(marcus); await marcus.click('.room-card[data-room="master_bedroom"]');
   await marcus.waitForFunction(() => window.__hgView?.me?.room === 'master_bedroom' && !window.__hgView?.me?.moving, null, { timeout: 30000 });
   await shot(marcus, '08-phone-hunter-in-master-bedroom');
   let farNormal = null, revealed = false, searched = false;
@@ -114,7 +119,7 @@ try {
     const v = await view(julian);
     const m = v?.actors?.find(x => x.id === 'marcus');
     if (m && farNormal === null) { farNormal = !m.revealed; await shot(julian, '09-phone-from-under-bed-someone-enters'); }
-    if (!searched) { await marcus.click('[data-act="search"][data-spot="under_fourposter"]').then(() => { searched = true; }, () => {}); }
+    if (!searched) { await openRooms(marcus); await marcus.click('[data-act="search"][data-spot="under_fourposter"]').then(() => { searched = true; }, () => {}); }
     if (m?.action === 'searching' && !revealed) {
       await shot(julian, '10a-phone-under-bed-search-begins');
       await sleep(2500); await shot(julian, '10-phone-under-bed-he-bends-down');

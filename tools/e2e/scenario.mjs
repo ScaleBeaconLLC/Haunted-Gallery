@@ -17,6 +17,11 @@ const base = process.argv[2] || 'http://localhost:2570';
 const out = process.argv[3] || 'scenario-out';
 mkdirSync(out, { recursive: true });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/** The room chooser lives in a drawer now: open it if its cards aren't on screen. */
+async function openRooms(p) {
+  if (await p.locator('.room-card').count() === 0) await p.click('[data-act="rooms"]', { timeout: 5000 }).catch(() => {});
+}
 const report = { steps: [], errors: [], checks: {} };
 const step = s => { report.steps.push(s); console.log(s); };
 const shot = (p, name) => p.screenshot({ path: join(out, `${name}.png`) });
@@ -56,9 +61,9 @@ try {
   step('hunt started; hunters parked; julian in the Archive, anika and marcus in the Sealed room');
 
   // 1. Room picture -> hiding place -> watch the walk -> first person.
-  await julian.waitForSelector('.room-card');
+  await openRooms(julian); await julian.waitForSelector('.room-card');
   await shot(julian, '01-room-cards');
-  await julian.click('.room-card[data-room="archive"]');
+  await openRooms(julian); await julian.click('.room-card[data-room="archive"]');
   await shot(julian, '02-archive-card-open');
   await julian.click('[data-act="hide"][data-spot="reading_alcove"]');
   await sleep(1200);
@@ -80,7 +85,7 @@ try {
   await sleep(600);
 
   // 2. A friend approaches the hiding place.
-  await anika.click('.room-card[data-room="archive"]');
+  await openRooms(anika); await anika.click('.room-card[data-room="archive"]');
   await anika.click('[data-act="hide"][data-spot="reading_alcove"]');
   step('anika heading to the same table');
   let sawFriend = false, friendRevealed = false;
@@ -109,7 +114,7 @@ try {
   const pubText = await host.evaluate(() => JSON.stringify(window.__hgHostState));
   report.checks.publicStateMentionsInfection = /infected/.test(pubText);
   step(`marcus infected privately (announced to others: ${leaked})`);
-  await marcus.click('.room-card[data-room="archive"]');
+  await openRooms(marcus); await marcus.click('.room-card[data-room="archive"]');
   let farLooksNormal = null, closeRevealed = false, searched = false;
   for (let i = 0; i < 160; i++) {
     const v = await julian.evaluate(() => window.__hgView);
@@ -121,7 +126,7 @@ try {
     if (!searched) {
       const mv = await marcus.evaluate(() => window.__hgView);
       if (mv?.me?.room === 'archive' && !mv.me.moving) {
-        await marcus.click('[data-act="search"][data-spot="reading_alcove"]').catch(() => {});
+        await openRooms(marcus); await marcus.click('[data-act="search"][data-spot="reading_alcove"]').catch(() => {});
         searched = true;
       }
     }

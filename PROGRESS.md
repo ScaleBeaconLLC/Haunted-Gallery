@@ -1,10 +1,24 @@
 # Haunted Gallery: progress log
 
-_Last updated: 2026-09-26 (visual upgrade: real characters, furniture, lighting, View Gallery, arrival, courtyard — branch `visual-upgrade`; `main` = mansion rooms, merged and live)_
+_Last updated: 2026-09-26 (guest suite: first Blender-built playable room, stick controls, new cameras — branch `visual-upgrade`)_
 
 This log separates what is **verified**, what is **built but not verified on real phones**, and what is **missing**. It is a playable multiplayer blockout with placeholder characters, not a finished production game.
 
 Recoverable checkpoint of the previous round-based build: git tag **`checkpoint-rounds-v1`** (commit `a2fbac9`).
+
+## Guest suite proof (branch `visual-upgrade`, 2026-09-26)
+
+Details: `docs/GUEST_SUITE_PROOF.md`. Renders: `docs/renders/`. Before and after: `docs/screenshots/guest-suite/`.
+
+- **Blender-built Guest Bedroom** (9 × 9 m) and a new **Guest Bathroom**. The editable `.blend`, the game model and four renders are all in the repository.
+- **Thumb stick movement:** a gentle push walks quietly; a full push runs, is faster, and is heard from the next room. The server moves the character: walls, furniture and doorways are enforced.
+- **Contextual buttons:** Hide, Peek, Search and Block appear only where they apply. There is a Rooms drawer with framed previews and entry-door floor plans.
+- **Cameras:**
+  - a close follow camera for survivors;
+  - first person while hidden;
+  - a pull-back to a bird's-eye view of the room only when someone enters (nothing new is revealed);
+  - a grounded shoulder camera for hunters.
+- **Tests:** 33 server tests; `tools/e2e/guest-suite.mjs` uses the real stick on phone-sized and desktop browsers.
 
 ## Visual upgrade (branch `visual-upgrade`, 2026-09-26)
 

@@ -36,7 +36,7 @@ async function stickTo(p, target, { strength = 0.5, within = 0.5, timeout = 2000
   await p.mouse.move(cx, cy);
   await p.mouse.down();
   const end = Date.now() + timeout;
-  let reached = false;
+  let reached = false, best = Infinity, lastGain = Date.now(), side = 1;
   while (Date.now() < end) {
     const s = await p.evaluate(() => {
       const g = window.__hgGame, me = window.__hgView?.me;
@@ -46,8 +46,12 @@ async function stickTo(p, target, { strength = 0.5, within = 0.5, timeout = 2000
     if (stop && await stop()) { reached = true; break; }
     const dx = target[0] - s.pos[0], dz = target[1] - s.pos[1], d = Math.hypot(dx, dz);
     if (d < within) { reached = true; break; }
+    if (d < best - 0.05) { best = d; lastGain = Date.now(); }
+    // Stuck against furniture: sidestep like a person would, then try again.
+    let wx = dx / d, wz = dz / d;
+    if (Date.now() - lastGain > 1200) { [wx, wz] = [-wz * side, wx * side]; if (Date.now() - lastGain > 2400) { side = -side; lastGain = Date.now(); } }
     const fl = Math.hypot(...s.f) || 1, rl = Math.hypot(...s.r) || 1;
-    const sx = (dx * s.r[0] + dz * s.r[1]) / rl / d, sy = (dx * s.f[0] + dz * s.f[1]) / fl / d;
+    const sx = (wx * s.r[0] + wz * s.r[1]) / rl, sy = (wx * s.f[0] + wz * s.f[1]) / fl;
     const l = Math.hypot(sx, sy) || 1;
     await p.mouse.move(cx + sx / l * r * strength, cy - sy / l * r * strength);
     await sleep(150);
@@ -106,9 +110,18 @@ try {
   report.checks.runLabel = runLabel;
   report.checks.runningPace = runPace;
   await stickTo(julian, [0.6, 67.8], { strength: 0.5, within: 0.4 }); await sleep(700);
-  const noHideInOpen = (await view(julian)).options.nearHides.length === 0 && await julian.locator('#actions [data-act="hide"]').count() === 0;
+  // The Hide button must match the rule: shown only within 1.4 m of a hiding place's open side.
+  const jv0 = await view(julian);
+  const fronts = { guest_wardrobe: [3.09, 69.7], under_brass_bed: [-0.15, 73.7], window_seat: [-2.76, 69.9] };
+  const near = Object.entries(fronts).filter(([, p]) => Math.hypot(p[0] - jv0.me.pos[0], p[1] - jv0.me.pos[1]) <= 1.4).map(([id]) => id);
+  const shown = await julian.locator('#actions [data-act="hide"]').evaluateAll(els => els.map(e => e.dataset.spot));
+  const noHideInOpen = JSON.stringify(near.sort()) === JSON.stringify(shown.sort());
+  report.checks.hideRuleAt = { pos: jv0.me.pos, expected: near, shown };
   report.checks.noHideButtonInTheOpen = noHideInOpen;
-  await stickTo(julian, [3.05, 69.7], { strength: 0.5, within: 0.35 });
+  await stickTo(julian, [1.8, 68.9], { strength: 0.5, within: 0.4 });
+  let reachedWardrobe = false;
+  for (let i = 0; i < 3 && !reachedWardrobe; i++) reachedWardrobe = await stickTo(julian, [3.05, 69.7], { strength: 0.4, within: 0.35, timeout: 15000 });
+  report.checks.wardrobeApproach = { reached: reachedWardrobe, pos: (await view(julian)).me.pos };
   await sleep(900);
   await julian.waitForSelector('#actions [data-act="hide"][data-spot="guest_wardrobe"]', { timeout: 8000 });
   report.checks.hideOfferedBesideWardrobe = true;

@@ -25,6 +25,18 @@ Source files are kept separately from the runtime exports:
 | Looking under a bed, lying flat to crawl under cover, infected hunch | **Procedural adjustment on the clips** | Code (`client/src/actors.js`) | The spec allows "limited procedural adjustment" |
 | Crawl, hidden idle, bite, transformation, stun recovery, escape | **Missing** (approximated) | — | Approximations: crouch_walk plus lying flat; recoil / grab; freeze = clip paused. A real crawl or bite needs new clips (for example from Mixamo, which needs the owner's Adobe sign-in, or a paid pack). |
 
+## Guest suite (Blender-built, first playable proof)
+
+| Asset | Status | Source / licence | Runtime |
+|---|---|---|---|
+| Guest Bedroom + Guest Bathroom: room shell, iron bed with crawl space, hollow wardrobe, window seat and curtain, clawfoot tub and shower curtain, linen cupboard, doors | **Built in Blender 5.2** (`tools/blender/build_guest_suite.py` → `art/blender/guest_suite.blend`) | Own work | `client/public/models/rooms/guest_suite.glb` (merged, 38 materials, ~49k triangles, 3.4 MB) |
+| Floor, panelling, wallpaper, velvet, quilt, tiles | **Usable** real texture maps (colour, normal, roughness), tinted | Poly Haven, **CC0 1.0** | Inside the GLB |
+| Nightstands, commode, ornate mirror, armchair, rocking chair, grandfather clock, plant | **Usable** | Poly Haven, **CC0 1.0** | Inside the GLB (heavier models decimated) |
+| Rug, paintings, window view | **Placeholder**, painted in code | Own work | Inside the GLB |
+| Lighting | Lamp and sconce markers in the model; the game adds practical lights. **No baked lighting.** | — | — |
+
+Details: `docs/GUEST_SUITE_PROOF.md`.
+
 ## Environment, audio, portraits
 
 These are unchanged by the character work; see `docs/MANSION_REFERENCE_MAPPING.md` for the rooms.
