@@ -7,6 +7,7 @@ import assert from "assert";
 import { ColyseusTestServer } from "@colyseus/testing";
 import { Client } from "@colyseus/sdk";
 import appConfig from "../src/app.config.js";
+import { TUNING } from "../src/game/data.js";
 import { testServer } from "./helpers/server.js";
 
 // Test-only hooks (skip the opening, place/infect characters). Never enabled in production.
@@ -230,6 +231,76 @@ describe("Local multiplayer (independent SDK clients)", function () {
     assert.strictEqual(y.server.state.phase, "lobby", "starting X did not start Y");
     assert.ok(!py.raw.some(r => r.includes("Xavier") || r.includes(x.code)), "Y received nothing from X");
     assert.ok(!px.raw.some(r => r.includes("Yolanda") || r.includes(y.code)), "X received nothing from Y");
+  });
+
+  it("floor taps: a move intent walks the server path, bad points are refused, taps in the cooldown are queued", async () => {
+    const { host, code, server } = await hostMatch();
+    const a = await joinAs(code, "julian", "Ann");
+    await startHunt(host, server, { julian: [20, 29] });   // Conservation Lab
+    a.room.send("intent", { kind: "move", p: ["x", 1] });
+    a.room.send("intent", { kind: "move", p: [24, 45] });  // nowhere near the floor
+    await until(() => errors(a).length >= 2, 4000, "2 rejections");
+    assert.match(errors(a)[0], /Bad position/);
+    assert.match(errors(a)[1], /can't stand there/);
+    a.room.send("intent", { kind: "move", p: [22, 27], pace: "walk" });
+    a.room.send("intent", { kind: "move", p: [27, 34], pace: "run" });   // inside the cooldown: queued, not refused
+    await until(() => lastView(a)?.me?.pace === "run" && lastView(a)?.me?.intent?.kind === "move", 4000, "queued tap applied");
+    await until(() => lastView(a)?.me?.intent?.state === "done", 8000, "arrived");
+    assert.deepStrictEqual(server.game.get("julian").pos, [27, 34]);
+    assert.ok(!errors(a).some(e => /One move at a time/.test(e)));
+  });
+
+  it("break free over the network: the victim's 'struggle' taps are counted by the server; only the victim is asked", async () => {
+    const { host, code, server } = await hostMatch();
+    const a = await joinAs(code, "julian", "Ann");
+    const b = await joinAs(code, "anika", "Bo");
+    await startHunt(host, server, { julian: [24, 28], anika: [30.5, 34] });
+    const B = server.state.birthday;
+    host.room.send("test:setup", { place: { [B]: [24.8, 28] }, struggleNeed: 6, grab: { hunter: B, victim: "julian" } });
+    await until(() => !!lastView(a)?.me?.struggle, 4000, "struggle in the view");
+    const st = lastView(a).me.struggle;
+    assert.strictEqual(st.need, 6);
+    assert.strictEqual(st.by, B);
+    assert.strictEqual(st.got, 0);
+    assert.ok(Math.abs(st.until - (Date.now() + TUNING.struggleMs)) < 1500, "until is a wall-clock time");
+    assert.ok(a.msgs.some(m => m.type === "fx" && m.payload.type === "struggle" && m.payload.grabId === st.grabId && m.payload.need === 6));
+    await sleep(200);
+    assert.ok(!b.raw.some(r => r.includes(st.grabId)), "the struggle is private to the victim");
+    // Tap like a phone: the cumulative count, one message per ~160 ms.
+    const freed = () => a.msgs.some(m => m.type === "fx" && m.payload.type === "broke_free");
+    for (let n = 1; n <= 12 && !freed(); n++) { a.room.send("struggle", { grabId: st.grabId, n }); await sleep(160); }
+    await until(freed, 4000, "broke free");
+    await until(() => lastView(a)?.me?.struggle === null && lastView(a)?.me?.caught === false, 4000, "view updated");
+    assert.strictEqual(server.game.get("julian").status, "alive");
+    assert.strictEqual(server.game.get(B).stunKind, "shoved");
+    await until(() => b.msgs.some(m => m.type === "fx" && m.payload.type === "broke_free" && m.payload.id === "julian"), 3000, "witness told");
+    await until(() => lastView(b)?.actors?.find((x: any) => x.id === B)?.stunned === "shoved", 3000, "witness sees the stagger");
+  });
+
+  it("struggle messages have their own rate budget: a burst is trimmed without starving other messages", async () => {
+    const { host, code, server } = await hostMatch();
+    const a = await joinAs(code, "julian", "Ann");
+    await startHunt(host, server, { julian: [24, 28] });
+    const B = server.state.birthday;
+    host.room.send("test:setup", { place: { [B]: [24.8, 28] }, struggleNeed: 400, grab: { hunter: B, victim: "julian" } });
+    await until(() => !!lastView(a)?.me?.struggle, 4000, "struggle in the view");
+    const st = lastView(a).me.struggle;
+    const g = server.game;
+    let calls = 0;
+    const orig = g.struggle.bind(g);
+    g.struggle = (...args: any[]) => { calls++; return orig(...args); };
+    for (let n = 1; n <= 40; n++) a.room.send("struggle", { grabId: st.grabId, n });
+    for (let k = 0; k < 15; k++) a.room.send("peek", { on: true });   // the general budget is untouched: all 15 answered
+    await until(() => errors(a).filter(e => /Peek from cover/.test(e)).length === 15, 3000, "general messages handled");
+    assert.ok(calls >= 9 && calls <= 13, `struggle burst trimmed to about 10 (got ${calls})`);
+    const credited = g.get("julian").struggle.got;
+    assert.ok(credited <= 1 + Math.floor((Date.now() - (st.until - TUNING.struggleMs)) * TUNING.struggleMaxTapsPerSec / 1000) + 1, `tap-rate clamp (got ${credited})`);
+    // It refills.
+    const before = calls;
+    await sleep(500);
+    a.room.send("struggle", { grabId: st.grabId, n: 41 });
+    await until(() => calls > before, 2000, "refilled");
+    g.struggle = orig;
   });
 
   it("reports an expired session clearly instead of creating a replacement", async () => {
