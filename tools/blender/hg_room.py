@@ -708,6 +708,7 @@ def setup_render(samples=48, cycles=False):
     sc.view_settings.view_transform = "AgX"
     looks = [i.identifier for i in sc.view_settings.bl_rna.properties["look"].enum_items]
     sc.view_settings.look = "AgX - Medium High Contrast" if "AgX - Medium High Contrast" in looks else "None"
+    sc.view_settings.exposure = float(arg("exposure", 0.6))
 
 
 def camera(name, pos, target, lens=24):

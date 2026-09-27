@@ -65,7 +65,7 @@ def tex_limestone(s=1024):
     edge = np.clip(mortar / 0.035, 0, 1)
     tone = np.random.default_rng(3).uniform(0.82, 1.1, (rows + 1, 5))[r.astype(int), (col_id.astype(int) % 5)]
     grain = fbm(s, s, 12, 5) * 0.5 + fbm(s, s, 48, 7, 3) * 0.5
-    base = np.array([0.46, 0.41, 0.34])
+    base = np.array([0.4, 0.35, 0.29])
     col = base * (tone * (0.8 + 0.35 * grain))[..., None]
     pits = (fbm(s, s, 96, 9, 2) > 0.72) * 0.25
     col *= (1 - pits)[..., None]
@@ -158,34 +158,97 @@ def tex_painting(name, seed, kind, w=512, h=640, cleaned=False):
     return R.save_image(TEX, name, col, fmt="JPEG")
 
 
-def tex_rug(name, palette, w=1024, h=768, seed=41):
+def tex_rug(name, palette, w=1024, h=704, seed=41):
+    """Persian-style rug: a field of small floral lattice motifs, a soft medallion, three borders
+    with repeating motifs, knotted-wool noise, wear and a darker, lower-contrast palette."""
     u, v = np.meshgrid(np.arange(w) / w, np.arange(h) / h)
     x, y = (u - 0.5) * 2, (v - 0.5) * 2
     edge = np.minimum((1 - np.abs(x)) * w / h, 1 - np.abs(y))
-    field, dark, light, accent = [np.array(c) for c in palette]
+    field, dark, light, accent, green = [np.array(c) for c in palette]
+    r = np.random.default_rng(seed)
     col = np.zeros((h, w, 3)) + field
-    lu, lv = (x * 9) % 1 - 0.5, (y * 7) % 1 - 0.5
-    col[np.abs(np.abs(lu) + np.abs(lv) - 0.45) < 0.05] = dark
-    petal = np.hypot(lu, lv) < 0.12 + 0.05 * np.cos(np.arctan2(lv, lu) * 6)
-    col[petal] = light * 0.85
-    r = np.hypot(x * 1.25, y * 1.6)
-    ang = np.arctan2(y * 1.6, x * 1.25)
-    lobe = 0.42 + 0.06 * np.cos(ang * 12)
-    col[r < lobe + 0.03] = accent
-    col[r < lobe] = dark
-    col[r < 0.3 + 0.03 * np.cos(ang * 8)] = light * 0.9
-    col[r < 0.2] = field
-    col[r < 0.08] = dark
-    main = (edge > 0.05) & (edge < 0.2)
-    col[main] = dark
-    col[main & (np.abs(np.sin((x + y) * 22) * 0.5 + np.sin((x - y) * 22) * 0.5) > 0.75)] = light * 0.8
-    col[(np.abs(edge - 0.05) < 0.012) | (np.abs(edge - 0.2) < 0.012)] = accent
-    col[edge < 0.04] = light * 0.75
-    knots = fbm(h, w, 96, seed + 1, 2)
-    wear = fbm(h, w, 4, seed)
-    col *= (0.7 + 0.3 * knots)[..., None]
-    col *= (0.74 + 0.36 * wear)[..., None]
-    return R.save_image(TEX, name, col, fmt="JPEG")
+    # field: small repeating botehs / rosettes on a diamond lattice, slightly irregular
+    fx, fy = x * 16 + 0.15 * np.sin(y * 9), y * 11
+    lu, lv = fx % 1 - 0.5, fy % 1 - 0.5
+    cell = (np.floor(fx) + np.floor(fy)) % 2
+    lattice = np.abs(np.abs(lu) + np.abs(lv) - 0.48) < 0.035
+    col[lattice] = dark * 0.9 + field * 0.1
+    rr = np.hypot(lu, lv)
+    ang = np.arctan2(lv, lu)
+    petals = rr < 0.16 + 0.05 * np.cos(ang * 6)
+    col[petals & (cell == 0)] = light * 0.8
+    col[petals & (cell == 1)] = green * 0.9
+    col[rr < 0.06] = accent
+    # soft central medallion
+    mr = np.hypot(x * 1.3, y * 1.7)
+    mang = np.arctan2(y * 1.7, x * 1.3)
+    lobe = 0.38 + 0.05 * np.cos(mang * 16)
+    med = mr < lobe
+    col[med] = col[med] * 0.35 + dark * 0.65
+    col[(mr < lobe) & (mr > lobe - 0.035)] = accent
+    inner = mr < 0.22 + 0.03 * np.cos(mang * 8)
+    col[inner] = col[inner] * 0.3 + light * 0.55
+    col[mr < 0.08] = field * 1.1
+    # borders: guard stripe, main band with running motifs, inner guard
+    band = (edge > 0.045) & (edge < 0.16)
+    col[band] = dark
+    t = np.where(np.abs(x) * w / h > np.abs(y) * 1.0, y, x) * 30
+    motif = band & (np.abs(((t % 1) - 0.5)) < 0.22) & (np.abs(edge - 0.1) < 0.035)
+    col[motif] = accent * 0.9
+    col[band & (np.abs(((t % 1) - 0.5)) < 0.08) & (np.abs(edge - 0.1) < 0.015)] = light * 0.7
+    for g in (0.045, 0.16, 0.19):
+        col[np.abs(edge - g) < 0.008] = light * 0.6
+    col[(edge > 0.16) & (edge < 0.19)] = field * 0.8 + accent * 0.2
+    col[edge < 0.025] = light * 0.55
+    # knotted wool, abrash (dye bands), wear and dirt
+    knots = fbm(h, w, 160, seed + 1, 2)
+    abrash = 0.9 + 0.2 * smooth_rows(h, w, seed + 5)
+    wear = fbm(h, w, 5, seed + 2)
+    col = col * (0.72 + 0.28 * knots)[..., None] * abrash[..., None]
+    col *= (0.7 + 0.4 * wear)[..., None]
+    col = col * 0.8 + col.mean(axis=-1, keepdims=True) * 0.2        # less saturated, older
+    return R.save_image(TEX, name, np.clip(col * 1.55, 0, 1), fmt="JPEG")
+
+
+def smooth_rows(h, w, seed):
+    """Horizontal dye bands (abrash) across a rug."""
+    rows = np.random.default_rng(seed).random(24)
+    idx = np.arange(h) / h * 23
+    i0 = np.floor(idx).astype(int)
+    f = idx - i0
+    band = rows[i0] * (1 - f) + rows[np.minimum(i0 + 1, 23)] * f
+    return np.repeat(band[:, None], w, axis=1)
+
+
+def tex_parquet(src, s=1024, tile=1.2, seed=77):
+    """Basket-weave parquet sampled from the CC0 oak scan: squares of four slats (0.075 m) that
+    alternate direction, each slat from a random part of the scan with its own tone, dark gaps."""
+    img = bpy.data.images.load(src)
+    ow, oh = img.size
+    oak = np.array(img.pixels[:], dtype=np.float32).reshape(oh, ow, 4)[::-1, :, :3]
+    W = 0.075 / tile * s              # slat width in pixels
+    X, Y = np.meshgrid(np.arange(s) / W, np.arange(s) / W)
+    si, sj = np.floor(X / 4), np.floor(Y / 4)
+    horiz = ((si + sj) % 2) == 0
+    slat = np.where(horiz, np.floor(Y), np.floor(X))
+    along = np.where(horiz, X % 4, Y % 4)
+    across = np.where(horiz, Y % 1, X % 1)
+    sid = (si * 131 + sj * 17 + slat * 7).astype(np.int64)
+    rng2 = np.random.default_rng(seed)
+    offs = rng2.integers(0, max(ow, oh), size=(4096, 2))
+    tone = rng2.uniform(0.78, 1.12, size=4096)
+    k = sid % 4096
+    # grain follows the slat: sample the scan along its planks (scan x), 2 px per output px
+    sx = ((along * W * 0.5 + offs[k, 0]) % ow).astype(np.int64)
+    sy = ((across * W * 0.5 + offs[k, 1]) % oh).astype(np.int64)
+    col = oak[sy, sx] * tone[k][..., None]
+    gap = np.minimum(np.minimum(across, 1 - across) * W, np.minimum(along % 4, 4 - (along % 4)) * W)
+    edge = np.clip(gap / 1.6, 0, 1)
+    col = col * (0.35 + 0.65 * edge)[..., None]
+    col *= np.array([0.9, 0.74, 0.62])       # warm old parquet
+    hgt = edge * 0.7 + col.mean(axis=-1) * 0.3
+    return (R.save_image(TEX, "lab_parquet", np.clip(col, 0, 1), fmt="JPEG"),
+            R.save_image(TEX, "lab_parquet_nor", R.normal_from_height(hgt, 2.0), fmt="JPEG", non_color=True))
 
 
 def tex_window(s=512):
@@ -213,8 +276,10 @@ IMG = {
     "limestone": tex_limestone(),
     "linen": tex_linen("lab_linen"),
     "canvasback": tex_linen("lab_canvas_back", base=(0.66, 0.58, 0.44), stains=0.2),
-    "rug_red": tex_rug("lab_rug_red", ([0.42, 0.12, 0.08], [0.1, 0.06, 0.1], [0.66, 0.58, 0.44], [0.62, 0.44, 0.18])),
-    "rug_blue": tex_rug("lab_rug_blue", ([0.12, 0.14, 0.24], [0.05, 0.05, 0.1], [0.6, 0.54, 0.42], [0.5, 0.2, 0.12]), seed=77),
+    "rug_red": tex_rug("lab_rug_red", ([0.34, 0.08, 0.06], [0.07, 0.06, 0.12], [0.62, 0.54, 0.4], [0.58, 0.4, 0.16], [0.16, 0.22, 0.14])),
+    "rug_blue": tex_rug("lab_rug_blue", ([0.09, 0.1, 0.19], [0.28, 0.07, 0.06], [0.6, 0.53, 0.4], [0.55, 0.38, 0.15], [0.14, 0.2, 0.14]), seed=77),
+    "rug_rust": tex_rug("lab_rug_rust", ([0.4, 0.16, 0.07], [0.1, 0.08, 0.14], [0.6, 0.52, 0.38], [0.2, 0.26, 0.3], [0.18, 0.2, 0.12]), seed=99),
+    "parquet": tex_parquet(os.path.join(R.TEX_COMMITTED, "OldOakFloor_diff.jpg")),
     "window": tex_window(),
     "notes": tex_paper(),
     "p_clean": tex_painting("lab_painting_cleaning", 301, "portrait", 640, 800, cleaned=True),
@@ -238,7 +303,7 @@ velvet_n = R.committed_map(TEX, "BlueVelvet_nor", out="lab_velvet_nor", non_colo
 
 mat = R.material
 M = {
-    "floor": mat("LabFloor", img=floor_d, nor=floor_n, rough_img=floor_r, normal=0.7, tile=2.4),
+    "floor": mat("LabFloor", img=IMG["parquet"][0], nor=IMG["parquet"][1], normal=0.6, rough=0.32, tile=1.2),
     "panel": mat("LabPanelling", img=panel_d, nor=panel_n, normal=0.9, rough=0.55, tile=2.2),
     "stone": mat("LabLimestone", img=IMG["limestone"][0], nor=IMG["limestone"][1], normal=0.8, rough=0.85, tile=1.8),
     "walnut": mat("LabWalnut", img=walnut_d, nor=walnut_n, normal=0.6, rough=0.5, tile=1.2),
@@ -256,7 +321,9 @@ M = {
     "paper": mat("LabNotes", img=IMG["notes"], rough=0.9),
     "rug_red": mat("LabRugRed", img=IMG["rug_red"], rough=0.95),
     "rug_blue": mat("LabRugBlue", img=IMG["rug_blue"], rough=0.95),
+    "rug_rust": mat("LabRugRust", img=IMG["rug_rust"], rough=0.95),
     "velvet": mat("LabVelvet", img=velvet_d, nor=velvet_n, normal=0.5, rough=0.95, tile=0.7, two_sided=True),
+    "curtain": mat("LabCurtain", color=(0.05, 0.06, 0.09), img=None, nor=velvet_n, normal=0.4, rough=0.9, tile=0.7, two_sided=True),
     "window": mat("LabMoonWindow", img=IMG["window"], rough=0.1, emit=(1, 1, 1), emit_strength=1.4),
     "bulb": mat("LabBulb", color=(1, 0.85, 0.6), emit=(1.0, 0.78, 0.48), emit_strength=8.0),
     "flame": mat("LabFlame", color=(1, 0.7, 0.3), emit=(1.0, 0.62, 0.25), emit_strength=12.0),
@@ -342,7 +409,7 @@ wbox("LabFloorBoards", 24, -0.03, 30, 16, 0.06, 16, M["floor"])
 
 DOORS = {"S": [(17.0, 19.0)], "W": [(29.0, 31.0)], "N": [(19.0, 21.0)]}
 WINDOWS_E = [29.2, 33.4]
-DADO, DOOR_H = 1.15, 2.66
+DADO, DOOR_H = 1.75, 2.66
 
 
 def wall_segments(side):
@@ -383,8 +450,10 @@ for side in "SNWE":
                 pw = ln / n - 0.16
                 if axis == "x":
                     wbox(f"Wainscot{side}{k}_{i}", c, 0.62, at + inward * 0.012, pw, 0.7, 0.02, M["panel"], bevel=0.008)
+                    wbox(f"WainscotUp{side}{k}_{i}", c, 1.32, at + inward * 0.012, pw, 0.5, 0.02, M["panel"], bevel=0.008)
                 else:
                     wbox(f"Wainscot{side}{k}_{i}", at + inward * 0.012, 0.62, c, 0.02, 0.7, pw, M["panel"], bevel=0.008)
+                    wbox(f"WainscotUp{side}{k}_{i}", at + inward * 0.012, 1.32, c, 0.02, 0.5, pw, M["panel"], bevel=0.008)
 
 # stone pilasters at the corners and between windows
 for px, pz in ((x0 + IN + 0.14, z0 + IN + 0.14), (x1 - IN - 0.14, z0 + IN + 0.14), (x0 + IN + 0.14, z1 - IN - 0.14), (x1 - IN - 0.14, z1 - IN - 0.14),
@@ -540,7 +609,7 @@ cyl("SideStoolPost", L(T2X - 0.3, 0.31, T2Z - 0.95), 0.03, 0.6, M["iron"], seg=8
 cyl("SideStoolFoot", L(T2X - 0.3, 0.02, T2Z - 0.95), 0.2, 0.03, M["iron"], seg=12)
 
 # ---- tall studio lamps by both tables ----------------------------------------------------
-for i, (lx, lz, hx, hz) in enumerate(((26.9, 33.3, 25.6, 32.3), (28.0, 27.4, 26.9, 26.6))):
+for i, (lx, lz, hx, hz) in enumerate(((28.0, 27.4, 26.9, 26.6),)):
     cyl(f"StudioLamp{i}Foot", L(lx, 0.02, lz), 0.22, 0.04, M["iron"], seg=16)
     cyl(f"StudioLamp{i}Post", L(lx, 1.1, lz), 0.02, 2.2, M["iron"], seg=8)
     ang = math.degrees(math.atan2(hz - lz, hx - lx))
@@ -551,7 +620,7 @@ for i, (lx, lz, hx, hz) in enumerate(((26.9, 33.3, 25.6, 32.3), (28.0, 27.4, 26.
     LAMPS.append(L(hx, 1.95, hz))
 
 # ---- canvas drying rack + drop cloth (hide: behind it, against the west wall) ------------
-RX0, RX1, RZ0, RZ1, RH = 17.9, 18.9, 33.4, 36.1, 2.25
+RX0, RX1, RZ0, RZ1, RH = 17.8, 19.2, 33.4, 36.1, 2.45
 rack_parts = []
 for z in (RZ0, RZ1):
     for x in (RX0, RX1):
@@ -565,13 +634,19 @@ nslots = 8
 for i in range(nslots):
     z = RZ0 + 0.18 + i * (RZ1 - RZ0 - 0.36) / (nslots - 1)
     wbox(f"RackDivider{i}", (RX0 + RX1) / 2, 0.16, z, RX1 - RX0, 0.04, 0.03, M["oak"])
-    cw = 0.7 + 0.25 * rng.random()
-    ch = 0.8 + 0.9 * rng.random()
-    cxp = (RX0 + RX1) / 2 + (rng.random() - 0.5) * 0.1
-    wbox(f"RackCanvas{i}", cxp, 0.2 + ch / 2, z + 0.06, cw, ch, 0.03, M["canvasback"], bevel=0.004)
-    wbox(f"RackStretcher{i}", cxp, 0.2 + ch / 2, z + 0.085, cw - 0.06, 0.04, 0.02, M["oak"])
-framed("RackPaintingEnd", (RX0 + RX1) / 2, 1.05, RZ0 - 0.05, 0.8, 1.1, "z-", PAINT["p_land2"], frame=0.07)
-cloth("RackDropCloth", L(18.75, 2.55, (RZ0 + RZ1) / 2), 1.9, 3.0, M["linen"], rack_parts, res=36, frames=55)
+    cw = 0.95 + 0.3 * rng.random()
+    ch = 1.0 + 1.0 * rng.random()
+    cxp = (RX0 + RX1) / 2 + (rng.random() - 0.5) * 0.12
+    if i % 3 == 1:   # a bare canvas turned round: stretcher bars showing
+        wbox(f"RackCanvas{i}", cxp, 0.2 + ch / 2, z + 0.06, cw, ch, 0.03, M["canvasback"], bevel=0.004)
+        wbox(f"RackStretcher{i}", cxp, 0.2 + ch / 2, z + 0.085, cw - 0.06, 0.04, 0.02, M["oak"])
+    else:            # a framed painting (its gilt top edge catches the light from above)
+        framed(f"RackFramed{i}", cxp, 0.2 + ch / 2, z + 0.06, cw - 0.12, ch - 0.12,
+               "z-" if i % 2 else "z+", PAINT[("p_port1", "p_land1", "p_port2", "p_still", "p_land2")[i % 5]], frame=0.07)
+framed("RackPaintingEnd", (RX0 + RX1) / 2, 1.1, RZ0 - 0.05, 1.0, 1.3, "z-", PAINT["p_land2"], frame=0.08)
+# a drop cloth over the room side (the hider's side stays dark) and a tapestry over the north end
+cloth("RackDropCloth", L(19.15, 2.75, (RZ0 + RZ1) / 2 - 0.2), 1.5, 2.6, M["linen"], rack_parts, res=36, frames=55)
+cloth("RackTapestry", L((RX0 + RX1) / 2, 2.72, RZ1 - 0.05), 1.8, 0.9, M["rug_rust"], rack_parts, res=30, frames=50)
 obstacle(RX0 - 0.1, RX1 + 0.1, RZ0 - 0.1, RZ1 + 0.1, "canvas rack with drop cloth (hide behind it)")
 # the bay behind: frames leaning on the west wall close its north end; the notes lie on a crate
 wbox("BayCrate", 17.0, 0.32, 36.95, 1.2, 0.64, 0.8, M["oak"], bevel=0.01)
@@ -763,10 +838,111 @@ for k in range(4):
 candle("SpecimenCandle", x0 + IN + 0.25, 1.1, 28.0, h=0.12)
 obstacle(x0 + IN, x0 + IN + 0.55, 27.75, 28.85, "specimen cabinet")
 
+# ---- a second, free-standing rack of framed paintings east of the first --------------------
+R2X0, R2X1, R2Z0, R2Z1 = 21.45, 22.25, 32.6, 34.9
+for z in (R2Z0, R2Z1):
+    for x in (R2X0, R2X1):
+        wbox(f"Rack2Post{x}_{z}", x, 1.0, z, 0.06, 2.0, 0.06, M["oak"])
+    wbox(f"Rack2End{z}", (R2X0 + R2X1) / 2, 1.97, z, R2X1 - R2X0, 0.05, 0.06, M["oak"])
+for x in (R2X0, R2X1):
+    wbox(f"Rack2Rail{x}", x, 1.97, (R2Z0 + R2Z1) / 2, 0.05, 0.05, R2Z1 - R2Z0, M["oak"])
+    wbox(f"Rack2Base{x}", x, 0.1, (R2Z0 + R2Z1) / 2, 0.05, 0.05, R2Z1 - R2Z0, M["oak"])
+for i in range(6):
+    z = R2Z0 + 0.2 + i * (R2Z1 - R2Z0 - 0.4) / 5
+    cw, ch = 0.6 + 0.15 * rng.random(), 0.7 + 0.8 * rng.random()
+    framed(f"Rack2Framed{i}", (R2X0 + R2X1) / 2, 0.14 + ch / 2, z, cw - 0.1, ch - 0.1, "z+" if i % 2 else "z-",
+           PAINT[("p_still", "p_port2", "p_land1", "p_port1", "p_land2", "p_clean")[i]], frame=0.06)
+obstacle(R2X0 - 0.1, R2X1 + 0.1, R2Z0 - 0.1, R2Z1 + 0.1, "second canvas rack")
+
+# ---- a dark enamel pendant lamp over the main table (replaces the stand lamp's pool there) ---
+PLX, PLZ = TX + 0.1, TZ
+cyl("PendantChain", L(PLX, 2.85, PLZ), 0.008, 0.9, M["iron"], seg=6)
+lathe("PendantShade", L(PLX, 2.18, PLZ), [(0.34, 0.0), (0.33, 0.03), (0.22, 0.14), (0.09, 0.24), (0.05, 0.3), (0.0, 0.31)], M["iron"], seg=24)
+lathe("PendantRim", L(PLX, 2.17, PLZ), [(0.345, 0.0), (0.345, 0.02), (0.33, 0.02)], M["brass"], seg=24)
+sphere("PendantBulb", L(PLX, 2.3, PLZ), 0.06, M["bulb"], seg=10)
+LAMPS.append(L(PLX, 2.12, PLZ))
+
+# ---- a tall shelf of jars and boxes on the north wall, between the ladder and the statue ----
+TSX0, TSX1 = 28.8, 30.05
+for s2, xx in enumerate((TSX0, TSX1)):
+    wbox(f"TallShelfSide{s2}", xx, 1.3, z1 - IN - 0.22, 0.04, 2.6, 0.44, M["walnut"])
+for k, yy in enumerate((0.08, 0.6, 1.1, 1.6, 2.1, 2.6)):
+    wbox(f"TallShelfBoard{k}", (TSX0 + TSX1) / 2, yy, z1 - IN - 0.22, TSX1 - TSX0, 0.03, 0.44, M["walnut"])
+    if k in (0, 5):
+        continue
+    for j in range(5):
+        xx = TSX0 + 0.14 + j * 0.24
+        if (j + k) % 3 == 0:
+            wbox(f"TallShelfBox{k}{j}", xx, yy + 0.1, z1 - IN - 0.24, 0.2, 0.17, 0.3, M["oak"], bevel=0.006)
+        else:
+            jar(f"TallShelfJar{k}{j}", xx, yy + 0.015, z1 - IN - 0.24, 0.06, 0.13 + 0.08 * ((j * k) % 3) / 2, M["glass"] if (j + k) % 2 else M["amber"], lid=M["cork"])
+obstacle(TSX0 - 0.03, TSX1 + 0.03, z1 - IN - 0.46, z1 - IN, "tall shelf")
+
+# ---- north of the main table: a big easel with a lady's portrait, a bust, a stool -----------
+BEX, BEZ = 25.3, 35.1
+big = easel("BigEasel", BEX, BEZ, 180, PAINT["p_clean"], 1.05, 1.35)
+obstacle(BEX - 0.55, BEX + 0.55, BEZ - 0.5, BEZ + 0.5, "big easel")
+lathe("BustPedestal2", L(23.6, 0, 35.3), [(0.2, 0), (0.2, 0.08), (0.13, 0.14), (0.1, 0.95), (0.16, 1.02), (0.18, 1.08)], M["marble"], seg=16)
+sphere("Bust2Shoulders", L(23.6, 1.2, 35.3), 0.2, M["marble"], seg=14, scale=(1.2, 0.55, 0.7))
+cyl("Bust2Neck", L(23.6, 1.34, 35.3), 0.05, 0.13, M["marble"], seg=10)
+sphere("Bust2Head", L(23.6, 1.49, 35.3), 0.1, M["marble"], seg=14, scale=(0.85, 1.15, 1.0))
+obstacle(23.35, 23.85, 35.05, 35.55, "bust on a pedestal")
+cyl("BigEaselStoolSeat", L(BEX + 0.2, 0.62, BEZ - 0.95), 0.19, 0.05, M["walnut"], seg=16)
+cyl("BigEaselStoolPost", L(BEX + 0.2, 0.31, BEZ - 0.95), 0.03, 0.6, M["iron"], seg=8)
+cyl("BigEaselStoolFoot", L(BEX + 0.2, 0.02, BEZ - 0.95), 0.2, 0.03, M["iron"], seg=12)
+# a paint cart beside it
+for yy in (0.3, 0.75):
+    wbox(f"PaintCart{yy}", 26.9, yy, 35.2, 0.55, 0.03, 0.45, M["walnut"])
+for sx in (-1, 1):
+    for sz in (-1, 1):
+        cyl(f"PaintCartPost{sx}{sz}", L(26.9 + sx * 0.25, 0.4, 35.2 + sz * 0.2), 0.012, 0.8, M["brass"], seg=6)
+for i in range(4):
+    jar(f"PaintCartJar{i}", 26.75 + (i % 2) * 0.28, 0.765, 35.08 + (i // 2) * 0.24, 0.045, 0.1, M["porcelain"] if i % 2 else M["amber"])
+cyl("PaintCartBrushes", L(26.9, 0.4, 35.2), 0.05, 0.15, M["porcelain"], seg=10)
+obstacle(26.6, 27.2, 34.95, 35.45, "paint cart")
+
+# ---- radiators and heavy curtains at the lancet windows ------------------------------------
+for i, wz in enumerate(WINDOWS_E):
+    for k in range(9):
+        wbox(f"Radiator{i}_{k}", x1 - IN - 0.12, 0.52, wz - 0.44 + k * 0.11, 0.1, 0.62, 0.06, M["iron"], bevel=0.01)
+    wbox(f"RadiatorPipe{i}", x1 - IN - 0.12, 0.2, wz, 0.05, 0.05, 1.0, M["iron"])
+    for s2 in (-1, 1):
+        R.drape(f"Curtain{i}{s2}", wz + s2 * 0.72 - ORIGIN[1], wz + s2 * 1.12 - ORIGIN[1], x1 - IN - 0.16 - ORIGIN[0], 0.15, 3.05,
+                M["curtain"], folds=4, depth=0.05, axis="z", gather=0.4)
+    wbox(f"CurtainRod{i}", x1 - IN - 0.16, 3.08, wz, 0.04, 0.04, 2.5, M["brass"])
+obstacle(x1 - IN - 0.25, x1 - IN, 28.6, 29.8, "radiator")
+obstacle(x1 - IN - 0.25, x1 - IN, 32.8, 34.0, "radiator")
+
+# ---- a sheet thrown over the solvent cabinet, hanging down the hider's side ----------------
+cab = bpy.data.objects["SolventCabinet"]
+cloth("CabinetSheet", L((CX0 + CX1) / 2 + 0.5, CH + 0.25, (CZ0 + CZ1) / 2 + 0.2), 1.5, 1.4, M["linen"], [cab], res=30, frames=50)
+
+# ---- clutter on the tables: bottles, jars, papers, brushes --------------------------------
+def clutter(tag, cx, cz, w, d, top, n, seed):
+    rr = np.random.default_rng(seed)
+    for k in range(n):
+        px, pz = cx + (rr.random() - 0.5) * (w - 0.3), cz + (rr.random() - 0.5) * (d - 0.25)
+        pick = rr.random()
+        if pick < 0.35:
+            bottle(f"{tag}Bottle{k}", px, top, pz, 0.028 + 0.012 * rr.random(), 0.14 + 0.1 * rr.random(), M["amber"] if rr.random() < 0.5 else M["glass"])
+        elif pick < 0.6:
+            jar(f"{tag}Jar{k}", px, top, pz, 0.035 + 0.02 * rr.random(), 0.07 + 0.06 * rr.random(), M["porcelain"] if rr.random() < 0.5 else M["glass"], lid=M["cork"] if rr.random() < 0.5 else None)
+        elif pick < 0.85:
+            box(f"{tag}Paper{k}", L(px, top + 0.004, pz), (0.21, 0.004, 0.3), M["paper"], rot=rr.uniform(-40, 40))
+        else:
+            box(f"{tag}Book{k}", L(px, top + 0.03, pz), (0.2, 0.05, 0.28), M["leather"] if rr.random() < 0.5 else M["books"], rot=rr.uniform(-30, 30))
+clutter("MainTable", TX, TZ - 0.35, TW - 1.2, 0.5, 0.92, 9, 5)
+clutter("SideTable", T2X + 0.1, T2Z, T2W - 0.6, T2D - 0.2, 0.92, 7, 6)
+clutter("PlanChestN", 25.6, z1 - IN - 0.36, 3.2, 0.5, 1.0, 6, 7)
+sphere("PlanChestBustHead", L(27.0, 1.3, z1 - IN - 0.4), 0.1, M["marble"], seg=14, scale=(0.85, 1.15, 1.0))
+sphere("PlanChestBustShoulders", L(27.0, 1.12, z1 - IN - 0.4), 0.19, M["marble"], seg=14, scale=(1.2, 0.55, 0.7))
+
 # ---- rugs ----------------------------------------------------------------------------------
 wbox("RugMain", TX, 0.006, TZ - 0.3, 5.0, 0.012, 3.4, M["rug_red"], fit=(L(TX, 0, TZ)[0] - 2.5, -(TZ - 0.3 - ORIGIN[1]) - 1.7, 5.0, 3.4))
 wbox("RugEasels", 28.9, 0.006, 32.4, 2.6, 0.012, 3.6, M["rug_blue"], fit=(28.9 - ORIGIN[0] - 1.3, -(32.4 - ORIGIN[1]) - 1.8, 2.6, 3.6))
-wbox("RugEntry", 21.2, 0.006, 26.2, 2.2, 0.012, 3.4, M["rug_red"], fit=(21.2 - ORIGIN[0] - 1.1, -(26.2 - ORIGIN[1]) - 1.7, 2.2, 3.4))
+wbox("RugEntry", 21.2, 0.006, 26.2, 2.2, 0.012, 3.4, M["rug_rust"], fit=(21.2 - ORIGIN[0] - 1.1, -(26.2 - ORIGIN[1]) - 1.7, 2.2, 3.4))
+wbox("RugNorth", 24.6, 0.009, 35.4, 3.8, 0.012, 2.4, M["rug_blue"], fit=(24.6 - ORIGIN[0] - 1.9, -(35.4 - ORIGIN[1]) - 1.2, 3.8, 2.4))
+wbox("RugSide", 26.6, 0.009, 27.0, 3.4, 0.012, 2.3, M["rug_red"], fit=(26.6 - ORIGIN[0] - 1.7, -(27.0 - ORIGIN[1]) - 1.15, 3.4, 2.3))
 
 # ---- sconces with candles -----------------------------------------------------------------
 for i, (sx, sz, side) in enumerate(((x0 + IN, 27.8, "W"), (x0 + IN, 33.2, "W"), (22.2, z0 + IN, "S"), (28.6, z1 - IN, "N"), (21.8, z1 - IN, "N"))):
@@ -830,19 +1006,19 @@ ceiling.visible_camera = False     # it bounces light and shades the room, but r
 
 # ================================================================ lights (bake + renders)
 for i, p in enumerate(LAMPS):
-    energy = 70 if i == 0 else 330
+    energy = 90 if i == 0 else 420
     add_light(f"LampLight{i}", "POINT", (p[0], p[1] - 0.05, p[2]), energy, (1.0, 0.7, 0.42), 0.08)
 for i, p in enumerate(SCONCES):
-    add_light(f"SconceLight{i}", "POINT", p, 70, (1.0, 0.58, 0.26), 0.05)
+    add_light(f"SconceLight{i}", "POINT", p, 95, (1.0, 0.58, 0.26), 0.05)
 for i, wz in enumerate(WINDOWS_E):
     add_light(f"MoonWindow{i}", "AREA", L(x1 - IN - 0.25, 1.9, wz), 90, (0.52, 0.64, 1.0), 1.2, rot=(0, -90, 0))
 add_light("MoonSpill", "SPOT", L(x1 + 3, 5.5, 31.3), 900, (0.55, 0.66, 1.0), 0.4, rot=(0, -60, 0))
 add_light("DoorGlowS", "POINT", L(18, 1.8, 20.0), 45, (1.0, 0.62, 0.32), 0.2)
 add_light("DoorGlowW", "POINT", L(13.5, 1.8, 30), 45, (1.0, 0.62, 0.32), 0.2)
 add_light("DoorGlowN", "POINT", L(20, 1.8, 40), 25, (1.0, 0.62, 0.32), 0.2)
-add_light("RoomFill", "AREA", L(24, WALL_H - 0.15, 30), 120, (1.0, 0.76, 0.52), 9.0)
+add_light("RoomFill", "AREA", L(24, WALL_H - 0.15, 30), 200, (1.0, 0.76, 0.52), 9.0)
 for i, p in enumerate(CANDLES):
-    add_light(f"CandleLight{i}", "POINT", p, 18, (1.0, 0.55, 0.22), 0.03)
+    add_light(f"CandleLight{i}", "POINT", p, 28, (1.0, 0.55, 0.22), 0.03)
 
 world = bpy.data.worlds.new("Night")
 world.use_nodes = True
