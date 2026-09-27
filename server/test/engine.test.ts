@@ -611,11 +611,11 @@ describe("Eagle-eye rules", () => {
     it("reaches the canvas rack hiding place through the bay along the west wall", () => {
       const { g, clock } = huntStarted(["julian"]);
       parkOthers(g, ["julian"]);
-      place(g, "julian", [26, 29]);
+      place(g, "julian", [24.5, 29.5]);
       const { trace } = hideTraced(g, clock, "canvas_rack");
-      // Behind the rack (x < 17.55) south of the spot: the only way in is the bay past the notes desk.
-      assert.ok(trace.some(p => p[0] < 17.55 && p[1] > 33.0 && p[1] < 34.8), "walked up the bay");
-      assert.ok(!trace.some(p => p[0] > 17.55 && p[0] < 19.25 && p[1] > 33.05 && p[1] < 36.45), "never through the rack");
+      // Behind the rack (x < 17.45 with the body radius) south of the spot: the only way in is the bay past the notes desk.
+      assert.ok(trace.some(p => p[0] < 17.45 && p[1] > 33.0 && p[1] < 34.8), "walked up the bay");
+      assert.ok(!trace.some(p => p[0] > 17.45 && p[0] < 19.55 && p[1] > 33.05 && p[1] < 36.45), "never through the rack");
       // Standing-room cover: leaving it doesn't teleport you anywhere.
       clock.t += TUNING.intentCooldownMs;
       g.setIntent("julian", { kind: "idle" }, clock.t);
@@ -921,8 +921,8 @@ describe("Eagle-eye rules", () => {
       assert.strictEqual(j.status, "alive");
     });
 
-    it("CPU survivors tap at 3.5-6.5 a second: fast ones break free, slow ones don't", () => {
-      for (const [rate, free] of [[6.5, true], [3.5, false]] as const) {
+    it("CPU survivors tap at 5-9 a second: fast ones break free, slow ones don't", () => {
+      for (const [rate, free] of [[TUNING.cpuTapRate[1], true], [TUNING.cpuTapRate[0], false]] as const) {
         const { g, clock } = grabScene();
         const s = grabbed(g, clock);
         g.get("julian").cpu = true;       // (a CPU survivor would have fled the revealed hunter; take over once caught)
