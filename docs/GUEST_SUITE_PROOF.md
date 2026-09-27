@@ -21,7 +21,7 @@
 | Real textures: worn oak floor, dark wood panelling, jacquard wallpaper, velvet, tiles | CC0 Poly Haven textures | Built |
 | Furniture: nightstands, Gothic commode, ornate mirror, armchair, rocking chair, grandfather clock, plant | CC0 Poly Haven models | Built |
 | Rug, paintings, moonlit windows | Painted in code | Placeholder art |
-| Game model | `client/public/models/rooms/guest_suite.glb`: one merged mesh (38 materials), 1024/512/256 textures, compressed. About 49k triangles, 3.4 MB. | Built |
+| Game model | `client/public/models/rooms/guest_suite.glb`: one merged mesh (37 materials, 38 draw calls), 1024/512/256 textures, compressed with `tools/assets/optimize-room.mjs`. About 49k triangles, 3.4 MB. | Built |
 | Lamp and sconce light positions | `LIGHT_*` markers in the model; the game lights them | Built |
 
 **Blender renders** (in `docs/renders/`):
@@ -43,7 +43,15 @@ Claude Code on the web can't download Blender or the Poly Haven sources, so the 
 tools/blender/blender-py tools/blender/build_guest_suite.py -- --out=/tmp/gs --only=room_level --res=25 --samples=8
 ```
 
-A quarter-size room-level test render takes about 20 seconds to build and render on 4 CPUs. Don't write the game GLB from this route yet. Its export differs from the committed one: the two nightstands get separate copies of the same material, and the furniture carries an extra UV set (4.5 MB against 3.4 MB).
+A quarter-size room-level test render takes about 20 seconds to build and render on 4 CPUs.
+
+**Export size (resolved).** The committed GLB was compressed by hand with `tools/assets/optimize-room.mjs` (weld, dedup, prune, quantize), a step the build script didn't record. That was the whole 4.5 MB against 3.4 MB gap. The build now runs the optimiser itself, and a cloud rebuild comes out at 3.37 MB with the same structure.
+
+**A furniture bug found on the way.** In the committed game model, the nine Poly Haven pieces (nightstands, commode, ornate mirror, armchair, rocking chair, clock, plant) show as flat colours, and the mirror as a beige panel. Blender 5 names the UV layer of script-built meshes `Float2`, while imported furniture uses `UVMap`. Joining them kept two UV sets, so the furniture's real UVs landed in `TEXCOORD_1`, which the optimiser then pruned. The build script now keeps one UV layer.
+
+Two more fixes:
+- The cloud route used to give some paintings and windows world-space UVs. Copies appended from the committed .blend took their names; the script now parks those copies under other names.
+- The next rebuild (`--overwrite-committed`) will therefore texture the furniture properly. The committed model is unchanged until someone chooses to replace it.
 
 ## How it plays
 

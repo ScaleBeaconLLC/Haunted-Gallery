@@ -29,7 +29,7 @@ Source files are kept separately from the runtime exports:
 
 | Asset | Status | Source / licence | Runtime |
 |---|---|---|---|
-| Guest Bedroom + Guest Bathroom: room shell, iron bed with crawl space, hollow wardrobe, window seat and curtain, clawfoot tub and shower curtain, linen cupboard, doors | **Built in Blender 5.2** (`tools/blender/build_guest_suite.py` → `art/blender/guest_suite.blend`) | Own work | `client/public/models/rooms/guest_suite.glb` (merged, 38 materials, ~49k triangles, 3.4 MB) |
+| Guest Bedroom + Guest Bathroom: room shell, iron bed with crawl space, hollow wardrobe, window seat and curtain, clawfoot tub and shower curtain, linen cupboard, doors | **Built in Blender 5.2** (`tools/blender/build_guest_suite.py` → `art/blender/guest_suite.blend`) | Own work | `client/public/models/rooms/guest_suite.glb` (merged, 37 materials, ~49k triangles, 3.4 MB; the nine Poly Haven furniture pieces are untextured in this build, fixed in the build script for the next rebuild) |
 | Floor, panelling, wallpaper, velvet, quilt, tiles | **Usable** real texture maps (colour, normal, roughness), tinted | Poly Haven, **CC0 1.0** | Inside the GLB |
 | Nightstands, commode, ornate mirror, armchair, rocking chair, grandfather clock, plant | **Usable** | Poly Haven, **CC0 1.0** | Inside the GLB (heavier models decimated) |
 | Rug, paintings, window view | **Placeholder**, painted in code | Own work | Inside the GLB |

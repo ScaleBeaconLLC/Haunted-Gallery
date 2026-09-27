@@ -33,6 +33,7 @@ Walls are 0.3 m thick and centred on those edges (inner faces 0.15 m inside), as
 import math
 import os
 import shutil
+import subprocess
 import sys
 
 import bmesh
@@ -590,8 +591,13 @@ def committed_model(root_name):
             names = list(src.objects)
             dst.objects = list(names)   # filled in place with the appended objects
         _COMMITTED_OBJECTS = dict(zip(names, dst.objects))
+        # park the appended copies under other names, so objects built later in this script keep
+        # their own names (fit_uv() and other lookups by name must find the new ones, not these)
+        for n, o in _COMMITTED_OBJECTS.items():
+            o.name = "_committed_" + n
     root = _COMMITTED_OBJECTS[root_name]
     for o in [root, *root.children_recursive]:
+        o.name = o.name.removeprefix("_committed_")
         EXPORT.objects.link(o)
     return root
 
@@ -1004,6 +1010,13 @@ def export_game():
         if ob.type == "MESH":
             me = bpy.data.meshes.new_from_object(ob.evaluated_get(dg))
             me.transform(ob.matrix_world)
+            # one UV layer called UVMap: bmesh-built parts name theirs 'Float2' in Blender 5 while
+            # imported furniture uses 'UVMap', and join() would otherwise keep two UV sets, leaving the
+            # furniture's real UVs in TEXCOORD_1 (which the optimiser prunes: untextured furniture)
+            while len(me.uv_layers) > 1:
+                me.uv_layers.remove(me.uv_layers[-1])
+            if me.uv_layers:
+                me.uv_layers[0].name = "UVMap"
             cp = bpy.data.objects.new(ob.name + "_m", me)
             MERGED.objects.link(cp)
             parts.append(cp)
@@ -1028,6 +1041,12 @@ def export_game():
                 export_jpeg_quality=80, export_image_quality=80, export_texcoords=True, export_normals=True,
                 export_materials="EXPORT")
     bpy.ops.export_scene.gltf(**{k: v for k, v in want.items() if k in props})
+    # weld, dedup, prune and quantize for phones (this step made the committed 3.4 MB file)
+    opt = os.path.join(ROOT, "tools", "assets", "optimize-room.mjs")
+    if shutil.which("node") and os.path.isdir(os.path.join(ROOT, "tools", "assets", "node_modules")):
+        subprocess.run(["node", opt, GLB], check=True)
+    else:
+        print("NOTE: GLB not optimised. Run: (cd tools/assets && npm ci) && node tools/assets/optimize-room.mjs", GLB)
     room.data.calc_loop_triangles()
     print("exported", GLB, os.path.getsize(GLB), "bytes;", len(room.data.loop_triangles), "triangles;", len(room.data.materials), "materials")
     MERGED.hide_render = True

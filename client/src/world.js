@@ -199,11 +199,13 @@ export class World {
     // Grounds and the wet paving outside so gaps never show the void.
     this.box(root, 'Grounds', [0, -0.06, 40], [100, 0.1, 100], mat('#0a0b10', { gloss: 0.5 }));
 
+    this.roomNodes = {};
     for (const id of ROOM_IDS) {
       const room = ROOMS[id];
       const [x0, x1, z0, z1] = room.rect;
       const node = new pc.Entity(`Room_${id}`);
       root.addChild(node);
+      this.roomNodes[id] = node;
       const floor = room.style?.floor ?? 'planks';
       const floorScale = { marble: 3.2, parquet: 2.4, herringbone: 2.6, planks: 3.4, stone: 3, tile: 3 }[floor] ?? 3;
       // Blender-built rooms bring their own floor, walls' finish, furniture and hiding places.
@@ -231,13 +233,20 @@ export class World {
       this.wbox(root, 'ExitFloor', [(x0 + x1) / 2, 0.005, (z0 + z1) / 2], [x1 - x0, 0.1, z1 - z0], tmat('stone'), 2);
     }
 
-    // Walls with doorway gaps, surfaced in the style of the room they bound.
+    // Walls with doorway gaps, surfaced in the style of the room they bound. A dark stone cap
+    // on top: from the eagle-eye views the wall tops read as masonry, not as wallpaper.
+    const cap = mat('#17130f', { gloss: 0.15 });
     for (const w of computeWalls()) {
       const len = w.b - w.a + WALL_T;
       const mid = (w.a + w.b) / 2;
       const m = this.wallMat(w.axis === 'x' ? mid : w.x, w.axis === 'x' ? w.z : mid);
-      if (w.axis === 'x') this.wbox(root, 'Wall', [mid, WALL_H / 2, w.z], [len, WALL_H, WALL_T], m.mat, m.su, WALL_H);
-      else this.wbox(root, 'Wall', [w.x, WALL_H / 2, mid], [WALL_T, WALL_H, len], m.mat, m.su, WALL_H);
+      if (w.axis === 'x') {
+        this.wbox(root, 'Wall', [mid, WALL_H / 2, w.z], [len, WALL_H, WALL_T], m.mat, m.su, WALL_H);
+        this.box(root, 'WallCap', [mid, WALL_H + 0.03, w.z], [len + 0.04, 0.06, WALL_T + 0.06], cap);
+      } else {
+        this.wbox(root, 'Wall', [w.x, WALL_H / 2, mid], [WALL_T, WALL_H, len], m.mat, m.su, WALL_H);
+        this.box(root, 'WallCap', [w.x, WALL_H + 0.03, mid], [WALL_T + 0.06, 0.06, len + 0.04], cap);
+      }
     }
 
     // Doors: one leaf at each passage/room junction. Hinged, they swing when someone passes.
@@ -420,20 +429,197 @@ export class World {
     this.roomModels ??= new Set();
     if (this.roomModels.has(file)) return;
     this.roomModels.add(file);
+    // Baked lighting, when the build shipped one: <file>.json = {lightmap, scale} beside the GLB.
+    const sidecar = fetch(`/models/rooms/${file}.json`).then(r => (r.ok ? r.json() : null)).catch(() => null);
     this.propJobs.push(new Promise((resolve, reject) => {
       const asset = new pc.Asset(`room-${file}`, 'container', { url: `/models/rooms/${file}.glb` });
       asset.on('load', a => resolve(a.resource)); asset.on('error', reject);
       this.app.assets.add(asset); this.app.assets.load(asset);
-    }).then(res => {
+    }).then(async res => {
       const e = res.instantiateRenderEntity({ castShadows: false, receiveShadows: false });
       e.setLocalPosition(origin[0], 0, origin[1]);
+      const lm = await sidecar;
+      if (lm?.lightmap) {
+        try {
+          this.applyLightmap(e, await loadLightmap(this.app.graphicsDevice, `/models/rooms/${lm.lightmap}`), lm.scale ?? 1);
+        } catch (err) { console.warn('lightmap unavailable, runtime lights only', file, err); }
+      }
       this.root.addChild(e);
+      const baked = !!lm?.lightmap;
       for (const n of e.find(x => /^LIGHT_/.test(x.name))) {
         const p = n.getPosition();
-        const sconce = /sconce/.test(n.name);
-        this.practical(this.root, p.x, p.y, p.z, sconce ? 3.4 : 3.0, sconce ? 0.7 : 0.9);
+        const kind = /candle/.test(n.name) ? 'candle' : /sconce/.test(n.name) ? 'sconce' : 'lamp';
+        // With baked lighting these only light people and small props; the room itself is baked.
+        const [range, intensity] = { candle: [1.8, 0.3], sconce: [3.4, baked ? 0.55 : 0.7], lamp: [3.0, baked ? 0.7 : 0.9] }[kind];
+        this.practical(this.root, p.x, p.y, p.z, range, intensity);
       }
-    }).catch(err => console.warn('room model unavailable', file, err)));
+      // The room's fill light only needs to light people once the room itself is baked.
+      if (baked) for (const id of ROOM_IDS) if (ROOMS[id].model?.file === file && this.roomLights[id]) this.roomLights[id].light.intensity = 0.55;
+    }).catch(err => {
+      // Never leave a room empty on a phone that failed to load it: fall back to the generated
+      // floor, dressing and hiding places the room had before it was modelled.
+      console.warn('room model unavailable, using the generated room', file, err);
+      for (const id of ROOM_IDS) if (ROOMS[id].model?.file === file) this.generatedRoom(id);
+    }));
+  }
+
+  /**
+   * Put a baked lightmap on every material of a room model: the texture (TEXCOORD_1) carries
+   * sRGB-encoded irradiance / scale, so the lightmap shader chunk multiplies it back by scale.
+   * Baked surfaces ignore the runtime lights (they would light the room twice); people and the
+   * generated props are still lit by them.
+   */
+  applyLightmap(entity, tex, scale) {
+    const device = this.app.graphicsDevice;
+    const base = pc.ShaderChunks?.get(device, pc.SHADERLANGUAGE_GLSL)?.get('lightmapPS');
+    const scaled = base && base.includes('dLightmap *= {STD_LIGHT_TEXTURE_DECODE}')
+      ? base.replace('dLightmap *= {STD_LIGHT_TEXTURE_DECODE}', `dLightmap *= ${scale.toFixed(4)} * {STD_LIGHT_TEXTURE_DECODE}`)
+      : null;
+    if (!scaled) console.warn('lightmap chunk not patched: baked light shown at 1/' + scale.toFixed(2));
+    const done = new Set();
+    for (const r of entity.findComponents('render')) {
+      for (const mi of r.meshInstances) {
+        mi.mask = pc.MASK_AFFECT_LIGHTMAPPED;
+        const m = mi.material;
+        if (done.has(m)) continue;
+        done.add(m);
+        m.lightMap = tex;
+        m.lightMapUv = 1;
+        if (scaled && !device.isWebGPU) {
+          m.getShaderChunks(pc.SHADERLANGUAGE_GLSL).set('lightmapPS', scaled);
+          m.shaderChunksVersion = pc.version.split('.').slice(0, 2).join('.');
+        }
+        m.update();
+      }
+    }
+  }
+
+  /** The generated version of a room (floor, dressing, hiding places): used if its model fails. */
+  generatedRoom(id) {
+    const room = ROOMS[id], node = this.roomNodes[id];
+    const [x0, x1, z0, z1] = room.rect;
+    const floor = room.style?.floor ?? 'planks';
+    const floorScale = { marble: 3.2, parquet: 2.4, herringbone: 2.6, planks: 3.4, stone: 3, tile: 3 }[floor] ?? 3;
+    this.wbox(node, 'Floor', [(x0 + x1) / 2, 0, (z0 + z1) / 2], [x1 - x0, 0.1, z1 - z0], tmat(floor, { gloss: floor === 'marble' ? 0.7 : 0.45 }), floorScale, floorScale, false);
+    this.dressRoom(id, node);
+    for (const c of this.hideCovers[id] ?? []) c.marker.destroy();
+    this.hideCovers[id] = room.hides.map(h => this.buildCover(node, h, false));
+  }
+
+  // ------------------------------------------------------------------ eagle-eye helpers
+  /** Scene settings for a camera mode: the mansion view is ~90 m away, so no fog there. */
+  setViewMode(mode) {
+    if (mode === this.viewMode) return;
+    this.viewMode = mode;
+    const fog = this.app.scene.fog;
+    if (mode === 'mansion') { fog.type = pc.FOG_NONE; }
+    else if (mode === 'room') { fog.type = pc.FOG_LINEAR; fog.start = 34; fog.end = 95; }
+    else { fog.type = pc.FOG_LINEAR; fog.start = 24; fog.end = 64; }
+  }
+
+  /**
+   * Gold rims on the rooms you can go to (a brighter one on your own room), and a dark veil over
+   * the rest when dimOthers. Only architecture: nobody's position is shown by this.
+   */
+  highlightRooms(reachable = [], current = null, dimOthers = false) {
+    const key = [...reachable].sort().join(',') + '|' + current + '|' + dimOthers;
+    if (key === this.highlightKey) return;
+    this.highlightKey = key;
+    if (!this.rims) {
+      const unlit = (hex, opacity) => {
+        const m = new pc.StandardMaterial();
+        m.diffuse = new pc.Color(0, 0, 0); m.emissive = new pc.Color().fromString(hex); m.useLighting = false; m.useFog = false;
+        m.opacity = opacity; m.blendType = pc.BLEND_NORMAL; m.depthWrite = false; m.update();
+        return m;
+      };
+      this.rimMat = unlit('#d9a441', 0.9);
+      this.rimHereMat = unlit('#fff1c9', 1);
+      const veil = unlit('#000000', 0.62);
+      veil.emissive = new pc.Color(0.005, 0.004, 0.008); veil.update();
+      this.rims = {}; this.veils = {};
+      for (const id of ROOM_IDS) {
+        const [x0, x1, z0, z1] = ROOMS[id].rect;
+        const rim = new pc.Entity(`Rim_${id}`);
+        rim.addComponent('render', { meshInstances: [new pc.MeshInstance(frameMesh(this.app.graphicsDevice, x0, x1, z0, z1, 0.22), this.rimMat)], castShadows: false });
+        rim.setLocalPosition(0, WALL_H + 0.07, 0);
+        rim.enabled = false;
+        this.root.addChild(rim);
+        this.rims[id] = rim;
+        const v = new pc.Entity(`Veil_${id}`);
+        v.addComponent('render', { type: 'box', material: veil, castShadows: false });
+        v.setLocalPosition((x0 + x1) / 2, WALL_H + 0.12, (z0 + z1) / 2);
+        v.setLocalScale(x1 - x0 + 0.36, 0.02, z1 - z0 + 0.36);
+        v.enabled = false;
+        this.root.addChild(v);
+        this.veils[id] = v;
+      }
+    }
+    const can = new Set(reachable);
+    for (const id of ROOM_IDS) {
+      const lit = can.has(id) || id === current;
+      this.rims[id].enabled = lit;
+      if (lit) this.rims[id].render.meshInstances[0].material = id === current ? this.rimHereMat : this.rimMat;
+      this.veils[id].enabled = dimOthers && !lit;
+    }
+  }
+
+  /** Breadcrumbs along the path your character is following (null clears). */
+  setRoute(points) {
+    const key = points ? points.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(';') : '';
+    if (key === this.routeKey) return;
+    this.routeKey = key;
+    if (!this.routeDots) {
+      const m = new pc.StandardMaterial();
+      m.diffuse = new pc.Color(0, 0, 0); m.emissive = new pc.Color(0.95, 0.72, 0.3); m.useLighting = false; m.useFog = false;
+      m.opacity = 0.85; m.blendType = pc.BLEND_NORMAL; m.depthWrite = false; m.update();
+      this.routeDots = Array.from({ length: 160 }, () => {
+        const e = new pc.Entity('RouteDot');
+        e.addComponent('render', { type: 'cylinder', material: m, castShadows: false });
+        e.setLocalScale(0.11, 0.01, 0.11);
+        e.enabled = false;
+        this.root.addChild(e);
+        return e;
+      });
+    }
+    let n = 0;
+    for (let i = 0; points && i < points.length - 1; i++) {
+      const [ax, az] = points[i], [bx, bz] = points[i + 1];
+      const len = Math.hypot(bx - ax, bz - az);
+      for (let d = i === 0 ? 0.3 : 0; d < len && n < this.routeDots.length; d += 0.45) {
+        this.routeDots[n++].setLocalPosition(ax + (bx - ax) * d / len, 0.075, az + (bz - az) * d / len);
+      }
+    }
+    this.routeDots.forEach((e, i) => { e.enabled = i < n; });
+  }
+
+  /** A pulsing ring where you are going (kind: 'move' | 'hide' | 'room'); null clears. */
+  setDestination(p, kind = 'move') {
+    if (!this.destRing) {
+      const mk = hex => {
+        const m = new pc.StandardMaterial();
+        m.diffuse = new pc.Color(0, 0, 0); m.emissive = new pc.Color().fromString(hex); m.useLighting = false; m.useFog = false;
+        m.opacity = 0.9; m.blendType = pc.BLEND_NORMAL; m.depthWrite = false; m.update();
+        return m;
+      };
+      this.destMats = { move: mk('#f0c060'), room: mk('#f0c060'), hide: mk('#9fc3ff') };
+      this.destRing = new pc.Entity('Destination');
+      this.destRing.addComponent('render', { type: 'torus', material: this.destMats.move, castShadows: false });
+      this.destRing.enabled = false;
+      this.root.addChild(this.destRing);
+      this.destT = 0;
+    }
+    this.destRing.enabled = !!p;
+    if (!p) return;
+    this.destRing.render.meshInstances[0].material = this.destMats[kind] ?? this.destMats.move;
+    this.destRing.setLocalPosition(p[0], 0.08, p[1]);
+  }
+
+  /** Per-frame animation for the eagle-eye markers (called from updateLights). */
+  pulseMarkers(dt) {
+    if (!this.destRing?.enabled) return;
+    this.destT = (this.destT + dt) % 1.2;
+    const s = 0.55 + 0.25 * Math.sin(this.destT / 1.2 * Math.PI * 2);
+    this.destRing.setLocalScale(s, 0.05, s);
   }
 
   /** Axis-aligned footprint of a cover as (across, depth) relative to its look direction. */
@@ -1097,6 +1283,7 @@ export class World {
     for (const p of this.practicals) { p.fail = false; p.light.light.intensity = p.base; p.light.enabled = true; if (p.glow) p.glow.enabled = true; }
   }
   updateLights(dt) {
+    this.pulseMarkers(dt);
     for (const p of this.practicals) {
       if (!p.fail || !p.light.enabled) continue;
       p.t -= dt;
@@ -1139,6 +1326,40 @@ export class World {
   showHideMarker(spotId) {
     for (const covers of Object.values(this.hideCovers)) for (const c of covers) c.marker.enabled = c.id === spotId;
   }
+}
+
+/** A room's baked lightmap: an sRGB JPEG decoded to linear by the GPU (see hg_room.py). */
+async function loadLightmap(device, url) {
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.src = url;
+  await img.decode();
+  const tex = new pc.Texture(device, {
+    name: url, format: pc.PIXELFORMAT_SRGBA8, mipmaps: true, anisotropy: 4,
+    minFilter: pc.FILTER_LINEAR_MIPMAP_LINEAR, magFilter: pc.FILTER_LINEAR,
+    addressU: pc.ADDRESS_CLAMP_TO_EDGE, addressV: pc.ADDRESS_CLAMP_TO_EDGE,
+  });
+  tex.setSource(img);
+  return tex;
+}
+
+/** A flat rectangular outline (width w) around [x0, x1] x [z0, z1], facing up: one draw call. */
+function frameMesh(device, x0, x1, z0, z1, w) {
+  const P = [], N = [], I = [];
+  const quad = (ax, az, bx, bz) => {
+    const b = P.length / 3;
+    P.push(ax, 0, az, bx, 0, az, bx, 0, bz, ax, 0, bz);
+    N.push(0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0);
+    I.push(b, b + 2, b + 1, b, b + 3, b + 2);
+  };
+  quad(x0 - w, z0 - w, x1 + w, z0);        // south
+  quad(x0 - w, z1, x1 + w, z1 + w);        // north
+  quad(x0 - w, z0, x0, z1);                // west
+  quad(x1, z0, x1 + w, z1);                // east
+  const mesh = new pc.Mesh(device);
+  mesh.setPositions(P); mesh.setNormals(N); mesh.setIndices(I);
+  mesh.update(pc.PRIMITIVE_TRIANGLES);
+  return mesh;
 }
 
 // ------------------------------------------------------------------ walls

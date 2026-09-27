@@ -28,4 +28,11 @@ if ! "$VENV/bin/python" -c "import bpy, sys; sys.exit(bpy.app.version_string != 
   "$VENV/bin/pip" install -q --disable-pip-version-check "bpy==$BPY_VERSION"
 fi
 
+# the GLB optimiser the room builds run after exporting (tools/assets/optimize-room.mjs)
+ASSETS="$(cd "$(dirname "$0")/../assets" && pwd)"
+if [ ! -d "$ASSETS/node_modules/@gltf-transform" ]; then
+  echo "blender setup: installing the GLB optimiser (tools/assets)"
+  (cd "$ASSETS" && npm ci --silent --no-audit --no-fund)
+fi
+
 echo "blender setup: bpy $BPY_VERSION ready ($VENV)"
