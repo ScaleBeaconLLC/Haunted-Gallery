@@ -6,7 +6,13 @@ Branch `claude/eagle-eye-room-proof`. The rules, cameras and interface are descr
 
 - **The new interface on every room.** Landscape phone layout, the mansion eagle-eye view, the room view, first person for hiding, peeking and struggles, tap to move and hide, Still / Sneak / Run, the break-free struggle, the rotate screen, Add to Home Screen and safe areas. These work in all 12 rooms because they only use the room data.
 - **One rebuilt room: the Conservation Lab.** It is built in Blender and uses baked lighting. The other 11 rooms keep their current models. The guest suite keeps its committed model.
-- **An offline review mode.** `?offline=1&skip=1&room=conservation` runs the real rules engine in the page with computer-played guests, so one phone can review a room without a server. A build made with `VITE_REVIEW_ROOM=conservation` defaults to this.
+- **An offline review mode.** `?offline=1&skip=1&room=conservation` runs the real rules engine in the page with computer-played guests, so one phone can review a room without a server. A build made with `VITE_REVIEW_ROOM=conservation` defaults to this. The private review page was built this way:
+
+  ```sh
+  cd client && VITE_REVIEW_ROOM=conservation VITE_MODEL_EXT=.glb.wasm npx vite build --base ./ --outDir <dir>
+  # then rename every <dir>/**/*.glb to *.glb.wasm (the artifact host does not serve .glb;
+  # PlayCanvas recognises a GLB by its header), and drop host.html, audio/OGG and rooms/
+  ```
 
 ## The Conservation Lab build
 

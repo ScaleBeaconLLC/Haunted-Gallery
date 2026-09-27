@@ -5,6 +5,9 @@
 import * as pc from 'playcanvas';
 
 const BASE = 'models/characters/';
+// A review copy for a host that doesn't serve .glb ships the same files under another extension
+// (VITE_MODEL_EXT); PlayCanvas recognises a GLB by its header, not its name.
+const GLB = import.meta.env.VITE_MODEL_EXT || '.glb';
 let animsPromise = null;
 let skeletonContainer = null;
 const partPromises = new Map();
@@ -24,7 +27,7 @@ function loadContainer(app, url) {
 export function loadAnims(app) {
   if (!animsPromise) {
     animsPromise = Promise.all([
-      loadContainer(app, `${BASE}anims.glb`),
+      loadContainer(app, `${BASE}anims${GLB}`),
       fetch(`${BASE}manifest.json`).then(r => r.json()),
     ]).then(([res, manifest]) => {
       skeletonContainer = res;
@@ -44,7 +47,7 @@ export async function loadSkeleton(app) {
 
 /** One skinned body part from /models/characters/parts/<id>.glb. */
 export function loadPart(app, id) {
-  if (!partPromises.has(id)) partPromises.set(id, loadContainer(app, `${BASE}parts/${id}.glb`));
+  if (!partPromises.has(id)) partPromises.set(id, loadContainer(app, `${BASE}parts/${id}${GLB}`));
   return partPromises.get(id);
 }
 

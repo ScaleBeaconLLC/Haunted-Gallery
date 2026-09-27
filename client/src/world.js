@@ -82,13 +82,14 @@ function boxMesh(w, h, d, su, sv) {
 // CC0 Quaternius furniture (tools/assets/build-props.mjs -> /models/props/). Loaded once and
 // shared; each placement is fitted to a size, recoloured to the mansion palette and batched.
 const PROP_BASE = 'models/props/';
+const GLB = import.meta.env.VITE_MODEL_EXT || '.glb';   // see characters.js
 let propManifest = null;
 const propContainers = new Map();
 const tintedMats = new Map();
 const loadPropManifest = () => (propManifest ??= fetch(PROP_BASE + 'manifest.json').then(r => r.json()));
 function loadProp(app, name) {
   if (!propContainers.has(name)) propContainers.set(name, new Promise((resolve, reject) => {
-    const asset = new pc.Asset('prop-' + name, 'container', { url: PROP_BASE + name + '.glb' });
+    const asset = new pc.Asset('prop-' + name, 'container', { url: PROP_BASE + name + GLB });
     asset.on('load', a => resolve(a.resource));
     asset.on('error', e => reject(new Error(name + ': ' + e)));
     app.assets.add(asset);
@@ -432,7 +433,7 @@ export class World {
     // Baked lighting, when the build shipped one: <file>.json = {lightmap, scale} beside the GLB.
     const sidecar = baked ? fetch(`models/rooms/${file}.json`).then(r => (r.ok ? r.json() : null)).catch(() => null) : Promise.resolve(null);
     this.propJobs.push(new Promise((resolve, reject) => {
-      const asset = new pc.Asset(`room-${file}`, 'container', { url: `models/rooms/${file}.glb` });
+      const asset = new pc.Asset(`room-${file}`, 'container', { url: `models/rooms/${file}${GLB}` });
       asset.on('load', a => resolve(a.resource)); asset.on('error', reject);
       this.app.assets.add(asset); this.app.assets.load(asset);
     }).then(async res => {
@@ -1193,7 +1194,7 @@ export class World {
     beam.setLocalPosition(0, 2.2, 1.2);
     this.limo.addChild(beam);
     new Promise((resolve, reject) => {
-      const asset = new pc.Asset('limo', 'container', { url: 'models/vehicles/sedan.glb' });
+      const asset = new pc.Asset('limo', 'container', { url: `models/vehicles/sedan${GLB}` });
       asset.on('load', a => resolve(a.resource)); asset.on('error', reject);
       this.app.assets.add(asset); this.app.assets.load(asset);
     }).then(res => {
