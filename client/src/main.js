@@ -59,7 +59,7 @@ if (captureRoom) {
   preloadCast(game.app, allCastParts());   // download the cast while players join and wait
   $('join-code').value = (params.get('code') || '').toUpperCase();
   $('join-name').value = local?.getItem('hg.name') || '';
-  if (params.get('debug')) { $('debug').hidden = false; window.__hgGame = game; }
+  if (params.get('debug')) { $('debug').hidden = false; window.__hgGame = game; game.countStats = true; }
   setupInstall();
 }
 
@@ -174,8 +174,10 @@ conn.addEventListener('ended', e => {
   $('join-note').textContent = e.detail;
 });
 
+const sentLog = params.get('debug') ? (window.__hgSent = []) : null;   // automated tests read what was sent
 function send(type, payload, label) {
   if (label) { pending = { label, at: Date.now() }; render(); }
+  sentLog?.push({ type, payload, at: Date.now() });
   conn.send(type, payload);
 }
 // The server takes one move per 350 ms: a quick second tap waits its turn (the last one wins).
@@ -193,7 +195,7 @@ function intent(payload, label, paceNow = pace) {
 }
 
 const struggleUi = new StruggleOverlay($('struggle'), {
-  send: p => conn.send('struggle', p),
+  send: p => { sentLog?.push({ type: 'struggle', payload: p, at: Date.now() }); conn.send('struggle', p); },
   now: () => conn.now(),
   buzz: p => buzz(p),
   totalMs: TUNING.struggleMs ?? 2700,
@@ -492,7 +494,7 @@ game.onFrame = () => {
     const cam = game.camera.camera;
     $('debug').textContent = `fps ${s.fps.toFixed(0)} avg ${s.ms.toFixed(1)}ms worst ${(s.worstMs ?? 0).toFixed(0)}ms${mem}\n`
       + `dpr ${devicePixelRatio} x${game.app.graphicsDevice.maxPixelRatio} ${game.app.graphicsDevice.width}x${game.app.graphicsDevice.height}\n`
-      + `draws ${st?.drawCalls?.total ?? '?'} tris ${((st?.frame?.triangles ?? 0) / 1000).toFixed(0)}k\n`
+      + `draws ${st?.drawCalls?.total ?? '?'} tris ${((st?.frame?.triangles || s.tris || 0) / 1000).toFixed(0)}k\n`
       + `cam ${game.mode}${game.fpKind ? ':' + game.fpKind : ''}${game.userView ? ' (user)' : ''} near ${cam.nearClip.toFixed(2)} far ${cam.farClip.toFixed(0)}`;
   }
 };

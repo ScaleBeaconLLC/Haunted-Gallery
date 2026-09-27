@@ -103,7 +103,9 @@ export class Game3D {
     this.app = app;
     app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
     app.setCanvasResolution(pc.RESOLUTION_AUTO);
-    app.graphicsDevice.maxPixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
+    // ?hq=1 pins a sharp pixel ratio (review screenshots); otherwise it adapts to the frame rate.
+    this.fixedRatio = new URLSearchParams(location.search).get('hq') ? Math.min(window.devicePixelRatio || 1, 2) : null;
+    app.graphicsDevice.maxPixelRatio = this.fixedRatio ?? Math.min(window.devicePixelRatio || 1, 1.5);
     this.bindResize();
 
     this.world = new World(app);
@@ -394,7 +396,7 @@ export class Game3D {
   safeFrame(mode = this.mode) {
     const w = Math.max(1, window.innerWidth), h = Math.max(1, window.innerHeight);
     const i = this.hudInsets;
-    const kv = mode === 'mansion' ? 0.55 : 1;
+    const kv = mode === 'mansion' ? 0.55 : 0.7;
     return { l: clamp(i.left / w, 0, 0.3), r: clamp(i.right / w, 0, 0.3), t: clamp(i.top * kv / h, 0, 0.3), b: clamp(i.bottom * kv / h, 0, 0.3) };
   }
 
@@ -519,7 +521,8 @@ export class Game3D {
         tr.from.target = this.camPos.clone().add(this.camera.forward.clone().mulScalar(d));
       }
       tr.t += dt;
-      const k = Math.min(1, tr.t / TRANSITION_S), e = ease(k);
+      // A struggle is only 2.7 s: snap to the attacker's face quickly.
+      const k = Math.min(1, tr.t / (this.fpKind === 'struggle' ? 0.4 : TRANSITION_S)), e = ease(k);
       pos = new pc.Vec3().lerp(tr.from.pos, want.pos, e);
       target = new pc.Vec3().lerp(tr.from.target, want.target, e);
       fovV = tr.from.fovV + (want.fovV - tr.from.fovV) * e;
@@ -663,13 +666,30 @@ export class Game3D {
     s.frames++; s.acc += dt; s.worst = Math.max(s.worst, dt);
     if (s.acc >= 1) {
       s.fps = s.frames / s.acc; s.ms = s.acc / s.frames * 1000; s.worstMs = s.worst * 1000; s.frames = 0; s.acc = 0; s.worst = 0;
+      if (this.countStats) s.tris = this.countTriangles();
       this.adaptResolution(s.fps);
     }
     this.onFrame?.(dt);
   }
 
+  /** Triangles in the mesh instances drawn last frame (the release engine build doesn't count them). */
+  countTriangles() {
+    const seen = new Set();
+    let tris = 0;
+    for (const layer of this.app.scene.layers.layerList) {
+      if (!layer.enabled) continue;
+      for (const mi of layer.meshInstances ?? []) {
+        if (seen.has(mi) || !mi.visibleThisFrame) continue;
+        seen.add(mi);
+        const prim = mi.mesh?.primitive?.[0];
+        if (prim && prim.type === pc.PRIMITIVE_TRIANGLES) tris += prim.count / 3 * Math.max(1, mi.instancingCount || 1);
+      }
+    }
+    return tris;
+  }
+
   adaptResolution(fps) {
-    if (this.mode === 'capture') return;
+    if (this.mode === 'capture' || this.fixedRatio) return;
     const dev = this.app.graphicsDevice;
     const cap = Math.min(window.devicePixelRatio || 1, 1.5);
     this.slow = fps < 40 ? (this.slow || 0) + 1 : 0;

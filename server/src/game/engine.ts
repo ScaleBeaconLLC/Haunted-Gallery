@@ -16,7 +16,7 @@ import {
   HideSpot, RoomId, SCORE, SOS_PRESETS, SosPreset, SosReply, TUNING, Vec2, frontOf, hideIds, hideSpot, standingSpot,
 } from "./data.js";
 import {
-  Waypoint, ZoneId, blockSpot, canHear, canSee, dist, doorwaysBetween, entryOf, hasObstacles, isRoom, isWalkable, nearestStandable, nearestWalkable,
+  Waypoint, ZoneId, blockSpot, canHear, canSee, clearLine, dist, doorwaysBetween, entryOf, hasObstacles, isRoom, isWalkable, nearestStandable, nearestWalkable,
   planRoute, roomPath, roomRoute, roomsOf, staggerSpot, toward, zoneAt,
 } from "./nav.js";
 
@@ -751,7 +751,12 @@ export class HauntedGame {
     switch (intent.kind) {
       case "hide": {
         const inSpot = this.actorsHiddenAt(intent.spot).filter(x => x !== a);
-        if (inSpot.length >= TUNING.hideCapacity) return this.interrupt(a, "There's no room left in there");
+        if (inSpot.length >= TUNING.hideCapacity) {
+          // Full: back out onto the floor rather than stand inside the furniture.
+          const hs = hideSpot(intent.spot);
+          if (hs && hasObstacles(hs.room)) { a.pos = this.outOfCover(hs, a.pos); this.updateZone(a); }
+          return this.interrupt(a, "There's no room left in there");
+        }
         a.hide = intent.spot;
         a.hideState = "entering";
         a.hideTimer = now + TUNING.enterCoverMs;
@@ -847,7 +852,8 @@ export class HauntedGame {
     h.ai.windup = null;
     h.grabbing = v.id; h.biteAt = now + TUNING.biteDelayMs; h.path = []; h.blocking = null; h.pending = null;
     v.grabbedBy = h.id; v.path = []; v.peeking = false; v.viewing = null; v.steer = null; v.pending = null;
-    if (v.hideState !== "none") { v.hideState = "none"; v.hide = null; v.afterLeave = null; }
+    // Caught halfway into cover: dragged out of the furniture.
+    if (v.hideState !== "none") { v.hideState = "none"; v.hide = null; v.afterLeave = null; v.pos = this.offFurniture(v.pos); this.updateZone(v); }
     v.intentState = "interrupted"; v.intentReason = "Caught";
     const need = this.testStruggleNeed ?? TUNING.struggleNeed + (h.id === "elias" ? TUNING.struggleNeedElias : 0) + TUNING.struggleNeedPerBreak * v.breaks;
     const s: Struggle = {
@@ -908,7 +914,7 @@ export class HauntedGame {
     // Pushed back half a step, if there is floor there.
     if (isRoom(h.zone)) {
       const back = toward(v.pos, h.pos, dist(v.pos, h.pos) + 0.5);
-      if (zoneAt(back) === h.zone && isWalkable(h.zone, back)) h.pos = back;
+      if (zoneAt(back) === h.zone && isWalkable(h.zone, back) && (!hasObstacles(h.zone) || clearLine(h.zone, h.pos, back))) h.pos = back;
       h.yaw = Math.atan2(v.pos[0] - h.pos[0], v.pos[1] - h.pos[1]) * 180 / Math.PI;
     }
     this.emit({ type: "broke_free", to: this.witnessesOf(v, h), id: v.id, from: h.id });

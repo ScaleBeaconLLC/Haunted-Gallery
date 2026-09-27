@@ -36,7 +36,7 @@ export class Gestures {
 
   down(e) {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    this.pointers.set(e.pointerId, { x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, t0: performance.now(), drag: false });
+    this.pointers.set(e.pointerId, { x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, t0: e.timeStamp, drag: false });
     this.el.setPointerCapture?.(e.pointerId);
     if (this.pointers.size === 2) {
       const [a, b] = [...this.pointers.values()];
@@ -74,9 +74,10 @@ export class Gestures {
     if (this.suppress) { if (!this.pointers.size) this.suppress = false; return; }
     if (cancelled) return;
     if (p.drag) { this.h.onDragEnd?.(); return; }
-    const dt = performance.now() - p.t0;
+    // Event timestamps, not handler time: a busy frame must not turn a quick tap into a slow one.
+    const dt = e.timeStamp - p.t0;
     if (dt > TAP_MS || Math.hypot(e.clientX - p.x0, e.clientY - p.y0) >= TAP_MOVE) return;
-    const now = performance.now();
+    const now = e.timeStamp;
     const last = this.lastTap;
     const double = !!last && now - last.t < DOUBLE_MS && Math.hypot(e.clientX - last.x, e.clientY - last.y) < DOUBLE_PX;
     this.lastTap = double ? null : { t: now, x: e.clientX, y: e.clientY };

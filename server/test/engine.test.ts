@@ -533,12 +533,14 @@ describe("Eagle-eye rules", () => {
 
   describe("paths around furniture", () => {
     it("routes into, out of and through the Conservation Lab never cut through its furniture", () => {
-      const starts: Vec2[] = [LAB.center, [17, 23], [31.2, 35.3], [20.5, 36.8], [28, 31], [24, 36]];
+      const starts: Vec2[] = [LAB.center, [17, 23], [31.2, 35.3], [20.5, 36.8], [28, 31], [24, 36], [17.2, 25]];
       for (const p of starts) assert.ok(!inFurniture(p), `start ${p} is standable`);
       const goals: { zone: string; p: Vec2 }[] = [
         ...starts.map(p => ({ zone: "conservation", p })),
         // Goals on furniture (the covered statue, the restoration table) end beside it.
         { zone: "conservation", p: [31, 37] }, { zone: "conservation", p: [24.6, 32] },
+        // Just outside each doorway, in the passages (the route goes straight for the doorway).
+        { zone: "c5", p: [12, 30] }, { zone: "c3", p: [18, 19] }, { zone: "c7", p: [20, 40] },
         ...LAB.hides.map(h => ({ zone: "conservation", p: frontOf(h) })),
         { zone: "mirrors", p: ROOMS.mirrors.center }, { zone: "archive", p: ROOMS.archive.center }, { zone: "sealed", p: ROOMS.sealed.center },
       ];
@@ -562,6 +564,34 @@ describe("Eagle-eye rules", () => {
       assert.strictEqual(through.filter(w => w.door).length, 4, "doorway waypoints kept");
       // Rooms without furniture keep a straight line.
       assert.deepStrictEqual(planRoute([-15, 5], "portrait", { zone: "portrait", p: [-6, 14] }), [{ p: [-6, 14] }]);
+    });
+
+    it("in whole CPU matches nobody stands inside furniture except while crawling into cover", () => {
+      const furnished = ROOM_IDS.filter(r => ROOMS[r].obstacles?.length);
+      const inside = (p: Vec2) => {
+        const z = zoneAt(p);
+        return !!z && furnished.includes(z as RoomId) && ROOMS[z as RoomId].obstacles!.some(([x0, x1, z0, z1]) =>
+          p[0] > x0 - R + 1e-3 && p[0] < x1 + R - 1e-3 && p[1] > z0 - R + 1e-3 && p[1] < z1 + R - 1e-3);
+      };
+      let furnishedTicks = 0;
+      for (let seed = 1; seed <= 8; seed++) {
+        let n = 0;
+        const g = new HauntedGame({ active: TWELVE, cpu: new Set(TWELVE), random: seeded(seed), idFactory: () => `f${seed}-${++n}` }, 0);
+        const clock = { t: 0 };
+        run(g, clock, () => {
+          for (const a of g.actors.values()) {
+            if (a.status === "escaped") continue;
+            if (furnished.includes(a.room)) furnishedTicks++;
+            const spot = a.intent.kind === "hide" ? hideSpot(a.intent.spot)?.spot.pos : null;
+            const crawling = !!spot && a.path.length === 1 && a.path[0].p === spot;
+            if (a.hideState === "none" && !crawling) assert.ok(!inside(a.pos), `seed ${seed}: ${a.id} inside furniture at ${a.pos} (${JSON.stringify(a.intent)})`);
+            const pts = a.path.map(w => w.p);
+            for (let i = 0; i < (spot ? pts.length - 1 : pts.length); i++) assert.ok(!inside(pts[i]), `seed ${seed}: ${a.id} waypoint ${pts[i]} inside furniture`);
+          }
+          return g.phase === "ended";
+        }, TUNING.huntMaxMs + 60_000);
+      }
+      assert.ok(furnishedTicks > 1000, "the furnished rooms were used");
     });
 
     it("hides under the restoration table: walks around it to the open side, then crawls under", () => {

@@ -238,7 +238,7 @@ describe("Local multiplayer (independent SDK clients)", function () {
     const a = await joinAs(code, "julian", "Ann");
     await startHunt(host, server, { julian: [20, 29] });   // Conservation Lab
     a.room.send("intent", { kind: "move", p: ["x", 1] });
-    a.room.send("intent", { kind: "move", p: [24, 45] });  // nowhere near the floor
+    a.room.send("intent", { kind: "move", p: [24, 40.5] });  // between the lab and the Hall of Mirrors: no floor
     await until(() => errors(a).length >= 2, 4000, "2 rejections");
     assert.match(errors(a)[0], /Bad position/);
     assert.match(errors(a)[1], /can't stand there/);

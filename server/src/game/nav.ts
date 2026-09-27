@@ -427,22 +427,25 @@ export function roomPath(room: RoomId, from: Vec2, to: Vec2): Vec2[] | null {
 }
 
 /**
- * Replace every leg that runs inside one furnished room (both ends interior points, not
- * doorway waypoints) with a grid path around the furniture. Doorway waypoints are kept,
- * so zones still change at them.
+ * Replace every leg that runs inside one furnished room with a grid path around the
+ * furniture: legs between two interior points, and legs from an interior point to one of
+ * that room's doorways (walked to the standable floor just inside the doorway first).
+ * Doorway waypoints are kept, so zones still change at them.
  */
 function refineRoute(from: Vec2, route: Waypoint[] | null): Waypoint[] | null {
   if (!route) return null;
   const out: Waypoint[] = [];
   let prev: Waypoint = { p: from };
   for (const wp of route) {
-    if (!wp.door && !prev.door) {
+    if (!prev.door) {
       const z = zoneAt(prev.p);
-      if (z && isRoom(z) && hasObstacles(z) && zoneAt(wp.p) === z) {
+      const inside = !wp.door ? zoneAt(wp.p) === z : DOORWAYS.some(d => d.key === wp.door && d.room === z);
+      if (z && isRoom(z) && hasObstacles(z) && inside) {
         const legs = roomPath(z, prev.p, wp.p);
         if (!legs) return null;
         for (const p of legs) out.push({ p });
-        prev = { p: legs[legs.length - 1] };
+        if (wp.door) out.push(wp);
+        prev = wp.door ? wp : { p: legs[legs.length - 1] };
         continue;
       }
     }
