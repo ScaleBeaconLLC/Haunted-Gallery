@@ -99,7 +99,7 @@ def varnish(col, u, v, seed, age=0.6):
     h, w, _ = col.shape
     strokes = fbm(h, w, 8, seed + 50, 3)
     streak = np.sin((u * 60 + strokes * 9) * math.pi)   # directional brush marks
-    col = col * (0.93 + 0.07 * streak)[..., None]
+    col = col * (0.97 + 0.03 * streak)[..., None]
     col = col * np.array([1.0, 0.93, 0.74]) ** age          # yellowed varnish
     col *= (1 - 0.55 * craquelure(h, w, seed + 60) * 0.35)[..., None]
     col *= (1 - 0.6 * np.hypot(u - 0.5, v - 0.5) ** 2)[..., None]
@@ -124,21 +124,79 @@ def tex_painting(name, seed, kind, w=512, h=640, cleaned=False):
         col[lake] = col[lake] * 0.4 + np.array([0.3, 0.3, 0.28]) * (0.5 + 0.5 * np.sin(v[lake] * 300)) [..., None] * 0.35
         trees = (v > 0.3 + 0.35 * fbm(h, w, 20, seed + 9)) & (u < 0.28)
         col[trees] = [0.03, 0.035, 0.028]
+    elif kind == "backview":
+        sky = np.array([0.08, 0.1, 0.16]) + np.array([0.34, 0.33, 0.3]) * (1 - v)[..., None] ** 2 * 0.55
+        col = sky * (0.8 + 0.35 * fbm(h, w, 3, seed + 1))[..., None]
+        mx, my = 0.64, 0.22
+        d = np.hypot((u - mx) * w / h, v - my)
+        col[d < 0.05] = [0.92, 0.88, 0.7]
+        col += (np.exp(-(d / 0.14) ** 2) * 0.3)[..., None] * np.array([0.9, 0.85, 0.65])
+        shore = v > 0.6 + 0.04 * np.sin(u * 7 + seed) + 0.03 * fbm(h, w, 6, seed + 4)
+        lake = (v > 0.5) & ~shore
+        col[lake] = np.array([0.1, 0.12, 0.17]) + np.exp(-((u[lake] - mx) / 0.05) ** 2)[..., None] * np.array([0.5, 0.48, 0.38]) * (0.5 + 0.5 * np.sin(v[lake] * 260))[..., None]
+        hills = (v > 0.47 + 0.05 * np.sin(u * 5 + seed)) & (v < 0.52 + 0.05 * np.sin(u * 5 + seed))
+        col[hills] = [0.05, 0.06, 0.07]
+        col[shore] = np.array([0.04, 0.04, 0.035]) * (0.7 + 0.6 * n[shore])[..., None]
+        # the woman from behind: hair up, shoulders, a long dark gown widening to the ground
+        cx = 0.42
+        head = ((u - cx) / 0.045) ** 2 + ((v - 0.43) / 0.055) ** 2 < 1
+        bun = ((u - cx) / 0.03) ** 2 + ((v - 0.385) / 0.028) ** 2 < 1
+        t = np.clip((v - 0.48) / 0.5, 0, 1)
+        halfw = np.where(v < 0.48, 0, 0.03 + 0.09 * np.minimum(t * 4, 1) + 0.1 * t ** 1.5)
+        gown = (np.abs(u - cx) < halfw) & (v >= 0.48)
+        fig = head | bun | gown
+        col[fig] = np.array([0.02, 0.022, 0.03]) * (0.8 + 0.4 * n[fig])[..., None]
+        rim = fig & (np.abs(u - cx - halfw * 0.92) < 0.0035) & (v > 0.5)        # moonlit edge of the gown
+        col[rim] = [0.17, 0.17, 0.16]
+        for _ in range(2):
+            col = (col + np.roll(col, 1, 0) + np.roll(col, -1, 0) + np.roll(col, 1, 1) + np.roll(col, -1, 1)) / 5
     elif kind == "portrait":
-        col = np.array([0.1, 0.07, 0.045]) * (0.7 + 0.6 * n)[..., None]
-        x, y = (u - 0.5) / 0.5, (v - 0.36) / 0.5
-        face = (x / 0.3) ** 2 + (y / 0.4) ** 2 < 1
-        shade = np.clip(0.55 - x * 0.9 - y * 0.2, 0.1, 1.0)
-        col[face] = (np.array([0.78, 0.6, 0.47]) * shade[face][..., None]) * (0.92 + 0.12 * n[face])[..., None]
-        hair = ((x / 0.36) ** 2 + ((y + 0.12) / 0.38) ** 2 < 1) & ~face & (y < 0.1)
-        col[hair] = np.array([0.1, 0.06, 0.035]) * (0.7 + 0.5 * n[hair])[..., None]
-        for ex in (-0.12, 0.12):
-            eye = ((x - ex) / 0.05) ** 2 + ((y + 0.03) / 0.022) ** 2 < 1
-            col[eye] = [0.06, 0.04, 0.03]
-        body = ((x / 0.8) ** 2 + ((y - 1.05) / 0.62) ** 2 < 1) & ~face
-        col[body] = np.array([0.05, 0.05, 0.08]) * (0.7 + 0.6 * n[body])[..., None]
-        collar = body & ((x / 0.22) ** 2 + ((y - 0.5) / 0.12) ** 2 < 1)
-        col[collar] = [0.62, 0.58, 0.5]
+        # a dark old portrait, lit from the upper left (chiaroscuro): the sitter emerges from shadow
+        r2 = np.random.default_rng(seed)
+        light = np.clip(1.15 - np.hypot(u - 0.36, v - 0.28) * 1.9, 0.06, 1.0)
+        col = np.array([0.1, 0.075, 0.05]) * (0.6 + 0.6 * n)[..., None] * (0.5 + 0.5 * light)[..., None]
+        fx, fy = 0.5 + (r2.random() - 0.5) * 0.06, 0.33 + (r2.random() - 0.5) * 0.04
+        x, y = (u - fx) / 0.5, (v - fy) / 0.5
+        body = (x / 0.85) ** 2 + ((y - 1.0) / 0.72) ** 2 < 1
+        cloth = np.array([0.05, 0.05, 0.07]) if seed % 2 else np.array([0.18, 0.05, 0.05])
+        col[body] = cloth * (0.45 + 0.9 * light[body])[..., None] * (0.8 + 0.4 * n[body])[..., None]
+        neck = (np.abs(x) < 0.07) & (y > 0.12) & (y < 0.42)
+        face = (x / 0.2) ** 2 + (y / 0.27) ** 2 < 1
+        skin = np.array([0.72, 0.55, 0.42])
+        side = np.clip(0.95 - (x + 0.2) * 1.6 - y * 0.25, 0.12, 1.0)          # lit side / shadow side
+        for m in (neck, face):
+            col[m] = skin * (side[m] * (0.35 + 0.75 * light[m]))[..., None]
+        hair = ((x / 0.25) ** 2 + ((y + 0.07) / 0.28) ** 2 < 1) & ~face & (y < 0.08)
+        col[hair] = np.array([0.07, 0.045, 0.03]) * (0.6 + 0.8 * light[hair])[..., None]
+        for ex in (-0.075, 0.075):     # eyes, brows and mouth as soft shadows, not dots
+            col[((x - ex) / 0.045) ** 2 + ((y + 0.03) / 0.018) ** 2 < 1] *= 0.55
+            col[((x - ex) / 0.06) ** 2 + ((y + 0.075) / 0.012) ** 2 < 1] *= 0.6
+        col[((x) / 0.06) ** 2 + ((y - 0.13) / 0.012) ** 2 < 1] *= 0.6
+        col[(np.abs(x) < 0.018) & (y > -0.01) & (y < 0.08)] *= 1.12   # nose ridge catches light
+        collar = body & ((x / 0.2) ** 2 + ((y - 0.5) / 0.1) ** 2 < 1)
+        col[collar] = np.array([0.62, 0.58, 0.5]) * (0.4 + 0.7 * light[collar])[..., None]
+        # soften everything like layered glazes
+        for _ in range(2):
+            col = (col + np.roll(col, 2, 0) + np.roll(col, -2, 0) + np.roll(col, 2, 1) + np.roll(col, -2, 1)) / 5
+    elif kind == "flowers":
+        col = np.array([0.07, 0.05, 0.035]) * (0.7 + 0.6 * n)[..., None]
+        light = np.clip(1.1 - np.hypot(u - 0.35, v - 0.3) * 1.6, 0.1, 1)
+        col *= (0.5 + 0.6 * light)[..., None]
+        table = v > 0.74
+        col[table] = np.array([0.2, 0.1, 0.05]) * (0.6 + 0.5 * n[table])[..., None]
+        vase = ((u - 0.5) / (0.09 + 0.05 * np.sin((v - 0.55) * 7))) ** 2 + ((v - 0.64) / 0.12) ** 2 < 1
+        col[vase] = np.array([0.45, 0.42, 0.36]) * (0.4 + 0.8 * np.clip(1 - (u[vase] - 0.45) * 5, 0, 1))[..., None]
+        r3 = np.random.default_rng(seed + 9)
+        for _ in range(26):
+            bx, by, br = 0.5 + r3.normal(0, 0.11), 0.37 + r3.normal(0, 0.08), r3.uniform(0.018, 0.04)
+            c = [(0.42, 0.08, 0.07), (0.5, 0.42, 0.3), (0.36, 0.2, 0.26), (0.5, 0.44, 0.2)][r3.integers(0, 4)]
+            m = np.hypot((u - bx) * w / h, v - by) < br
+            col[m] = np.array(c) * (0.5 + 0.7 * light[m])[..., None] * (0.8 + 0.4 * n[m])[..., None]
+        leaves = (fbm(h, w, 18, seed + 3) > 0.62) & (np.hypot(u - 0.5, (v - 0.4) * 1.3) < 0.3) & ~vase
+        col[leaves] = np.array([0.05, 0.09, 0.04]) * (0.6 + 0.6 * light[leaves])[..., None]
+        col[vase] *= 0.7
+        for _ in range(4):
+            col = (col + np.roll(col, 2, 0) + np.roll(col, -2, 0) + np.roll(col, 2, 1) + np.roll(col, -2, 1)) / 5
     else:   # still life
         col = np.array([0.08, 0.06, 0.04]) * (0.7 + 0.6 * n)[..., None]
         table = v > 0.68
@@ -245,7 +303,7 @@ def tex_parquet(src, s=1024, tile=1.2, seed=77):
     gap = np.minimum(np.minimum(across, 1 - across) * W, np.minimum(along % 4, 4 - (along % 4)) * W)
     edge = np.clip(gap / 1.6, 0, 1)
     col = col * (0.35 + 0.65 * edge)[..., None]
-    col *= np.array([0.9, 0.74, 0.62])       # warm old parquet
+    col *= np.array([0.86, 0.72, 0.62])      # warm old parquet (browner: the game's ACES pushes red)
     hgt = edge * 0.7 + col.mean(axis=-1) * 0.3
     return (R.save_image(TEX, "lab_parquet", np.clip(col, 0, 1), fmt="JPEG"),
             R.save_image(TEX, "lab_parquet_nor", R.normal_from_height(hgt, 2.0), fmt="JPEG", non_color=True))
@@ -282,11 +340,11 @@ IMG = {
     "parquet": tex_parquet(os.path.join(R.TEX_COMMITTED, "OldOakFloor_diff.jpg")),
     "window": tex_window(),
     "notes": tex_paper(),
-    "p_clean": tex_painting("lab_painting_cleaning", 301, "portrait", 640, 800, cleaned=True),
+    "p_clean": tex_painting("lab_painting_cleaning", 301, "landscape", 800, 640, cleaned=True),
     "p_land1": tex_painting("lab_painting_moonlake", 302, "landscape", 800, 560),
     "p_land2": tex_painting("lab_painting_hills", 303, "landscape", 700, 520),
-    "p_port1": tex_painting("lab_painting_sitter", 304, "portrait"),
-    "p_port2": tex_painting("lab_painting_widow", 305, "portrait"),
+    "p_port1": tex_painting("lab_painting_sitter", 304, "backview"),
+    "p_port2": tex_painting("lab_painting_widow", 305, "flowers"),
     "p_still": tex_painting("lab_painting_still", 306, "still", 600, 520),
 }
 

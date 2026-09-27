@@ -656,7 +656,9 @@ def write_lightmap(px, path, sidecar, downsample=2, quality=90):
     img.save()
     bpy.data.images.remove(img)
     with open(sidecar, "w") as f:
-        json.dump({"lightmap": os.path.basename(path), "scale": round(scale, 4), "encoding": "srgb"}, f, indent=2)
+        # exposure: the same +EV the comparison renders use (--exposure), so the game matches them
+        json.dump({"lightmap": os.path.basename(path), "scale": round(scale, 4), "encoding": "srgb",
+                   "exposure": round(2 ** float(arg("exposure", 0.6)), 4)}, f, indent=2)
         f.write("\n")
     print("lightmap", path, os.path.getsize(path), "bytes; scale", round(scale, 3))
     return scale

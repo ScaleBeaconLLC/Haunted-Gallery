@@ -1,5 +1,6 @@
 {
   "lightmap": "conservation_lab_lightmap.jpg",
-  "scale": 2.9986,
-  "encoding": "srgb"
+  "scale": 2.9968,
+  "encoding": "srgb",
+  "exposure": 1.5157
 }
