@@ -1,10 +1,30 @@
 # Haunted Gallery: progress log
 
-_Last updated: 2026-09-26 (guest suite: first Blender-built playable room, stick controls, new cameras — branch `visual-upgrade`)_
+_Last updated: 2026-09-27 (eagle-eye proof: landscape phone interface and the rebuilt Conservation Lab — branch `claude/eagle-eye-room-proof`, not deployed)_
 
 This log separates what is **verified**, what is **built but not verified on real phones**, and what is **missing**. It is a playable multiplayer blockout with placeholder characters, not a finished production game.
 
 Recoverable checkpoint of the previous round-based build: git tag **`checkpoint-rounds-v1`** (commit `a2fbac9`).
+
+## Eagle-eye proof (branch `claude/eagle-eye-room-proof`, 2026-09-27, not deployed)
+
+Design: `docs/EAGLE_EYE_DESIGN.md`. Results: `docs/EAGLE_EYE_PROOF.md`. Screenshots: `docs/screenshots/eagle-eye-proof/`.
+
+- **Landscape phone interface:**
+  - a mansion eagle-eye view: tap a reachable room, watch the guest walk there, then zoom into the room view;
+  - tap the floor to move and furniture to hide, with Still / Sneak / Run;
+  - first person for hiding, peeking and struggles;
+  - "Someone came in" alerts that keep the infection secret;
+  - the rotate screen, Add to Home Screen, safe areas and a landscape lock where supported.
+  The room cards, Walk/Run/Wait bars, thumb stick and full-width Garden Gate button are gone.
+- **Break free:** a server-counted rapid-tap struggle inside the existing bite delay (20 taps; Elias +4; +6 for each earlier escape).
+- **Conservation Lab rebuilt in Blender** with baked lighting (84.5k triangles, 4.45 MB). The other rooms are unchanged.
+- **Offline review mode** (`?offline=1&skip=1&room=conservation`): the rules engine runs in the page with computer guests.
+- **Verified in headless browsers:**
+  - the landscape playthrough, 49 of 49 checks at both 844 × 390 and 932 × 430;
+  - 57 server tests;
+  - the 12-bot privacy check.
+- **Not yet verified on a real iPhone.**
 
 ## Guest suite proof (branch `visual-upgrade`, 2026-09-26)
 

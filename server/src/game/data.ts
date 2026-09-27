@@ -111,7 +111,7 @@ export interface RoomDef {
    * A Blender-built room model (client/public/models/rooms/<model>.glb) replaces the generated
    * floor, furniture and cover primitives; its origin sits at world (origin x, 0, origin z).
    */
-  model?: { file: string; origin: Vec2 };
+  model?: { file: string; origin: Vec2; baked?: boolean };
   /** Furniture footprints [x0, x1, z0, z1] that people cannot walk through (modelled rooms). */
   obstacles?: [number, number, number, number][];
   /** Surface style for the generated 3D materials. */
@@ -163,7 +163,7 @@ export const ROOMS: Record<RoomId, RoomDef> = {
     story: "Restoration notes explain that the camera flash interrupts the infection long enough to flee.",
     searchRisk: "Metal carts and hanging canvas announce careless movement.",
     refs: ["13_Conservation_Lab"], style: { floor: "planks", wall: "stone" },
-    model: { file: "conservation_lab", origin: [24, 30] },
+    model: { file: "conservation_lab", origin: [24, 30], baked: true },
     rect: [16, 32, 22, 38], center: [24, 30], openArea: [19.4, 25.8, 27.3, 30.4], floorColor: "#2c3433", wallColor: "#3f5553",
     hides: [
       { id: "under_restoration_table", label: "Under the restoration table", pos: [24.6, 32.0], pose: "under", look: 180, cover: { pos: [24.6, 32.0], size: [3.2, 1.5], height: 0.92, kind: "table" } },

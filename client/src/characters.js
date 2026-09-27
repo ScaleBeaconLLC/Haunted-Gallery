@@ -4,7 +4,7 @@
 // Built offline by tools/assets/build-characters.mjs into /models/characters/.
 import * as pc from 'playcanvas';
 
-const BASE = '/models/characters/';
+const BASE = 'models/characters/';
 let animsPromise = null;
 let skeletonContainer = null;
 const partPromises = new Map();

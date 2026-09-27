@@ -17,7 +17,7 @@ The 14 characters, the opening (limousine, party, dialogue, first bite, curator 
 | Seeing people | Everyone in the same **room** is visible regardless of distance (the old 18 m cap hid far corners of big rooms). Passages keep the 18 m cap; the view through a doorway is unchanged. People in cover stay invisible unless they peek. |
 | Zombie enters your room | Anyone entering your room appears on your screen. They are drawn and labelled as a zombie **only** when the server marks them revealed (Elias, the birthday guest, a turned guest within 3.2 m, grabbing, searching your spot, or stunned). Everyone else is "Someone came in". This keeps infection secret. |
 | Lunge warning | When a hunter starts the 0.7 s grab windup on you, your phone gets `lunging` on that actor: red edge flash and a haptic buzz. |
-| Break free | The grab starts a **2.7 s struggle** inside the existing 3 s bite delay (the flash-rescue timing is unchanged). Tap as fast as you can: 14 taps frees you. Elias needs 4 more, and each time you have already broken free adds 5. The server counts taps (at most 12 per second) and decides. Success: the hunter staggers back and cannot grab for 2 s, and you cannot be grabbed for 2.5 s. Failure: the bite, then you turn (secretly), as before. A friend's flash still frees you at any point. CPU survivors tap at 3.5 to 6.5 taps/s. |
+| Break free | The grab starts a **2.7 s struggle** inside the existing 3 s bite delay (the flash-rescue timing is unchanged). Tap as fast as you can: 20 taps frees you. Elias needs 4 more, and each time you have already broken free adds 6. The server counts taps (at most 10 per second) and decides. Success: the hunter staggers back and cannot grab for 2 s, and you cannot be grabbed for 2.5 s. Failure: the bite, then you turn (secretly), as before. A friend's flash still frees you at any point. CPU survivors tap at 5 to 9 taps/s. (Tuned from 14 taps after a 40-match simulation showed humans almost always escaped; results in `docs/EAGLE_EYE_PROOF.md`.) |
 | Garden Gate | Unchanged: reach the gate in the Sealed Exhibition Room before the 15:00 hunt ends. Messages say "Garden Gate" everywhere. |
 
 ### Protocol additions
@@ -77,7 +77,7 @@ Blender build: `tools/blender/build_conservation_lab.py` (shared helpers in `too
 - Real furniture: two restoration tables, a canvas drying rack under a drop cloth, a solvent cabinet, two plan chests, easels, a covered statue, a bust, pigment shelves and a cart.
 - Lancet windows and stone door surrounds.
 - CC0 wood textures plus generated stone, linen and paintings.
-- **Baked lighting:** Cycles irradiance on a second UV set, shipped as `conservation_lab_lightmap.jpg`. The game multiplies it by `scale` from `conservation_lab.json`. Lab surfaces ignore the runtime lights; people are still lit by the practical lights at the lamps and sconces.
+- **Baked lighting:** Cycles irradiance on a second UV set, shipped as `conservation_lab_lightmap.jpg`. The game multiplies it by `scale × exposure` from `conservation_lab.json` (exposure matches the Blender render's brightness). Lab surfaces ignore the runtime lights; people are still lit by the practical lights at the lamps and sconces.
 
 Hiding places (ids kept where the concept survives):
 

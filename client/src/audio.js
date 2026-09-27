@@ -45,14 +45,14 @@ export class GameAudio {
 
   async loadManifest() {
     try {
-      this.manifest = await (await fetch('/audio/manifest.json')).json();
+      this.manifest = await (await fetch('audio/manifest.json')).json();
     } catch { this.manifest = { clips: [] }; }
   }
 
   clipUrl(character, event) {
     const clip = this.manifest?.clips.find(c => c.character === character && c.event === event);
     if (!clip) return null;
-    return '/' + (this.ext === 'mp3' ? clip.mp3 : clip.ogg);
+    return (this.ext === 'mp3' ? clip.mp3 : clip.ogg);
   }
 
   async buffer(url) {

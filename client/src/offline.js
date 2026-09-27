@@ -4,7 +4,7 @@
 // 'error' / 'status', send(type, payload) and now(), so the whole client runs unchanged.
 // For reviewing a build on one phone without a server: not multiplayer, and nothing leaves it.
 import { HauntedGame, GameError } from '@game/engine.ts';
-import { CAST, MAX_ACTIVE_SURVIVORS, ROOM_IDS, SOS_PRESETS } from '@game/data.ts';
+import { CAST, MAX_ACTIVE_SURVIVORS, ROOM_IDS, SOS_PRESETS, standingSpot } from '@game/data.ts';
 
 const CHARACTERS = new Set(CAST.map(c => c.id));
 
@@ -17,7 +17,7 @@ function publicState() {
 }
 
 export class OfflineConnection extends EventTarget {
-  constructor({ skipOpening = false } = {}) {
+  constructor({ skipOpening = false, startRoom = null } = {}) {
     super();
     this.status = 'idle';
     this.state = null;
@@ -26,6 +26,8 @@ export class OfflineConnection extends EventTarget {
     this.name = '';
     this.lastView = '';
     this.skipOpening = skipOpening;
+    // ?room=<id> with ?skip=1: begin the hunt inside that room (for reviewing one room's build).
+    this.startRoom = ROOM_IDS.includes(startRoom) ? startRoom : null;
     this.timer = null;
   }
 
@@ -128,7 +130,13 @@ export class OfflineConnection extends EventTarget {
     while (active.length < MAX_ACTIVE_SURVIVORS && free.length > 1) { const id = free.shift(); active.push(id); cpu.add(id); }
     for (const id of cpu) Object.assign(this.state.seats.get(id), { taken: true, isCpu: true, displayName: 'CPU', connected: true });
     this.game = new HauntedGame({ active, cpu }, Date.now());
-    if (this.skipOpening) this.game.fastForwardOpening(Date.now());
+    if (this.skipOpening) {
+      this.game.fastForwardOpening(Date.now());
+      if (this.startRoom) {
+        const a = this.game.get(this.me);
+        Object.assign(a, { pos: standingSpot(this.startRoom, 0), path: [], hide: null, hideState: 'none', viewing: null, zone: this.startRoom, room: this.startRoom });
+      }
+    }
     this.state.birthday = this.game.birthday;
     this.state.photographer = this.game.photographer;
     this.state.seats.get(this.game.birthday).birthday = true;

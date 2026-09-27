@@ -131,7 +131,9 @@ export class Game3D {
 
     const cam = new pc.Entity('Camera');
     cam.addComponent('camera', { clearColor: new pc.Color(0.02, 0.015, 0.03), fov: 58, nearClip: 0.05, farClip: 80 });
-    cam.camera.toneMapping = pc.TONEMAP_ACES;
+    // ?tonemap=neutral|aces (review aid; the default is the game's look)
+    const tm = new URLSearchParams(location.search).get('tonemap');
+    cam.camera.toneMapping = tm === 'neutral' ? pc.TONEMAP_NEUTRAL : pc.TONEMAP_ACES;
     app.root.addChild(cam);
     this.camera = cam;
     this.camPos = new pc.Vec3(-11.75, 14, -2);
@@ -775,10 +777,13 @@ export class Game3D {
     this.captureShot = { pos, target: new pc.Vec3(cx + (w >= d ? w * 0.12 : 0), 0.6, cz + (w >= d ? 0 : d * 0.12)), near: 0.2 };
     this.camPos.copy(pos);
     this.mode = 'capture';
-    // Brighter than gameplay so the navigation cards read clearly on a phone.
-    this.app.scene.exposure = 2.1;
-    this.app.scene.ambientLight = new pc.Color(0.3, 0.27, 0.3);
-    this.app.scene.fog.start = 60; this.app.scene.fog.end = 120;
+    // Brighter than gameplay so the navigation cards read clearly on a phone, unless
+    // &gameplay=1 asks for the real in-game lighting (review screenshots).
+    if (new URLSearchParams(location.search).get('gameplay') !== '1') {
+      this.app.scene.exposure = 2.1;
+      this.app.scene.ambientLight = new pc.Color(0.3, 0.27, 0.3);
+      this.app.scene.fog.start = 60; this.app.scene.fog.end = 120;
+    }
     for (const a of this.actors.values()) a.entity.enabled = false;
     this.world.cameraProp.enabled = false;
     if (this.world.exterior) this.world.exterior.enabled = false;   // cards show the rooms, not the front of the house

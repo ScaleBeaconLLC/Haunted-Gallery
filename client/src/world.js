@@ -81,7 +81,7 @@ function boxMesh(w, h, d, su, sv) {
 // ------------------------------------------------------------------ furniture models
 // CC0 Quaternius furniture (tools/assets/build-props.mjs -> /models/props/). Loaded once and
 // shared; each placement is fitted to a size, recoloured to the mansion palette and batched.
-const PROP_BASE = '/models/props/';
+const PROP_BASE = 'models/props/';
 let propManifest = null;
 const propContainers = new Map();
 const tintedMats = new Map();
@@ -425,14 +425,14 @@ export class World {
    * (0, 0, origin z)): one merged mesh plus LIGHT_* marker nodes where lamps and sconces glow.
    * Shared by every room that uses the same file (the guest suite has bedroom + bathroom).
    */
-  loadRoomModel({ file, origin }) {
+  loadRoomModel({ file, origin, baked = false }) {
     this.roomModels ??= new Set();
     if (this.roomModels.has(file)) return;
     this.roomModels.add(file);
     // Baked lighting, when the build shipped one: <file>.json = {lightmap, scale} beside the GLB.
-    const sidecar = fetch(`/models/rooms/${file}.json`).then(r => (r.ok ? r.json() : null)).catch(() => null);
+    const sidecar = baked ? fetch(`models/rooms/${file}.json`).then(r => (r.ok ? r.json() : null)).catch(() => null) : Promise.resolve(null);
     this.propJobs.push(new Promise((resolve, reject) => {
-      const asset = new pc.Asset(`room-${file}`, 'container', { url: `/models/rooms/${file}.glb` });
+      const asset = new pc.Asset(`room-${file}`, 'container', { url: `models/rooms/${file}.glb` });
       asset.on('load', a => resolve(a.resource)); asset.on('error', reject);
       this.app.assets.add(asset); this.app.assets.load(asset);
     }).then(async res => {
@@ -441,7 +441,7 @@ export class World {
       const lm = await sidecar;
       if (lm?.lightmap) {
         try {
-          this.applyLightmap(e, await loadLightmap(this.app.graphicsDevice, `/models/rooms/${lm.lightmap}`), lm.scale ?? 1);
+          this.applyLightmap(e, await loadLightmap(this.app.graphicsDevice, `models/rooms/${lm.lightmap}`), (lm.scale ?? 1) * (lm.exposure ?? 1));
         } catch (err) { console.warn('lightmap unavailable, runtime lights only', file, err); }
       }
       this.root.addChild(e);
@@ -532,15 +532,15 @@ export class World {
         m.opacity = opacity; m.blendType = pc.BLEND_NORMAL; m.depthWrite = false; m.update();
         return m;
       };
-      this.rimMat = unlit('#d9a441', 0.9);
-      this.rimHereMat = unlit('#fff1c9', 1);
+      this.rimMat = unlit('#c99a45', 0.75);
+      this.rimHereMat = unlit('#f3dca0', 0.85);
       const veil = unlit('#000000', 0.62);
       veil.emissive = new pc.Color(0.005, 0.004, 0.008); veil.update();
       this.rims = {}; this.veils = {};
       for (const id of ROOM_IDS) {
         const [x0, x1, z0, z1] = ROOMS[id].rect;
         const rim = new pc.Entity(`Rim_${id}`);
-        rim.addComponent('render', { meshInstances: [new pc.MeshInstance(frameMesh(this.app.graphicsDevice, x0, x1, z0, z1, 0.22), this.rimMat)], castShadows: false });
+        rim.addComponent('render', { meshInstances: [new pc.MeshInstance(frameMesh(this.app.graphicsDevice, x0, x1, z0, z1, 0.12), this.rimMat)], castShadows: false });
         rim.setLocalPosition(0, WALL_H + 0.07, 0);
         rim.enabled = false;
         this.root.addChild(rim);
@@ -563,33 +563,42 @@ export class World {
     }
   }
 
-  /** Breadcrumbs along the path your character is following (null clears). */
+  /** Breadcrumbs along the path your character is following (null clears): one mesh, one draw call. */
   setRoute(points) {
     const key = points ? points.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(';') : '';
     if (key === this.routeKey) return;
     this.routeKey = key;
-    if (!this.routeDots) {
+    if (!this.routeEntity) {
       const m = new pc.StandardMaterial();
       m.diffuse = new pc.Color(0, 0, 0); m.emissive = new pc.Color(0.95, 0.72, 0.3); m.useLighting = false; m.useFog = false;
       m.opacity = 0.85; m.blendType = pc.BLEND_NORMAL; m.depthWrite = false; m.update();
-      this.routeDots = Array.from({ length: 160 }, () => {
-        const e = new pc.Entity('RouteDot');
-        e.addComponent('render', { type: 'cylinder', material: m, castShadows: false });
-        e.setLocalScale(0.11, 0.01, 0.11);
-        e.enabled = false;
-        this.root.addChild(e);
-        return e;
-      });
+      this.routeMesh = new pc.Mesh(this.app.graphicsDevice);
+      this.routeEntity = new pc.Entity('Route');
+      this.routeEntity.addComponent('render', { meshInstances: [new pc.MeshInstance(this.routeMesh, m)], castShadows: false });
+      this.routeEntity.enabled = false;
+      this.root.addChild(this.routeEntity);
     }
-    let n = 0;
+    const dots = [];
     for (let i = 0; points && i < points.length - 1; i++) {
       const [ax, az] = points[i], [bx, bz] = points[i + 1];
       const len = Math.hypot(bx - ax, bz - az);
-      for (let d = i === 0 ? 0.3 : 0; d < len && n < this.routeDots.length; d += 0.45) {
-        this.routeDots[n++].setLocalPosition(ax + (bx - ax) * d / len, 0.075, az + (bz - az) * d / len);
+      for (let d = i === 0 ? 0.3 : 0; d < len && dots.length < 400; d += 0.45) dots.push([ax + (bx - ax) * d / len, az + (bz - az) * d / len]);
+    }
+    this.routeEntity.enabled = dots.length > 0;
+    if (!dots.length) return;
+    const P = [], N = [], I = [], r = 0.055, seg = 8;
+    for (const [x, z] of dots) {
+      const c = P.length / 3;
+      P.push(x, 0.075, z); N.push(0, 1, 0);
+      for (let k = 0; k < seg; k++) {
+        const a = k / seg * Math.PI * 2;
+        P.push(x + Math.cos(a) * r, 0.075, z + Math.sin(a) * r); N.push(0, 1, 0);
+        I.push(c, c + 1 + ((k + 1) % seg), c + 1 + k);
       }
     }
-    this.routeDots.forEach((e, i) => { e.enabled = i < n; });
+    this.routeMesh.clear(true, true);
+    this.routeMesh.setPositions(P); this.routeMesh.setNormals(N); this.routeMesh.setIndices(I);
+    this.routeMesh.update(pc.PRIMITIVE_TRIANGLES);
   }
 
   /** A pulsing ring where you are going (kind: 'move' | 'hide' | 'room'); null clears. */
@@ -1184,7 +1193,7 @@ export class World {
     beam.setLocalPosition(0, 2.2, 1.2);
     this.limo.addChild(beam);
     new Promise((resolve, reject) => {
-      const asset = new pc.Asset('limo', 'container', { url: '/models/vehicles/sedan.glb' });
+      const asset = new pc.Asset('limo', 'container', { url: 'models/vehicles/sedan.glb' });
       asset.on('load', a => resolve(a.resource)); asset.on('error', reject);
       this.app.assets.add(asset); this.app.assets.load(asset);
     }).then(res => {

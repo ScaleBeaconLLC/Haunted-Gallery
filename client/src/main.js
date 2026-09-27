@@ -5,6 +5,7 @@
 import { CAST, DOORWAYS, EXIT_POINT, GALLERY, OPENING_BEATS, ROOMS, SOS_PRESETS, TUNING, hideSpot } from '@game/data.ts';
 import * as pc from 'playcanvas';
 import { Connection, local } from './net.js';
+import { OfflineConnection } from './offline.js';
 import { Game3D } from './game3d.js';
 import { GameAudio } from './audio.js';
 import { castInfo } from './actors.js';
@@ -29,7 +30,15 @@ const captureRoom = params.get('capture');
 
 // The Add to Home Screen sheet and install button don't wait for the 3D world to build.
 if (!captureRoom) setupInstall();
-const conn = new Connection();
+// ?offline=1: a single-phone review build. The rules engine runs in the page with CPU guests
+// (client/src/offline.js); &skip=1 starts straight at the hunt, &room=<id> inside that room.
+// Otherwise the live server. A review copy built with VITE_REVIEW_ROOM=<id> defaults to all
+// three, for hosts that don't pass a query string through.
+const REVIEW_ROOM = import.meta.env.VITE_REVIEW_ROOM || '';
+const OFFLINE = params.get('offline') === '1' || (!!REVIEW_ROOM && params.get('offline') !== '0');
+const conn = OFFLINE
+  ? new OfflineConnection({ skipOpening: params.get('skip') === '1' || (!!REVIEW_ROOM && params.get('skip') !== '0'), startRoom: params.get('room') ?? REVIEW_ROOM })
+  : new Connection();
 const audio = new GameAudio();
 const game = new Game3D($('stage'), { now: () => conn.now() });
 let pub = null, view = null, me = null;
@@ -48,10 +57,11 @@ let sosAlert = null;      // an SOS just arrived: show the chip once the sender'
 if (captureRoom) {
   document.body.classList.add('capture');
   game.setCapture(captureRoom);
-  // Optional camera for checking a room from another angle: &shot=x,y,z,tx,ty,tz
+  // Optional camera for checking a room from another angle: &shot=x,y,z,tx,ty,tz[,vertical fov]
+  // (the fov lets a still match a Blender render's lens).
   const shot = params.get('shot')?.split(',').map(Number);
-  if (shot?.length === 6) {
-    game.captureShot = { pos: new pc.Vec3(shot[0], shot[1], shot[2]), target: new pc.Vec3(shot[3], shot[4], shot[5]), near: 0.2 };
+  if (shot?.length === 6 || shot?.length === 7) {
+    game.captureShot = { pos: new pc.Vec3(shot[0], shot[1], shot[2]), target: new pc.Vec3(shot[3], shot[4], shot[5]), near: 0.2, ...(shot[6] > 0 ? { fov: shot[6] } : {}) };
     game.camPos.copy(game.captureShot.pos);
   }
   window.__hgApp = game.app; // capture tooling reads render stats (draw calls)
@@ -68,7 +78,7 @@ if (captureRoom) {
 $('join-go').addEventListener('click', async () => {
   const code = $('join-code').value.trim().toUpperCase();
   const name = $('join-name').value.trim();
-  if (!/^[A-Z2-9]{5}$/.test(code)) return toast('Enter the 5-letter code from the QR poster.');
+  if (!OFFLINE && !/^[A-Z2-9]{5}$/.test(code)) return toast('Enter the 5-letter code from the QR poster.');
   if (!name) return toast('Enter your name.');
   local?.setItem('hg.name', name);
   $('join-go').disabled = true;
@@ -76,7 +86,7 @@ $('join-go').addEventListener('click', async () => {
   audio.loadManifest().then(() => audio.preloadCharacters(CAST.map(c => c.id)));
   try {
     await conn.joinPlayer(code, name);
-    history.replaceState(null, '', `?code=${code}${params.get('debug') ? '&debug=1' : ''}`);
+    if (!OFFLINE) history.replaceState(null, '', `?code=${code}${params.get('debug') ? '&debug=1' : ''}`);
     $('screen-join').hidden = true;
     render();
     requestWakeLock();
@@ -553,7 +563,8 @@ function renderLobby() {
       <div class="t">${mine ? 'You' : taken ? esc(seat.displayName) : 'Available'} · <span class="shoe" style="background:${c.shoes}"></span> shoes</div></button>`;
   }).join(''));
   $('lobby-sub').textContent = me ? `You are ${castInfo(me).name}. Tap another guest to switch.` : 'Tap a guest. Each can be chosen once.';
-  $('lobby-wait').textContent = `${pub.humanCount} of 12 joined · waiting for the host to start. ${pub.cpuFill ? 'Empty seats will be played by the computer.' : ''}`;
+  $('lobby-wait').textContent = OFFLINE ? 'Offline review: the other guests are played by the computer. The party starts as soon as you choose.'
+    : `${pub.humanCount} of 12 joined · waiting for the host to start. ${pub.cpuFill ? 'Empty seats will be played by the computer.' : ''}`;
   $('launch-go').hidden = !me || launched();
 }
 $('cast-grid').addEventListener('click', e => {
@@ -967,4 +978,9 @@ function renderResults() {
     <p class="fine">Waiting for the host to start another match.</p>`;
 }
 
+if (OFFLINE) {
+  $('join-code').value = 'SOLO';
+  $('join-code').closest('label').hidden = true;
+  $('join-note').textContent = 'Offline review on this phone only: CPU guests, nothing is sent anywhere.';
+}
 if ($('join-code').value && !captureRoom) $('join-name').focus();
