@@ -5,56 +5,113 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#0b0709" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Haunted" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="format-detection" content="telephone=no" />
   <title>Haunted Gallery</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b0709'/%3E%3Crect x='7' y='6' width='18' height='20' fill='none' stroke='%23e5c07b' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%23b3202f'/%3E%3C/svg%3E" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
   <link rel="stylesheet" href="/src/styles.css" />
 </head>
-<body>
+<body data-stage="join">
   <canvas id="stage"></canvas>
   <div id="tags" aria-hidden="true"></div>
+  <div id="pins" aria-hidden="true"></div>
   <div id="flash"></div>
   <div id="vignette"></div>
+  <div id="lunge" aria-hidden="true"></div>
+  <section id="sounds" aria-live="polite"></section>
 
+  <!-- Landscape HUD: small anchors in the corners; the mansion fills the screen. -->
   <header id="hud" hidden>
-    <div class="hud-left">
+    <div id="hud-where">
       <div id="hud-room">—</div>
-      <div id="hud-status"></div>
+      <div id="hud-state"></div>
     </div>
-    <div class="hud-right">
-      <div id="hud-phase">—</div>
-      <div id="hud-timer">0</div>
-      <div id="hud-clock"></div>
+    <div id="hud-corner">
+      <div id="hud-time">
+        <div id="hud-timer">0</div>
+        <div id="hud-clock"></div>
+      </div>
+      <div id="viewbtns" role="group" aria-label="Camera">
+        <button class="vbtn" data-view="mansion" aria-label="Mansion view" title="Mansion">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v9h14v-9"/><path d="M10 19v-5h4v5"/></svg>
+        </button>
+        <button class="vbtn" data-view="room" aria-label="Room view" title="Room">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="1.5"/><path d="M4 12h5M15 12h5M12 5v3M12 16v3"/></svg>
+        </button>
+        <button class="vbtn" data-view="eye" aria-label="First person" title="Eyes">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.6"/></svg>
+        </button>
+      </div>
+      <button id="menu-btn" class="vbtn" data-act="menu" aria-label="Menu" title="Menu">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/></svg>
+        <span id="menu-badge" hidden></span>
+      </button>
     </div>
-    <div id="hud-team"></div>
+    <span id="hud-phase" class="sr-only">—</span>
+    <span id="hud-status" class="sr-only"></span>
   </header>
 
+  <div id="alert" role="status" hidden></div>
+  <div id="notice" hidden></div>
   <div id="caption" role="status" aria-live="polite"></div>
   <div id="threat" hidden></div>
-  <section id="inbox"></section>
-  <section id="sounds" aria-live="polite"></section>
-  <section id="briefing" class="screen" hidden></section>
-  <section id="panel" hidden></section>
-  <div id="stick" hidden aria-label="Move: push gently to walk, all the way to run">
-    <div class="stick-base"><div class="stick-knob"></div></div>
-    <div class="stick-label"></div>
+
+  <div id="pace" role="group" aria-label="Pace" hidden>
+    <button data-act="still" class="seg">Still</button>
+    <button data-act="pace" data-pace="walk" class="seg">Sneak</button>
+    <button data-act="pace" data-pace="run" class="seg">Run</button>
   </div>
+  <section id="gallery-card" hidden></section>
   <div id="actions" hidden></div>
+  <button id="flash-btn" data-act="flash" aria-label="Camera flash" hidden>
+    <span class="fb-ring"></span><span class="fb-face">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-2.5h6L17 8h3v11H4Z"/><circle cx="12" cy="13" r="3.6"/></svg>
+      <b>Flash</b></span>
+  </button>
+
+  <section id="struggle" hidden></section>
+  <section id="briefing" class="screen" hidden></section>
 
   <section id="screen-join" class="screen">
-    <div class="card">
-      <h1>Haunted<br/>Gallery</h1>
-      <p class="sub">Escape alive. Save who you can.</p>
-      <label>Join code<input id="join-code" autocomplete="off" autocapitalize="characters" maxlength="5" placeholder="ABCDE" /></label>
-      <label>Your name<input id="join-name" autocomplete="nickname" maxlength="20" placeholder="Your first name" /></label>
-      <button id="join-go" class="primary">Enter the mansion</button>
-      <p class="fine" id="join-note">Sound on, please. Keep this screen awake during the game.</p>
+    <div class="card join-card">
+      <div class="join-title">
+        <h1>Haunted<br/>Gallery</h1>
+        <p class="sub">Escape alive. Save who you can.</p>
+        <aside id="a2hs" class="a2hs" hidden>
+          <button id="a2hs-close" class="a2hs-x" aria-label="Dismiss">✕</button>
+          <b>Play full screen</b>
+          <ol>
+            <li>Tap <span class="share-ico" aria-label="Share">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11H5v10h14V11h-1"/></svg></span> Share</li>
+            <li>Choose <b>Add to Home Screen</b></li>
+            <li>Open <b>Haunted</b> from the icon, then join</li>
+          </ol>
+          <p class="fine">Do this before you join: the Home Screen app keeps its own seat, separate from Safari.</p>
+        </aside>
+      </div>
+      <div class="join-form">
+        <label>Join code<input id="join-code" autocomplete="off" autocapitalize="characters" maxlength="5" placeholder="ABCDE" /></label>
+        <label>Your name<input id="join-name" autocomplete="nickname" maxlength="20" placeholder="Your first name" /></label>
+        <button id="join-go" class="primary">Join the party</button>
+        <button id="install-go" class="btn" hidden>Install the game</button>
+        <p class="fine" id="join-note">Sound on, please. Keep this screen awake during the game.</p>
+      </div>
     </div>
   </section>
 
   <section id="screen-lobby" class="screen" hidden>
-    <div class="card wide">
-      <h2>Choose your guest</h2>
-      <p class="sub" id="lobby-sub">Each guest can be chosen once.</p>
+    <div class="card wide lobby-card">
+      <div class="lobby-head">
+        <div>
+          <h2>Choose your guest</h2>
+          <p class="sub" id="lobby-sub">Each guest can be chosen once.</p>
+        </div>
+        <button id="launch-go" class="primary launch" hidden>Enter the mansion</button>
+      </div>
       <div id="cast-grid"></div>
       <p class="fine" id="lobby-wait">Waiting for the host to start…</p>
     </div>
@@ -62,6 +119,15 @@
 
   <section id="screen-results" class="screen" hidden>
     <div class="card wide" id="results"></div>
+  </section>
+
+  <!-- Portrait on a phone from the lobby onward: the game is played sideways. -->
+  <section id="rotate" aria-live="polite">
+    <div class="rot-phone" aria-hidden="true"><i></i></div>
+    <h2>Turn your phone sideways</h2>
+    <p class="rot-hint">Screen won't turn? Open Control Center and switch off <b>Portrait Orientation Lock</b>.</p>
+    <button id="rotate-go" class="primary launch" hidden>Enter the mansion</button>
+    <p id="rotate-sub"></p>
   </section>
 
   <div id="sheet" hidden><div class="sheet-body" id="sheet-body"></div></div>

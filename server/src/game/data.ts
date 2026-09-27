@@ -109,7 +109,7 @@ export interface RoomDef {
   openArea?: [number, number, number, number];
   /**
    * A Blender-built room model (client/public/models/rooms/<model>.glb) replaces the generated
-   * floor, furniture and cover primitives; its origin sits at world (0, 0, modelOrigin z).
+   * floor, furniture and cover primitives; its origin sits at world (origin x, 0, origin z).
    */
   model?: { file: string; origin: Vec2 };
   /** Furniture footprints [x0, x1, z0, z1] that people cannot walk through (modelled rooms). */
@@ -156,14 +156,37 @@ export const ROOMS: Record<RoomId, RoomDef> = {
       { id: "rolling_shelf", label: "Behind the rolling shelf", pos: [8.6, 15.8], pose: "behind", look: 180, cover: { pos: [8.6, 14.5], size: [2.6, 0.6], height: 2.6, kind: "shelf" } },
     ],
   },
+  // Rebuilt in Blender (tools/blender/build_conservation_lab.py), the eagle-eye proof room.
+  // Positions below match the model (local origin = world 24, 30).
   conservation: {
     id: "conservation", name: "Conservation Lab",
     story: "Restoration notes explain that the camera flash interrupts the infection long enough to flee.",
     searchRisk: "Metal carts and hanging canvas announce careless movement.",
-    refs: ["13_Conservation_Lab"], style: { floor: "planks", wall: "stone" }, rect: [16, 32, 22, 38], center: [24, 30], floorColor: "#2c3433", wallColor: "#3f5553",
+    refs: ["13_Conservation_Lab"], style: { floor: "planks", wall: "stone" },
+    model: { file: "conservation_lab", origin: [24, 30] },
+    rect: [16, 32, 22, 38], center: [24, 30], openArea: [19.4, 27.6, 27.3, 30.4], floorColor: "#2c3433", wallColor: "#3f5553",
     hides: [
-      { id: "cabinet_bay", label: "Behind the cabinet bay", pos: [31, 24.2], pose: "behind", look: 300, cover: { pos: [29.6, 25.4], size: [0.6, 2.4], height: 2.2, kind: "cabinet" } },
-      { id: "canvas_rack", label: "Behind the canvas rack", pos: [17, 35.8], pose: "behind", look: 120, cover: { pos: [18.4, 34.8], size: [0.4, 2.6], height: 2.5, kind: "rack" } },
+      { id: "under_restoration_table", label: "Under the restoration table", pos: [24.6, 32.0], pose: "under", look: 180, cover: { pos: [24.6, 32.0], size: [3.2, 1.5], height: 0.92, kind: "table" } },
+      { id: "canvas_rack", label: "Behind the draped canvas rack", pos: [17.1, 35.0], pose: "behind", look: 160, cover: { pos: [18.4, 34.75], size: [1.2, 2.9], height: 2.3, kind: "rack" } },
+      { id: "cabinet_bay", label: "Behind the solvent cabinet", pos: [31.0, 24.4], pose: "behind", look: 250, cover: { pos: [29.6, 25.4], size: [0.6, 2.4], height: 2.25, kind: "cabinet" } },
+    ],
+    obstacles: [
+      [23.0, 26.2, 31.25, 32.75],     // restoration table (hiding under it goes through the hide action)
+      [25.3, 27.5, 25.85, 26.95],     // second work table
+      [17.8, 19.0, 33.3, 36.2],       // canvas drying rack under its drop cloth
+      [16.15, 17.7, 36.5, 37.85],     // crate and leaning frames
+      [17.05, 17.65, 34.05, 34.55],   // notes desk in the rack bay
+      [29.25, 29.9, 24.2, 26.6],      // solvent cabinet
+      [29.95, 31.85, 22.15, 22.97],   // plan chest (south)
+      [29.95, 31.85, 26.65, 27.05],   // folding screen
+      [29.5, 30.5, 30.8, 31.8],       // easel
+      [28.1, 29.1, 34.1, 35.1],       // easel
+      [21.7, 22.7, 35.3, 36.3],       // easel
+      [30.15, 31.35, 36.1, 37.3],     // covered statue
+      [23.8, 27.4, 37.13, 37.85],     // plan chest (north)
+      [22.4, 23.0, 37.1, 37.7],       // bust
+      [16.15, 16.65, 23.0, 27.6],     // pigment shelves
+      [21.03, 21.97, 30.8, 31.4],     // cart
     ],
   },
   study: {
@@ -446,13 +469,13 @@ export const CLUES: Clue[] = [
   { id: "shipping_manifest", room: "sculpture", label: "Shipping manifest and rope coil", pos: [-17.2, 34.3], nearHide: "shipping_screen", effect: "snare",
     text: "A coil of velvet stanchion rope with brass hooks. Rigged low across a floor, it tangles anything that shambles into it." },
   { id: "floor_plan", room: "archive", label: "Museum floor plan", pos: [13.0, 13.2], nearHide: "reading_alcove", effect: "route",
-    text: "The service exit is in the south wall of the Sealed Exhibition Room. Every wing connects to it." },
+    text: "The Garden Gate is in the south wall of the Sealed Exhibition Room. Every wing connects to it." },
   { id: "restoration_notes", room: "conservation", label: "Restoration notes", pos: [17.4, 34.3], nearHide: "canvas_rack", effect: "snare",
     text: "\"The flash stops them for five breaths, no more.\" Tucked in the notes: spare velvet rope and hooks for a snare." },
   { id: "curator_journal", room: "study", label: "Elias Voss's journal", pos: [-16.6, 50.2], nearHide: "desk_drapery", effect: "snare",
     text: "\"Guests who fall keep their coats and shoes. Watch their faces, not their clothes.\" A rope snare is coiled in the drawer." },
   { id: "security_manual", room: "sealed", label: "Security panel manual", pos: [6.1, 33.6], nearHide: "blackout_recess", effect: "exit",
-    text: "Lockdown procedure: the rear service door releases automatically shortly after the alarm." },
+    text: "Lockdown procedure: the Garden Gate releases automatically shortly after the alarm." },
   { id: "mirror_note", room: "mirrors", label: "Mirror-maker's note", pos: [27.0, 45.5], nearHide: "false_reflection", effect: "identity",
     text: "\"A reflection shows the face before the feet.\" Someone who looks like a friend from behind may not be one." },
   // Bedroom wing. The corridor plaques are the portrait wall's story (FULL_GAME_SPECIFICATION §22).
@@ -516,7 +539,25 @@ export const TUNING = {
   grabDistance: 1.1,
   /** A hunter must stay within reach this long before the grab lands (a running survivor breaks it). */
   grabWindupMs: 700,
+  /** Grab to bite. Unchanged by the struggle, so a friend's flash has the same window. */
   biteDelayMs: 3_000,
+  /**
+   * Break free: after a grab the victim taps for struggleMs (taps arriving up to struggleGraceMs
+   * late still count; struggleMs + struggleGraceMs = biteDelayMs). struggleNeed taps free you;
+   * Elias needs struggleNeedElias more, and each earlier escape adds struggleNeedPerBreak. The
+   * server credits at most struggleMaxTapsPerSec. Success: the hunter is shoved (stunned
+   * shoveStunMs: no grab, search or block) and the victim can't be grabbed for grabImmunityMs.
+   */
+  struggleMs: 2_700,
+  struggleGraceMs: 300,
+  struggleNeed: 14,
+  struggleNeedElias: 4,
+  struggleNeedPerBreak: 5,
+  struggleMaxTapsPerSec: 12,
+  shoveStunMs: 2_000,
+  grabImmunityMs: 2_500,
+  /** CPU survivors tap at a random rate in this range (taps per second). */
+  cpuTapRate: [3.5, 6.5] as [number, number],
   searchMs: 1_800,
   /** Direct steering: stick deflection (0..1) at or above this runs, below it walks. */
   steerRunThreshold: 0.72,
@@ -550,8 +591,15 @@ export const TUNING = {
 
   /** A traveller halts this far before a doorway it can see is blocked. */
   blockedStopDistance: 2.4,
-  /** Minimum time between accepted movement intents from one player. */
+  /** Minimum time between accepted movement intents from one player (move/room taps inside it are queued). */
   intentCooldownMs: 350,
+  /** A floor tap this close to standable floor (clear of walls and furniture) is nudged onto it. */
+  moveSnapRange: 1.2,
+  /** Phone players arriving in a room stop this far inside the doorway they came through. */
+  entryStopDistance: 1.5,
+  /** For standing-room cover (behind a rack or cabinet): where searchers stand and snares land, back along the way in. */
+  searchStandDistance: 0.9,
+  snareMouthDistance: 0.6,
 
   reconnectLobbySec: 30,
   reconnectMatchSec: 120,
@@ -565,7 +613,7 @@ export type SosPreset = "come_get_me" | "found_camera" | "exit_blocked";
 export const SOS_PRESETS: Record<SosPreset, string> = {
   come_get_me: "Come get me",
   found_camera: "I found the camera",
-  exit_blocked: "The exit is blocked",
+  exit_blocked: "The Garden Gate is blocked",
 };
 export type SosReply = "coming" | "cant";
 

@@ -1,11 +1,12 @@
 // The PlayCanvas side of the phone client.
-//  - Bird's-eye travel camera: angled, follows behind your character, frames the
-//    direction of travel, stays over the room/corridor you're in (never looks through
-//    walls). Drag to swing it, pinch to zoom.
-//  - First-person hiding camera: from inside your cover (under a table, behind a
-//    display, behind a curtain). Drag to look within limits; hold Peek to lean out.
-//  - Smooth transitions between the two. Only people the server says you can perceive
-//    are ever rendered, so no camera angle can reveal anyone else.
+//  - Eagle-eye cameras for a landscape phone: `mansion` (the whole house from high above,
+//    looking along +x so the long axis runs left to right) while travelling, and `room`
+//    (your room, fitted to the screen) once you are inside one.
+//  - First person (`fp`): from inside your cover when hidden, at your character's eyes
+//    (the eye button), and facing the attacker during a struggle.
+//  - Eased transitions (~0.9 s) between them; near/far clip and fog are set per mode.
+//  - Only people the server says you can perceive are ever rendered, so no camera angle
+//    can reveal anyone else.
 import * as pc from 'playcanvas';
 import { CAMERA_START, CAST, DOORWAYS, GALLERY, ROOMS, TUNING, hideSpot } from '@game/data.ts';
 import { World, mat, walkRects } from './world.js';
@@ -27,15 +28,69 @@ function rectAt(x, z) {
   const touching = ROOM_RECTS.filter(([x0, x1, z0, z1]) => x0 <= px1 + 0.1 && x1 >= px0 - 0.1 && z0 <= pz1 + 0.1 && z1 >= pz0 - 0.1);
   return [passage.r, ...touching].reduce(([a0, a1, b0, b1], [c0, c1, d0, d1]) => [Math.min(a0, c0), Math.max(a1, c1), Math.min(b0, d0), Math.max(b1, d1)]);
 }
+// fov: vertical (portrait); hfov: horizontal in landscape.
 const POSE = {
-  under: { height: 0.42, back: 0.35, fov: 72, peekOut: 1.1, peekUp: 0.45, yaw: 115, pitch: [-12, 22] },
-  behind: { height: 1.05, back: 0, fov: 64, peekOut: 0.6, peekUp: 0.25, yaw: 125, pitch: [-30, 35] },
-  curtain: { height: 1.5, back: 0, fov: 60, peekOut: 0.5, peekUp: 0, yaw: 110, pitch: [-30, 30] },
+  under: { height: 0.42, back: 0.35, fov: 72, hfov: 84, peekOut: 1.1, peekUp: 0.45, yaw: 115, pitch: [-12, 22] },
+  behind: { height: 1.05, back: 0, fov: 64, hfov: 80, peekOut: 0.6, peekUp: 0.25, yaw: 125, pitch: [-30, 35] },
+  curtain: { height: 1.5, back: 0, fov: 60, hfov: 78, peekOut: 0.5, peekUp: 0, yaw: 110, pitch: [-30, 30] },
   // Standing inside a wardrobe/closet: a narrow view out through the ajar doors.
-  inside: { height: 1.55, back: 0.25, fov: 52, peekOut: 0.75, peekUp: 0, yaw: 40, pitch: [-20, 15] },
+  inside: { height: 1.55, back: 0.25, fov: 52, hfov: 70, peekOut: 0.75, peekUp: 0, yaw: 40, pitch: [-20, 15] },
 };
 const tmpMat = new pc.Mat4();
 const UP = new pc.Vec3(0, 1, 0);
+const DEG = Math.PI / 180;
+
+/** Whole-mansion bounds for the eagle-eye view: every room, the bedroom wing and the Garden Gate courtyard. */
+export const MANSION_BOUNDS = [-32, 32, 1.5, 80.5];
+/** Gameplay camera modes (everything else keeps the original opening/gallery/escaped camera code). */
+const VIEW = {
+  mansion: { pitch: 62, fovV: 34, near: 18, far: 220 },
+  room: { pitch: 66, hfov: 62, fovV: 50, near: 0.3, far: 120 },
+  fp: { hfov: 80, fovV: 62, near: 0.05, far: 80 },
+};
+const GAMEPLAY = new Set(['mansion', 'room', 'fp']);
+const TRANSITION_S = 0.9;
+const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+/** Is this room much longer along x than along z (the Portrait Corridor)? It is then framed looking along +z. */
+const isLong = ([x0, x1, z0, z1]) => (x1 - x0) > 1.8 * (z1 - z0);
+
+/**
+ * Place a camera (heading, pitch, vertical fov) so the box `bounds` (floor rect, 0..yTop high)
+ * fills the safe frame (fractions of the screen kept clear on each side) and is centred in it.
+ */
+export function fitView(bounds, { heading, pitch, fovV, aspect, safe, yTop = 1.2 }) {
+  const h = heading * DEG, p = pitch * DEG;
+  const f = new pc.Vec3(Math.sin(h) * Math.cos(p), -Math.sin(p), Math.cos(h) * Math.cos(p));
+  const r = new pc.Vec3().cross(f, UP).normalize();
+  const u = new pc.Vec3().cross(r, f).normalize();
+  const [x0, x1, z0, z1] = bounds;
+  const pts = [];
+  for (const x of [x0, x1]) for (const z of [z0, z1]) for (const y of [0, yTop]) pts.push([x, y, z]);
+  const tv = Math.tan(fovV * DEG / 2), th = tv * aspect;
+  const sx0 = -1 + 2 * safe.l, sx1 = 1 - 2 * safe.r, sy0 = -1 + 2 * safe.b, sy1 = 1 - 2 * safe.t;
+  const T = [(x0 + x1) / 2, 0, (z0 + z1) / 2];
+  let d = Math.max(x1 - x0, z1 - z0, 4) / tv;
+  for (let i = 0; i < 10; i++) {
+    const C = [T[0] - f.x * d, T[1] - f.y * d, T[2] - f.z * d];
+    let bx0 = Infinity, bx1 = -Infinity, by0 = Infinity, by1 = -Infinity;
+    for (const P of pts) {
+      const qx = P[0] - C[0], qy = P[1] - C[1], qz = P[2] - C[2];
+      const cz = Math.max(0.1, qx * f.x + qy * f.y + qz * f.z);
+      const nx = (qx * r.x + qy * r.y + qz * r.z) / (cz * th);
+      const ny = (qx * u.x + qy * u.y + qz * u.z) / (cz * tv);
+      bx0 = Math.min(bx0, nx); bx1 = Math.max(bx1, nx); by0 = Math.min(by0, ny); by1 = Math.max(by1, ny);
+    }
+    const s = Math.max((bx1 - bx0) / Math.max(0.05, sx1 - sx0), (by1 - by0) / Math.max(0.05, sy1 - sy0));
+    const dx = ((bx0 + bx1) / 2 - (sx0 + sx1) / 2) * d * th;
+    const dy = ((by0 + by1) / 2 - (sy0 + sy1) / 2) * d * tv;
+    T[0] += r.x * dx + u.x * dy; T[1] += r.y * dx + u.y * dy; T[2] += r.z * dx + u.z * dy;
+    d *= s;
+  }
+  const target = new pc.Vec3(T[0], T[1], T[2]);
+  return { pos: new pc.Vec3(T[0] - f.x * d, T[1] - f.y * d, T[2] - f.z * d), target, dist: d, forward: f, right: r };
+}
 
 export class Game3D {
   constructor(canvas, { now }) {
@@ -49,16 +104,25 @@ export class Game3D {
     app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
     app.setCanvasResolution(pc.RESOLUTION_AUTO);
     app.graphicsDevice.maxPixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
-    window.addEventListener('resize', () => app.resizeCanvas());
+    this.bindResize();
 
     this.world = new World(app);
     this.actors = new Map();
     this.me = null;
     this.myView = null;
     this.phase = 'lobby';
-    this.mode = 'menu';          // menu | opening | overhead | fp | escaped | capture
+    // menu | opening | escaped | capture | gallery (original camera code) | mansion | room | fp
+    this.mode = 'menu';
+    this.fpKind = null;          // fp: 'hide' | 'eye' | 'struggle'
+    this.modeKey = '';
+    this.userView = null;        // view buttons / pinch: 'mansion' | 'room' | 'eye' (until a forced state change)
+    this.viewRoom = null;        // room framed by a pinch-in on the mansion view
+    this.forceKey = '';
+    this.autoKey = ''; this.autoSince = 0;
     this.peekAmount = 0;
     this.peeking = false;
+    /** Screen space kept clear by the HUD (CSS px), set by the interface. */
+    this.hudInsets = { top: 56, bottom: 64, left: 12, right: 12 };
 
     const cam = new pc.Entity('Camera');
     cam.addComponent('camera', { clearColor: new pc.Color(0.02, 0.015, 0.03), fov: 58, nearClip: 0.05, farClip: 80 });
@@ -67,9 +131,12 @@ export class Game3D {
     this.camera = cam;
     this.camPos = new pc.Vec3(-11.75, 14, -2);
     this.camRot = new pc.Quat();
-    // Survivors follow close enough to read their immediate surroundings (pinch to widen).
-    this.view = { yawOff: 0, dist: 7.5, pitch: 55, followYaw: 0, fpYaw: 0, fpPitch: 0, orbit: 0 };
-    this.bindInput(canvas);
+    this.camTarget = new pc.Vec3(-11.75, 0, 9);
+    this.fovV = 58;
+    this.clip = { near: 0.05, far: 80 };
+    this.tr = null;              // active eased transition
+    this.pan = new pc.Vec3();    // subtle one-finger pan in the overhead views
+    this.view = { yawOff: 0, dist: 7.5, pitch: 55, followYaw: 0, fpYaw: 0, fpPitch: 0, eyeYaw: 0, eyePitch: -8, orbit: 0 };
 
     const flash = new pc.Entity('FlashLight');
     flash.addComponent('light', { type: 'omni', color: new pc.Color(1, 1, 0.95), intensity: 0, range: 14, castShadows: false });
@@ -82,50 +149,46 @@ export class Game3D {
     app.root.addChild(lantern);
     this.lantern = lantern;
 
-    const ring = new pc.Entity('HideRing');
     const ringMat = new pc.StandardMaterial();
     ringMat.diffuse = new pc.Color(0, 0, 0); ringMat.emissive = new pc.Color(1, 0.82, 0.45); ringMat.emissiveIntensity = 1.4; ringMat.update();
+    const ring = new pc.Entity('HideRing');
     ring.addComponent('render', { type: 'torus', material: ringMat, castShadows: false });
     ring.enabled = false;
     app.root.addChild(ring);
     this.hideRing = ring;
+    // A short-lived ring on someone who just walked into your room (red only when revealed).
+    this.emphMats = {
+      neutral: mat('#111', { emissive: '#e8e2d6', emissiveIntensity: 1.1 }),
+      revealed: mat('#111', { emissive: '#ff3a2a', emissiveIntensity: 1.4 }),
+    };
+    const emph = new pc.Entity('ArrivalRing');
+    emph.addComponent('render', { type: 'torus', material: this.emphMats.neutral, castShadows: false });
+    emph.enabled = false;
+    app.root.addChild(emph);
+    this.emphRing = emph;
+    this.emph = null;
 
     this.stats = { frames: 0, acc: 0, fps: 0, worst: 0, ms: 0 };
     app.on('update', dt => this.update(dt));
     app.start();
   }
 
-  bindInput(canvas) {
-    const v = this.view;
-    const pointers = new Map();
-    let pinch = 0;
-    canvas.addEventListener('pointerdown', e => { pointers.set(e.pointerId, [e.clientX, e.clientY]); canvas.setPointerCapture?.(e.pointerId); });
-    canvas.addEventListener('pointermove', e => {
-      if (!pointers.has(e.pointerId)) return;
-      const [px, py] = pointers.get(e.pointerId);
-      pointers.set(e.pointerId, [e.clientX, e.clientY]);
-      const dx = e.clientX - px, dy = e.clientY - py;
-      if (pointers.size === 1) {
-        if (this.mode === 'fp') {
-          const pose = POSE[this.myView?.me?.pose] ?? POSE.behind;
-          v.fpYaw = Math.max(-pose.yaw, Math.min(pose.yaw, v.fpYaw - dx * 0.3));
-          v.fpPitch = Math.max(pose.pitch[0], Math.min(pose.pitch[1], v.fpPitch - dy * 0.25));
-        } else {
-          v.yawOff -= dx * 0.35;
-          v.pitch = Math.max(30, Math.min(80, v.pitch + dy * 0.2));
-        }
-      } else if (pointers.size === 2 && this.mode !== 'fp') {
-        const [a, b] = [...pointers.values()];
-        const d = Math.hypot(a[0] - b[0], a[1] - b[1]);
-        if (pinch) v.dist = Math.max(5, Math.min(18, v.dist * pinch / d));
-        pinch = d;
-      }
-    });
-    const up = e => { pointers.delete(e.pointerId); if (pointers.size < 2) pinch = 0; };
-    canvas.addEventListener('pointerup', up);
-    canvas.addEventListener('pointercancel', up);
-    canvas.addEventListener('wheel', e => { if (this.mode !== 'fp') v.dist = Math.max(5, Math.min(18, v.dist * (1 + Math.sign(e.deltaY) * 0.1))); e.preventDefault(); }, { passive: false });
+  /** Canvas size follows rotation, Safari's bars and the on-screen keyboard (a second pass once the viewport settles). */
+  bindResize() {
+    let timer = 0;
+    const resize = () => {
+      this.app.resizeCanvas();
+      clearTimeout(timer);
+      timer = setTimeout(() => { this.app.resizeCanvas(); this.onResize?.(); }, 250);
+      this.onResize?.();
+    };
+    window.addEventListener('resize', resize);
+    window.addEventListener('orientationchange', resize);
+    window.visualViewport?.addEventListener('resize', resize);
+    this.resize = resize;
   }
+
+  get cameraMode() { return this.mode; }
 
   actor(id) {
     let a = this.actors.get(id);
@@ -178,27 +241,103 @@ export class Game3D {
     this.world.setExitOpen(!!view?.exitOpen);
     const me = view?.me;
     this.world.showHideMarker(me && me.intent?.kind === 'hide' && me.intent.state === 'accepted' && !me.hide ? me.intent.target : null);
-
-    // Camera mode follows the character's real state.
-    const hiddenNow = me && (me.hideState === 'hidden') && view.status === 'alive';
-    const viewing = me?.viewing && view.status === 'alive' && !me.caught;
-    // Hidden, and someone walks into your room: pull back to a bird's-eye view of THIS room only
-    // (everyone shown is someone the server already lets you perceive; nobody outside the room).
-    // It triggers on anyone, friend or not, so it never gives away who has turned.
-    let visitor = false;
-    if (hiddenNow && ROOMS[me.room]) {
-      const r = ROOMS[me.room].rect;
-      if ((view.actors || []).some(a => a.id !== this.me && inR(r, a.pos[0], a.pos[1]))) this.visitorUntil = performance.now() + 1800;
-      visitor = performance.now() < (this.visitorUntil || 0);
-    } else this.visitorUntil = 0;
-    const hunter = view?.role === 'hunter';
-    const next = this.phase === 'opening' ? 'opening' : view?.status === 'escaped' ? 'escaped'
-      : hiddenNow ? (visitor ? 'roomview' : 'fp') : viewing ? 'gallery' : me ? (hunter ? 'hunter' : 'overhead') : 'menu';
-    this.world.setRoomMask(next === 'roomview' ? ROOMS[me.room].rect : null);
-    if (next === 'gallery' && (this.mode !== 'gallery' || this.galleryStation !== me.viewing)) { this.galleryStation = me.viewing; this.galleryIndex = 1; }
-    if (next === 'fp' && this.mode !== 'fp' && this.mode !== 'roomview') { this.view.fpYaw = 0; this.view.fpPitch = me.pose === 'under' ? 6 : 0; }
-    this.mode = next;
+    this.world.setRoomMask(null);
+    this.updateMode();
   }
+
+  // ---------------------------------------------------------------- camera mode selection
+  /** Where the character is headed, as a room (null = somewhere in the current zone). */
+  destinationRoom(me) {
+    const i = me?.intent;
+    if (!i || !me.moving || i.state === 'interrupted') return null;
+    if (i.kind === 'room') return i.target;
+    if (i.kind === 'hide') return hideSpot(i.target)?.room ?? null;
+    if (i.kind === 'exit') return 'exit';
+    if (i.kind === 'gallery') return 'corridor';
+    return null;
+  }
+
+  /** The camera mode the character's real state asks for: [mode, sub-key]. */
+  wantedMode() {
+    const view = this.myView, me = view?.me;
+    if (this.mode === 'capture') return ['capture', ''];
+    if (this.phase === 'opening') return ['opening', ''];
+    if (view?.status === 'escaped') return ['escaped', ''];
+    if (!me || this.phase === 'lobby') return ['menu', ''];
+    const caught = !!(me.struggle || me.caught);
+    const hidden = me.hideState === 'hidden' && view.status === 'alive';
+    const viewing = me.viewing && view.status === 'alive' && !me.caught;
+    // A forced state change (hidden, caught, viewing the gallery) ends a view-button choice.
+    const forceKey = caught ? `caught:${me.struggle?.grabId ?? me.caughtBy}` : hidden ? `hidden:${me.hide}` : viewing ? `viewing:${me.viewing}` : '';
+    if (forceKey !== this.forceKey) { this.forceKey = forceKey; this.userView = null; this.viewRoom = null; }
+    if (caught) return ['fp', 'struggle'];
+    if (viewing) return ['gallery', ''];
+    const roomKey = this.viewRoom ?? (me.inRoom ? me.zone : `p:${me.zone}`);
+    if (this.userView === 'eye') return ['fp', hidden ? 'hide' : 'eye'];
+    if (this.userView === 'mansion') return ['mansion', ''];
+    if (this.userView === 'room') return ['room', roomKey];
+    if (hidden) return ['fp', 'hide'];
+    const dest = this.destinationRoom(me);
+    if (!me.inRoom || (dest && dest !== me.zone)) return ['mansion', ''];
+    return ['room', roomKey];
+  }
+
+  /** The automatic choice (no view-button override) — for the view buttons' "back to auto". */
+  autoMode() {
+    const saved = [this.userView, this.viewRoom];
+    this.userView = null; this.viewRoom = null;
+    const m = this.wantedMode()[0];
+    [this.userView, this.viewRoom] = saved;
+    return m;
+  }
+
+  updateMode() {
+    const [mode, key] = this.wantedMode();
+    const full = `${mode}|${key}`;
+    if (full === `${this.mode}|${this.modeKey}`) { this.autoKey = full; return; }
+    // Room/mansion flips wait a moment so a doorway threshold doesn't bounce the camera.
+    const settle = GAMEPLAY.has(mode) && GAMEPLAY.has(this.mode) && !this.userView && mode !== 'fp' && this.mode !== 'fp';
+    if (settle) {
+      if (full !== this.autoKey) { this.autoKey = full; this.autoSince = performance.now(); return; }
+      if (performance.now() - this.autoSince < 260) return;
+    }
+    this.setMode(mode, key);
+  }
+
+  setMode(mode, key = '') {
+    const prev = this.mode;
+    const me = this.myView?.me;
+    if (mode === 'gallery' && (prev !== 'gallery' || this.galleryStation !== me?.viewing)) { this.galleryStation = me.viewing; this.galleryIndex = 1; }
+    if (mode === 'fp' && key === 'hide' && !(prev === 'fp' && this.fpKind === 'hide')) { this.view.fpYaw = 0; this.view.fpPitch = me?.pose === 'under' ? 6 : 0; }
+    if (mode === 'fp' && key === 'eye' && !(prev === 'fp' && this.fpKind === 'eye')) { this.view.eyeYaw = 0; this.view.eyePitch = -8; }
+    this.mode = mode;
+    this.modeKey = key;
+    this.fpKind = mode === 'fp' ? key : null;
+    if (GAMEPLAY.has(mode)) {
+      this.pan.set(0, 0, 0);
+      this.tr = { t: 0, from: { pos: this.camPos.clone(), target: null, fovV: this.fovV, near: this.clip.near, far: this.clip.far }, mode };
+      // Widen the fog before zooming out; tighten it once the zoom-in is mostly done.
+      if (mode === 'mansion') this.world.setViewMode?.('mansion');
+    } else {
+      this.tr = null;
+      this.world.setViewMode?.('default');
+    }
+    this.onModeChange?.(mode, prev);
+  }
+
+  /** View buttons and pinch: 'mansion' | 'room' | 'eye' (null = automatic). */
+  setUserView(v, room = null) {
+    if (this.myView?.me?.caught || this.myView?.me?.struggle) return;
+    this.userView = v;
+    this.viewRoom = v === 'room' ? room : null;
+    const auto = this.autoMode();
+    if (v && !room && ((v === 'eye' && auto === 'fp') || v === auto)) { this.userView = null; this.viewRoom = null; }
+    this.autoKey = '';
+    this.updateMode();
+  }
+
+  /** A new trip between rooms goes back to the automatic cameras (watch the travel, zoom in on arrival). */
+  clearUserView() { this.userView = null; this.viewRoom = null; }
 
   setPeek(on) { this.peeking = on; }
 
@@ -207,61 +346,217 @@ export class Game3D {
     this.flashT = 0.6;
   }
 
-  /** Compute where the camera wants to be this frame. */
+  /** Someone just walked into your room: a brief ring on them and a slight push-in. */
+  emphasize(id, revealed) {
+    this.emph = { id, revealed, t: 0, dur: 2.6 };
+    this.emphRing.render.meshInstances[0].material = revealed ? this.emphMats.revealed : this.emphMats.neutral;
+  }
+
+  // ---------------------------------------------------------------- input from the gesture layer
+  /** One-finger drag: look around in first person, a small pan in the overhead views. */
+  dragBy(dx, dy) {
+    const v = this.view;
+    if (this.mode === 'fp' && this.fpKind === 'hide') {
+      const pose = POSE[this.myView?.me?.pose] ?? POSE.behind;
+      v.fpYaw = clamp(v.fpYaw - dx * 0.3, -pose.yaw, pose.yaw);
+      v.fpPitch = clamp(v.fpPitch - dy * 0.25, pose.pitch[0], pose.pitch[1]);
+    } else if (this.mode === 'fp' && this.fpKind === 'eye') {
+      v.eyeYaw = clamp(v.eyeYaw - dx * 0.3, -150, 150);
+      v.eyePitch = clamp(v.eyePitch - dy * 0.25, -45, 30);
+    } else if (this.mode === 'room' || this.mode === 'mansion') {
+      const d = this.camPos.distance(this.camTarget);
+      const h = Math.max(1, this.app.graphicsDevice.clientRect?.height || window.innerHeight);
+      const perPx = 2 * d * Math.tan(this.fovV * DEG / 2) / h * 0.6;
+      const f = this.camera.forward, r = this.camera.right;
+      const fl = Math.hypot(f.x, f.z) || 1, rl = Math.hypot(r.x, r.z) || 1;
+      this.pan.x += (-r.x / rl * dx + f.x / fl * dy) * perPx;
+      this.pan.z += (-r.z / rl * dx + f.z / fl * dy) * perPx;
+      const lim = this.mode === 'mansion' ? 10 : 3;
+      const l = Math.hypot(this.pan.x, this.pan.z);
+      if (l > lim) { this.pan.x *= lim / l; this.pan.z *= lim / l; }
+    }
+  }
+
+  // ---------------------------------------------------------------- camera
+  aspect() {
+    const d = this.app.graphicsDevice;
+    return d.width / Math.max(1, d.height);
+  }
+  /** A vertical fov for a horizontal one in landscape (portrait keeps the vertical fallback). */
+  vfov(hfov, fallback) {
+    const a = this.aspect();
+    return a >= 1 ? 2 * Math.atan(Math.tan(hfov * DEG / 2) / a) / DEG : fallback;
+  }
+  /**
+   * The part of the screen the view should fill, as fractions kept clear on each side. The
+   * mansion is narrower than a landscape screen, so it may run a little under the corner controls.
+   */
+  safeFrame(mode = this.mode) {
+    const w = Math.max(1, window.innerWidth), h = Math.max(1, window.innerHeight);
+    const i = this.hudInsets;
+    const kv = mode === 'mansion' ? 0.55 : 1;
+    return { l: clamp(i.left / w, 0, 0.3), r: clamp(i.right / w, 0, 0.3), t: clamp(i.top * kv / h, 0, 0.3), b: clamp(i.bottom * kv / h, 0, 0.3) };
+  }
+
+  /** The room (or passage) the room view frames, and its heading. */
+  roomFrame() {
+    const my = this.myView?.me;
+    const a = this.me && this.actors.get(this.me);
+    const pos = a?.pos ?? my?.pos;
+    let rect = this.viewRoom && ROOMS[this.viewRoom] ? ROOMS[this.viewRoom].rect
+      : my?.inRoom && ROOMS[my.zone] ? ROOMS[my.zone].rect
+      : pos ? rectAt(pos[0], pos[1]) : null;
+    if (!rect) rect = ROOMS[my?.room]?.rect ?? ROOMS.portrait.rect;
+    let [x0, x1, z0, z1] = rect;
+    const long = isLong(rect);
+    if (long && pos) {
+      // The Portrait Corridor is 52 m long: frame a window around you instead of a thin strip.
+      const W = 24, cx = clamp(pos[0], x0 + W / 2, x1 - W / 2);
+      x0 = cx - W / 2; x1 = cx + W / 2;
+    } else if (!long && (z1 - z0) > 1.8 * (x1 - x0) && pos) {
+      const W = 26, cz = clamp(pos[1], z0 + W / 2, z1 - W / 2);
+      z0 = cz - W / 2; z1 = cz + W / 2;
+    }
+    return { bounds: [x0 - 1, x1 + 1, z0 - 1, z1 + 1], heading: long ? 0 : 90 };
+  }
+
+  /** The eagle-eye and first-person cameras. */
+  gameplayCamera() {
+    const v = this.view;
+    const my = this.myView?.me;
+    const me = this.me && this.actors.get(this.me);
+    const aspect = this.aspect();
+    if (this.mode === 'mansion') {
+      const c = VIEW.mansion;
+      const fit = fitView(MANSION_BOUNDS, { heading: 90, pitch: c.pitch, fovV: c.fovV, aspect, safe: this.safeFrame(), yTop: 3.2 });
+      fit.pos.add(this.pan); fit.target.add(this.pan);
+      return { pos: fit.pos, target: fit.target, fovV: c.fovV, near: c.near, far: c.far, overhead: true };
+    }
+    if (this.mode === 'room') {
+      const c = VIEW.room;
+      const fovV = this.vfov(c.hfov, c.fovV);
+      const { bounds, heading } = this.roomFrame();
+      const fit = fitView(bounds, { heading, pitch: c.pitch, fovV, aspect, safe: this.safeFrame(), yTop: 1.2 });
+      fit.pos.add(this.pan); fit.target.add(this.pan);
+      const e = this.emphasisWeight();
+      const ea = e > 0 && this.actors.get(this.emph.id)?.pos;
+      if (ea) {
+        // A slight push-in toward whoever just came in.
+        const to = new pc.Vec3(ea[0], 0.9, ea[1]);
+        const shift = new pc.Vec3().sub2(to, fit.target).mulScalar(0.18 * e);
+        fit.target.add(shift); fit.pos.add(shift);
+        fit.pos.lerp(fit.pos, fit.target, 0.08 * e);
+      }
+      return { pos: fit.pos, target: fit.target, fovV, near: c.near, far: c.far, overhead: true };
+    }
+    // First person.
+    const c = VIEW.fp;
+    if (this.fpKind === 'hide' && my?.hidePos) {
+      const pose = POSE[my.pose] ?? POSE.behind;
+      const look = (my.look ?? 0) * DEG;
+      // Eye height follows the real clearance of this cover (a bed is lower than a table).
+      const cover = my.hide ? hideSpot(my.hide)?.spot.cover : null;
+      const eye = my.pose === 'under' && cover ? Math.min(pose.height, cover.height * 0.55) : pose.height;
+      const k = this.peekAmount;
+      // Sit toward the back of the cover so its edge frames the view (e.g. the tabletop above).
+      const out = pose.peekOut * k - pose.back * (1 - k);
+      const pos = new pc.Vec3(my.hidePos[0] + Math.sin(look) * out, eye + pose.peekUp * k, my.hidePos[1] + Math.cos(look) * out);
+      const yaw = look + v.fpYaw * DEG, pitch = v.fpPitch * DEG;
+      const target = new pc.Vec3(pos.x + Math.sin(yaw) * Math.cos(pitch), pos.y + Math.sin(pitch), pos.z + Math.cos(yaw) * Math.cos(pitch));
+      return { pos, target, fovV: this.vfov(pose.hfov, pose.fov), near: c.near, far: c.far };
+    }
+    const at = me?.pos ?? my?.pos;
+    if (!at) return null;
+    const myYaw = (me?.yaw ?? my?.yaw ?? 0) * DEG;
+    const eye = new pc.Vec3(at[0] + Math.sin(myYaw) * 0.12, 1.58, at[1] + Math.cos(myYaw) * 0.12);
+    if (this.fpKind === 'struggle') {
+      // Face whoever has you; a small shake while you fight.
+      const by = my?.struggle?.by ?? my?.caughtBy;
+      const att = by && this.actors.get(by);
+      const t = performance.now() / 1000;
+      eye.x += Math.sin(t * 31) * 0.015; eye.y += Math.sin(t * 23) * 0.012 - 0.1;
+      const target = att?.pos && att.entity.enabled ? new pc.Vec3(att.pos[0], 1.5, att.pos[1])
+        : new pc.Vec3(eye.x + Math.sin(myYaw), 1.4, eye.z + Math.cos(myYaw));
+      return { pos: eye, target, fovV: this.vfov(c.hfov + 4, c.fovV), near: c.near, far: c.far };
+    }
+    // Your character's eyes (the eye button): drag to look around.
+    const yaw = myYaw + v.eyeYaw * DEG, pitch = v.eyePitch * DEG;
+    const target = new pc.Vec3(eye.x + Math.sin(yaw) * Math.cos(pitch), eye.y + Math.sin(pitch), eye.z + Math.cos(yaw) * Math.cos(pitch));
+    return { pos: eye, target, fovV: this.vfov(c.hfov, c.fovV), near: c.near, far: c.far };
+  }
+
+  emphasisWeight() {
+    const e = this.emph;
+    if (!e) return 0;
+    const k = e.t / e.dur;
+    return k >= 1 ? 0 : Math.sin(Math.PI * Math.min(1, k * 1.4)) * (k > 0.7 ? (1 - k) / 0.3 : 1);
+  }
+
+  /** Nearest geometry depth for a high camera: keeps the near clip from cutting walls mid-zoom. */
+  safeNear(pos, target, fovV) {
+    const yTop = 5, h = pos.y - yTop;
+    if (h <= 0.5) return 0.05;
+    const dir = new pc.Vec3().sub2(target, pos).normalize();
+    const pitch = Math.asin(clamp(-dir.y, -1, 1)), v = fovV * DEG / 2;
+    let min = Infinity;
+    for (const a of [-v, -v / 2, 0, v / 2, v]) {
+      const e = pitch + a;
+      if (e <= 0.03) continue;
+      min = Math.min(min, h * Math.cos(a) / Math.sin(e));
+    }
+    return Number.isFinite(min) ? Math.max(0.05, min * 0.85) : 0.05;
+  }
+
+  applyGameplayCamera(dt) {
+    const want = this.gameplayCamera();
+    if (!want) return;
+    let pos, target, fovV, near, far;
+    const tr = this.tr;
+    if (tr) {
+      if (!tr.from.target) {
+        // Start from where the camera actually looks now, at the new view's distance.
+        const d = Math.max(1, this.camPos.distance(want.target));
+        tr.from.target = this.camPos.clone().add(this.camera.forward.clone().mulScalar(d));
+      }
+      tr.t += dt;
+      const k = Math.min(1, tr.t / TRANSITION_S), e = ease(k);
+      pos = new pc.Vec3().lerp(tr.from.pos, want.pos, e);
+      target = new pc.Vec3().lerp(tr.from.target, want.target, e);
+      fovV = tr.from.fovV + (want.fovV - tr.from.fovV) * e;
+      near = Math.min(tr.from.near, want.near);
+      far = Math.max(tr.from.far, want.far);
+      if (k >= 0.6 && tr.mode !== 'mansion') this.world.setViewMode?.(tr.mode);
+      if (k >= 1) this.tr = null;
+    } else {
+      const k = 1 - Math.exp(-dt * (this.mode === 'fp' ? 16 : 9));
+      pos = new pc.Vec3().lerp(this.camPos, want.pos, k);
+      target = new pc.Vec3().lerp(this.camTarget, want.target, k);
+      fovV = this.fovV + (want.fovV - this.fovV) * k;
+      near = want.near; far = want.far;
+      this.world.setViewMode?.(this.mode);
+    }
+    if (this.mode !== 'fp' || this.tr) near = Math.min(near, this.safeNear(pos, target, fovV));
+    this.camPos.copy(pos);
+    this.camTarget.copy(target);
+    this.fovV = fovV;
+    this.clip = { near, far };
+    this.camera.setPosition(pos);
+    tmpMat.setLookAt(pos, target, UP);
+    this.camRot.setFromMat4(tmpMat);
+    this.camera.setRotation(this.camRot);
+    const cc = this.camera.camera;
+    cc.nearClip = near; cc.farClip = far;
+    const aspect = this.aspect();
+    if (aspect >= 1) { cc.horizontalFov = true; cc.fov = 2 * Math.atan(Math.tan(fovV * DEG / 2) * aspect) / DEG; }
+    else { cc.horizontalFov = false; cc.fov = fovV; }
+  }
+
+  /** Compute where the camera wants to be this frame (the original opening/gallery/escaped camera). */
   desiredCamera(dt) {
     const v = this.view;
     const me = this.me && this.actors.get(this.me);
     const my = this.myView?.me;
     if (this.mode === 'capture') return this.captureShot;
-    // Holding Peek from the room view looks out from your cover again.
-    if ((this.mode === 'fp' || (this.mode === 'roomview' && this.peeking)) && my?.hidePos) {
-      const pose = POSE[my.pose] ?? POSE.behind;
-      const look = (my.look ?? 0) * Math.PI / 180;
-      // Eye height follows the real clearance of this cover (a bed is lower than a table).
-      const cover = my.hide ? hideSpot(my.hide)?.spot.cover : null;
-      const eye = my.pose === 'under' && cover ? Math.min(pose.height, cover.height * 0.55) : pose.height;
-      this.peekAmount += ((this.peeking ? 1 : 0) - this.peekAmount) * Math.min(1, dt * 7);
-      const k = this.peekAmount;
-      // Sit toward the back of the cover so its edge frames the view (e.g. the tabletop above).
-      const out = pose.peekOut * k - pose.back * (1 - k);
-      const pos = new pc.Vec3(my.hidePos[0] + Math.sin(look) * out, eye + pose.peekUp * k, my.hidePos[1] + Math.cos(look) * out);
-      const yaw = look + v.fpYaw * Math.PI / 180, pitch = v.fpPitch * Math.PI / 180;
-      const target = new pc.Vec3(pos.x + Math.sin(yaw) * Math.cos(pitch), pos.y + Math.sin(pitch), pos.z + Math.cos(yaw) * Math.cos(pitch));
-      return { pos, target, near: 0.05, fov: pose.fov };
-    }
-    if (this.mode === 'roomview' && my && ROOMS[my.room]) {
-      // Bird's-eye of your room only (the rest of the house is masked out), slightly tilted.
-      const [x0, x1, z0, z1] = ROOMS[my.room].rect;
-      const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, fov = 50;
-      const t = Math.tan(fov * Math.PI / 360);
-      const aspect = this.app.graphicsDevice.width / Math.max(1, this.app.graphicsDevice.height);
-      const h = Math.max((z1 - z0 + 1.2) / 2 / t, (x1 - x0 + 1.2) / 2 / (t * aspect)) + 3.2;
-      return { pos: new pc.Vec3(cx, h, cz - h * 0.3), target: new pc.Vec3(cx, 0, cz + 0.3), near: 0.2, fov };
-    }
-    if (this.mode === 'hunter' && me?.pos) {
-      // Hunters get a grounded camera just behind the shoulder, kept inside the room so it
-      // never looks through walls, and never a bird's-eye view.
-      if (!my?.steering) {
-        const dy = ((me.yaw - v.followYaw + 540) % 360) - 180;
-        v.followYaw += dy * Math.min(1, dt * (me.moving ? 2.5 : 1.2));
-      }
-      const yaw = (v.followYaw + v.yawOff) * Math.PI / 180, fx = Math.sin(yaw), fz = Math.cos(yaw);
-      // Pull the camera in until it is clear of walls and doorways (never inside a door leaf).
-      const r = rectAt(me.pos[0], me.pos[1]);
-      const clear = (x, z) => (!r || (x > r[0] + 0.6 && x < r[1] - 0.6 && z > r[2] + 0.6 && z < r[3] - 0.6))
-        && DOORWAYS.every(d => Math.hypot(d.pos[0] - x, d.pos[1] - z) > 1.4);
-      let d = 3.0;
-      while (d > 0.9 && !clear(me.pos[0] - fx * d, me.pos[1] - fz * d)) d -= 0.2;
-      let cx = me.pos[0] - fx * d, cz = me.pos[1] - fz * d;
-      let cy = 2.3 + (3.0 - d) * 0.35;   // a little higher when it has to come in close
-      if (!clear(cx, cz)) {
-        // In a doorway there is no room behind: rise above the door (leaves are 2.3 m tall)
-        // and lean into the room, looking down and ahead.
-        cx = me.pos[0] - fx * 0.5; cz = me.pos[1] - fz * 0.5; cy = 3.8;
-        return { pos: new pc.Vec3(cx, cy, cz), target: new pc.Vec3(me.pos[0] + fx * 3.2, 0.8, me.pos[1] + fz * 3.2), near: 0.1, fov: 66 };
-      }
-      return { pos: new pc.Vec3(cx, cy, cz), target: new pc.Vec3(me.pos[0] + fx * 2.4, 1.05, me.pos[1] + fz * 2.4), near: 0.1, fov: 64 };
-    }
     if (this.mode === 'gallery' && my?.viewing && me?.pos) {
       // View Gallery: a close look at the actual wall from where the character stands (not a
       // menu). Choosing another work in this section turns the view; other sections mean walking.
@@ -277,29 +572,6 @@ export class Game3D {
         return { pos, target: new pc.Vec3(f[0], 1.48, f[2]), near: 0.05, fov: vfov };
       }
     }
-    if ((this.mode === 'overhead' || this.mode === 'gallery') && me?.pos) {
-      // Follow behind the direction of travel; ease slowly so corners don't whip the view.
-      // Auto-follow only for trips planned from the room cards: while steering with the stick the
-      // camera holds still (camera-relative controls would otherwise turn under your thumb).
-      if (me.moving && !my?.steering) {
-        let dy = ((me.yaw - v.followYaw + 540) % 360) - 180;
-        v.followYaw += dy * Math.min(1, dt * 1.6);
-      }
-      const yaw = (v.followYaw + 180 + v.yawOff) * Math.PI / 180, pitch = v.pitch * Math.PI / 180;
-      // Look a little ahead of the character along its heading, then pull the aim point
-      // back toward the camera so the character sits above the control panel on screen.
-      // Look ahead only on planned trips; with the stick keep yourself centred.
-      const ahead = me.moving && !my?.steering ? 1.6 : 0.3;
-      const pull = 2.2;
-      const tx = me.pos[0] + Math.sin(me.yaw * Math.PI / 180) * ahead + Math.sin(yaw) * pull;
-      const tz = me.pos[1] + Math.cos(me.yaw * Math.PI / 180) * ahead + Math.cos(yaw) * pull;
-      let cx = tx + Math.sin(yaw) * Math.cos(pitch) * v.dist, cz = tz + Math.cos(yaw) * Math.cos(pitch) * v.dist;
-      // Stay over your room (outside it, the walls would hide you); near a wall the view simply
-      // gets steeper while you stay centred.
-      const r = rectAt(me.pos[0], me.pos[1]);
-      if (r) { cx = Math.max(r[0] + 0.4, Math.min(r[1] - 0.4, cx)); cz = Math.max(r[2] + 0.4, Math.min(r[3] - 0.4, cz)); }
-      return { pos: new pc.Vec3(cx, 1 + Math.sin(pitch) * v.dist, cz), target: new pc.Vec3(tx, 0.9, tz), near: 0.2, fov: 58 };
-    }
     if (this.mode === 'opening' && this.arrival) {
       // Establishing shot of the front of the house as the limousine arrives.
       const { ex, face } = this.arrival;
@@ -313,18 +585,37 @@ export class Game3D {
   }
 
   update(dt) {
+    this.updateMode();
     for (const a of this.actors.values()) if (a.entity.enabled) a.update(dt);
     const me = this.me && this.actors.get(this.me);
-    // In first person you don't see your own body.
-    if (me) me.entity.enabled = this.visible?.has(this.me) && this.mode !== 'fp' && this.mode !== 'gallery' && this.mode !== 'roomview';
-    // In the room view, a soft ring marks where you are hiding.
     const my = this.myView?.me;
-    this.hideRing.enabled = this.mode === 'roomview' && !!my?.hidePos;
+    const hiddenNow = my?.hideState === 'hidden';
+    // In first person you don't see your own body; in cover it's tucked away (a ring marks the spot).
+    if (me) me.entity.enabled = this.visible?.has(this.me) && this.mode !== 'fp' && this.mode !== 'gallery' && !hiddenNow;
+    if (me?.ring) {
+      const s = this.mode === 'mansion' ? 3.4 : 1.1;
+      me.ring.setLocalScale(s, 0.25 * (this.mode === 'mansion' ? 2 : 1), s);
+    }
+    // In the overhead views, a soft ring marks where you are hiding.
+    this.hideRing.enabled = (this.mode === 'room' || this.mode === 'mansion') && !!my?.hidePos && hiddenNow;
     if (this.hideRing.enabled) {
       const pulse = 1 + 0.12 * Math.sin(performance.now() / 260);
+      const s = this.mode === 'mansion' ? 3 : 1.3;
       this.hideRing.setLocalPosition(my.hidePos[0], 0.08, my.hidePos[1]);
-      this.hideRing.setLocalScale(1.3 * pulse, 0.3, 1.3 * pulse);
+      this.hideRing.setLocalScale(s * pulse, 0.3, s * pulse);
     }
+    if (this.emph) {
+      this.emph.t += dt;
+      const a = this.actors.get(this.emph.id);
+      if (this.emph.t >= this.emph.dur || !a?.entity.enabled || !a.pos) { this.emph = null; this.emphRing.enabled = false; }
+      else {
+        this.emphRing.enabled = this.mode !== 'fp';
+        const pulse = 1.2 + 0.25 * Math.sin(performance.now() / 180);
+        this.emphRing.setLocalPosition(a.pos[0], 0.09, a.pos[1]);
+        this.emphRing.setLocalScale(pulse, 0.25, pulse);
+      }
+    }
+    this.peekAmount += ((this.peeking ? 1 : 0) - this.peekAmount) * Math.min(1, dt * 7);
     this.world.updateLights(dt);
     this.updateArrival(dt);
     this.world.updateDoors(dt, [...this.actors.values()].filter(a => a.entity.enabled && a.pos).map(a => a.pos));
@@ -332,7 +623,7 @@ export class Game3D {
     if (this.cameraHolder && this.actors.get(this.cameraHolder)?.pos) {
       const h = this.actors.get(this.cameraHolder);
       const yaw = h.yaw * Math.PI / 180;
-      const hidden = this.cameraHolder === this.me && this.mode === 'fp';
+      const hidden = this.cameraHolder === this.me && (this.mode === 'fp' || hiddenNow);
       this.world.cameraProp.enabled = !hidden;
       this.world.cameraProp.setLocalPosition(h.pos[0] + Math.sin(yaw) * 0.45 + Math.cos(yaw) * 0.3, 1.2, h.pos[1] + Math.cos(yaw) * 0.45 - Math.sin(yaw) * 0.3);
       this.world.cameraProp.setLocalEulerAngles(0, h.yaw, 0);
@@ -340,18 +631,28 @@ export class Game3D {
 
     if (me?.pos) { this.lantern.enabled = this.mode !== 'capture'; this.lantern.setLocalPosition(me.pos[0], this.mode === 'fp' ? 1.2 : 2.4, me.pos[1]); }
     else this.lantern.enabled = false;
-    const want = this.desiredCamera(dt);
-    if (want) {
-      const k = this.mode === 'capture' ? 1 : Math.min(1, dt * (this.mode === 'fp' ? 7 : 4.5));
-      this.camPos.lerp(this.camPos, want.pos, k);
-      tmpMat.setLookAt(this.camPos, want.target, UP);
-      const q = new pc.Quat().setFromMat4(tmpMat);
-      this.camRot.slerp(this.camRot, q, this.mode === 'capture' ? 1 : Math.min(1, dt * 8));
-      this.camera.setPosition(this.camPos);
-      this.camera.setRotation(this.camRot);
-      this.camera.camera.nearClip = want.near;
-      const fov = want.fov ?? 58;
-      this.camera.camera.fov += (fov - this.camera.camera.fov) * Math.min(1, dt * 6);
+
+    if (GAMEPLAY.has(this.mode)) this.applyGameplayCamera(dt);
+    else {
+      const want = this.desiredCamera(dt);
+      if (want) {
+        const cc = this.camera.camera;
+        if (cc.horizontalFov) { cc.horizontalFov = false; cc.fov = this.fovV; }
+        cc.farClip = 80;
+        const k = this.mode === 'capture' ? 1 : Math.min(1, dt * 4.5);
+        this.camPos.lerp(this.camPos, want.pos, k);
+        tmpMat.setLookAt(this.camPos, want.target, UP);
+        const q = new pc.Quat().setFromMat4(tmpMat);
+        this.camRot.slerp(this.camRot, q, this.mode === 'capture' ? 1 : Math.min(1, dt * 8));
+        this.camera.setPosition(this.camPos);
+        this.camera.setRotation(this.camRot);
+        this.camera.camera.nearClip = want.near;
+        const fov = want.fov ?? 58;
+        this.camera.camera.fov += (fov - this.camera.camera.fov) * Math.min(1, dt * 6);
+        this.fovV = this.camera.camera.fov;
+        this.clip = { near: want.near, far: 80 };
+        this.camTarget.copy(want.target);
+      }
     }
 
     if (this.flashT > 0) {
@@ -377,22 +678,56 @@ export class Game3D {
     else if (this.fast >= 5 && dev.maxPixelRatio < cap) { dev.maxPixelRatio = Math.min(cap, +(dev.maxPixelRatio + 0.25).toFixed(2)); this.app.resizeCanvas(); this.fast = 0; }
   }
 
-  /** Neutral name tags in the travel view only (never in first person, never colour-coded). */
+  // ---------------------------------------------------------------- screen-space helpers
+  /** World point to CSS pixels, or null when it is behind the camera. */
+  worldToScreen(x, y, z) {
+    const p = new pc.Vec3(x, y, z);
+    const cp = this.camera.getPosition();
+    if (new pc.Vec3().sub2(p, cp).dot(this.camera.forward) <= 0.01) return null;
+    const s = this.camera.camera.worldToScreen(p);
+    return { x: s.x, y: s.y };
+  }
+
+  /** A pick ray through a CSS pixel: origin and unit direction. */
+  screenRay(sx, sy) {
+    const cc = this.camera.camera;
+    const a = cc.screenToWorld(sx, sy, cc.nearClip);
+    const b = cc.screenToWorld(sx, sy, cc.farClip);
+    return { origin: a, dir: new pc.Vec3().sub2(b, a).normalize() };
+  }
+
+  /** Neutral name tags for nearby people in the room view only (never in first person, never colour-coded). */
   tags() {
-    if (this.mode !== 'overhead') return [];
+    if (this.mode !== 'room') return [];
     const out = [];
-    const cam = this.camera.camera;
     const w = window.innerWidth, h = window.innerHeight;
-    const fwd = this.camera.forward, cp = this.camera.getPosition();
     const me = this.actors.get(this.me);
     for (const a of this.actors.values()) {
       if (!a.entity.enabled || !a.pos || a.id === this.me) continue;
       if (me?.pos && Math.hypot(a.pos[0] - me.pos[0], a.pos[1] - me.pos[1]) > 10) continue;
       const p = a.headWorld();
-      if (new pc.Vec3().sub2(p, cp).dot(fwd) <= 0) continue;
-      const s = cam.worldToScreen(p);
-      if (s.x < -50 || s.y < -50 || s.x > w + 50 || s.y > h + 50) continue;
+      const s = this.worldToScreen(p.x, p.y, p.z);
+      if (!s || s.x < -50 || s.y < -50 || s.x > w + 50 || s.y > h + 50) continue;
       out.push({ id: a.id, x: s.x, y: s.y, name: castInfo(a.id)?.name.split(' ')[0] });
+    }
+    return out;
+  }
+
+  /**
+   * Map pins in the mansion view: yours (gold, findable at a glance) and small neutral dots for
+   * the people you perceive (red only for someone the server marks as revealed).
+   */
+  pins() {
+    if (this.mode !== 'mansion') return [];
+    const out = [];
+    for (const a of this.actors.values()) {
+      if (!a.pos) continue;
+      const mine = a.id === this.me;
+      if (!mine && !a.entity.enabled) continue;
+      if (mine && !this.visible?.has(this.me)) continue;
+      const s = this.worldToScreen(a.pos[0], mine ? 2.2 : 1.8, a.pos[1]);
+      if (!s) continue;
+      out.push({ id: a.id, x: s.x, y: s.y, me: mine, revealed: !mine && a.revealed });
     }
     return out;
   }
@@ -501,4 +836,4 @@ export class Game3D {
   }
 }
 
-export { mat, TUNING, CAMERA_START };
+export { mat, TUNING, CAMERA_START, DOORWAYS };

@@ -15,7 +15,13 @@ interface UserData {
   playerKey?: string;
   lastView?: string;
   bucket: { tokens: number; at: number };
+  /** Break-free taps have their own budget so a frantic struggle never starves other actions. */
+  struggleBucket: { tokens: number; at: number };
 }
+
+/** Struggle messages: 15 per second sustained, bursts of 10 (phones send at most every 150 ms). */
+const STRUGGLE_RATE_PER_SEC = 15;
+const STRUGGLE_BURST = 10;
 type GalleryClient = Client<{ userData: UserData }>;
 
 function randomCode(len = 5) {
@@ -83,7 +89,7 @@ export class GalleryRoom extends Room<{ state: GalleryState; client: GalleryClie
   private hostJoined = false;
 
   onJoin(client: GalleryClient, options: any, auth: { role: "host" | "player"; playerKey?: string }) {
-    client.userData = { role: auth.role, playerKey: auth.playerKey, bucket: { tokens: 20, at: Date.now() } };
+    client.userData = { role: auth.role, playerKey: auth.playerKey, bucket: { tokens: 20, at: Date.now() }, struggleBucket: { tokens: STRUGGLE_BURST, at: Date.now() } };
     if (auth.role === "host") {
       this.hostJoined = true;
       return;
@@ -197,7 +203,8 @@ export class GalleryRoom extends Room<{ state: GalleryState; client: GalleryClie
       let intent: Intent;
       switch (p?.kind) {
         case "idle": intent = { kind: "idle" }; break;
-        case "room": intent = { kind: "room", room: this.roomArg(p.room) }; break;
+        case "move": intent = { kind: "move", p: this.pointArg(p.p) }; break;
+        case "room": intent = p.p == null ? { kind: "room", room: this.roomArg(p.room) } : { kind: "room", room: this.roomArg(p.room), p: this.pointArg(p.p) }; break;
         case "hide": intent = { kind: "hide", spot: String(p.spot) }; break;
         case "exit": intent = { kind: "exit" }; break;
         case "pickup": intent = { kind: "pickup" }; break;
@@ -209,6 +216,22 @@ export class GalleryRoom extends Room<{ state: GalleryState; client: GalleryClie
       }
       game.setIntent(me, intent, this.gameNow(), pace);
     }),
+    /**
+     * Break-free taps while caught: {grabId, n} with n = the phone's cumulative tap count for
+     * that grab. Its own rate bucket; stale or malformed reports are ignored silently.
+     */
+    struggle: (client: GalleryClient, p: any) => {
+      if (!client.userData || client.userData.role !== "player") return;
+      if (!this.struggleRateOk(client)) return;
+      const g = this.game;
+      if (!g || this.state.paused) return;
+      const me = this.characterOf(client);
+      if (!me) return;
+      if (!g.struggle(me, String(p?.grabId ?? ""), Number(p?.n), this.gameNow())) return;
+      this.flushEvents();
+      this.syncPublic();
+      this.pushViews();
+    },
     pace: (client: GalleryClient, p: any) => this.play(client, (game, me) => game.setPace(me, p?.pace === "run" ? "run" : "walk")),
     peek: (client: GalleryClient, p: any) => this.play(client, (game, me) => game.peek(me, !!p?.on)),
     inspect: (client: GalleryClient, p: any) => this.play(client, (game, me) => { game.inspect(me, String(p?.clue), this.gameNow()); }),
@@ -249,6 +272,10 @@ export class GalleryRoom extends Room<{ state: GalleryState; client: GalleryClie
       }
       if (p?.exitOpenNow) g.exitOpensAt = 0;
       if (typeof p?.searchMs === "number") g.testSearchMs = Math.max(500, Math.min(15_000, p.searchMs));
+      // Break-free screenshots: a fixed tap target ({struggleNeed: null} restores the rules) and a forced grab.
+      if (p?.struggleNeed === null) g.testStruggleNeed = null;
+      else if (typeof p?.struggleNeed === "number" && Number.isFinite(p.struggleNeed)) g.testStruggleNeed = Math.max(1, Math.min(500, Math.round(p.struggleNeed)));
+      if (p?.grab) g.forceGrab(this.actorArg(p.grab.hunter), this.actorArg(p.grab.victim), this.gameNow());
     }),
     "host:cpuFill": (client: GalleryClient, p: any) => this.guard(client, "host", () => {
       if (this.state.phase !== "lobby") throw new GameError("Change CPU fill in the lobby");
@@ -434,6 +461,10 @@ export class GalleryRoom extends Room<{ state: GalleryState; client: GalleryClie
     if (!ROOM_IDS.includes(r as RoomId)) throw new GameError("Unknown room");
     return r as RoomId;
   }
+  private pointArg(p: unknown): [number, number] {
+    if (!Array.isArray(p) || p.length !== 2 || !p.every(v => typeof v === "number" && Number.isFinite(v))) throw new GameError("Bad position");
+    return [p[0], p[1]];
+  }
   private actorArg(c: unknown): ActorId {
     if (c === "elias") return "elias";
     return this.characterArg(c);
@@ -447,6 +478,16 @@ export class GalleryRoom extends Room<{ state: GalleryState; client: GalleryClie
     const b = client.userData.bucket;
     const now = Date.now();
     b.tokens = Math.min(20, b.tokens + (now - b.at) / 100); // 10 msg/s sustained, bursts of 20
+    b.at = now;
+    if (b.tokens < 1) return false;
+    b.tokens -= 1;
+    return true;
+  }
+
+  private struggleRateOk(client: GalleryClient) {
+    const now = Date.now();
+    const b = client.userData.struggleBucket ??= { tokens: STRUGGLE_BURST, at: now };
+    b.tokens = Math.min(STRUGGLE_BURST, b.tokens + (now - b.at) * STRUGGLE_RATE_PER_SEC / 1000);
     b.at = now;
     if (b.tokens < 1) return false;
     b.tokens -= 1;

@@ -13,10 +13,11 @@
  */
 import {
   CAMERA_START, CAST, CLUES, CharacterId, DOORWAYS, EXIT_POINT, EXIT_ROOM, GALLERY, GALLERY_REACH, GalleryStation, MAX_ACTIVE_SURVIVORS, ROOMS, ROOM_GRAPH,
-  RoomId, SCORE, SOS_PRESETS, SosPreset, SosReply, TUNING, Vec2, frontOf, hideIds, hideSpot, standingSpot,
+  HideSpot, RoomId, SCORE, SOS_PRESETS, SosPreset, SosReply, TUNING, Vec2, frontOf, hideIds, hideSpot, standingSpot,
 } from "./data.js";
 import {
-  Waypoint, ZoneId, blockSpot, canHear, canSee, dist, doorwaysBetween, isRoom, planRoute, roomRoute, roomsOf, staggerSpot, toward, zoneAt,
+  Waypoint, ZoneId, blockSpot, canHear, canSee, dist, doorwaysBetween, entryOf, hasObstacles, isRoom, isWalkable, nearestStandable, nearestWalkable,
+  planRoute, roomPath, roomRoute, roomsOf, staggerSpot, toward, zoneAt,
 } from "./nav.js";
 
 export type ActorId = CharacterId | "elias";
@@ -26,7 +27,10 @@ export type Pace = "walk" | "run";
 
 export type Intent =
   | { kind: "idle" }
-  | { kind: "room"; room: RoomId }
+  /** Travel to a reachable room; `p` is an optional arrival point inside it. */
+  | { kind: "room"; room: RoomId; p?: Vec2 }
+  /** Walk to a floor point in your own zone (set by the server when validating a tap). */
+  | { kind: "move"; p: Vec2; zone?: ZoneId }
   | { kind: "hide"; spot: string }
   | { kind: "exit" }
   | { kind: "pickup" }
@@ -63,7 +67,8 @@ export interface Actor {
   afterLeave: Intent | null;
   peeking: boolean;
   stunnedUntil: number;
-  stunKind: "frozen" | "tangled" | "turning" | null;
+  /** frozen: flash; tangled: snare; turning: just bitten; shoved: a victim broke free of its grab. */
+  stunKind: "frozen" | "tangled" | "turning" | "shoved" | null;
   snareImmuneUntil: number;
   grabbedBy: ActorId | null;
   grabbing: ActorId | null;
@@ -77,6 +82,14 @@ export interface Actor {
   snares: number;
   clues: Set<string>;
   clueNotes: Map<string, string>;
+  /** A move/room tap made inside the intent cooldown: applied when it expires (last one wins). */
+  pending: { intent: Intent; pace?: Pace; at: number } | null;
+  /** While grabbed: the break-free struggle (server-counted taps). */
+  struggle: Struggle | null;
+  /** How many times this survivor has already broken free (each makes the next harder). */
+  breaks: number;
+  /** Nobody can grab this survivor before this time (just broke free). */
+  grabImmuneUntil: number;
   ai: {
     nextThinkAt: number;
     sawHide: { spot: string; at: number }[];
@@ -93,6 +106,24 @@ export interface Actor {
     ignore: Map<ActorId, number>;
     windup: { target: ActorId; since: number } | null;
   };
+}
+
+/** A grabbed survivor's attempt to break free before the bite. */
+export interface Struggle {
+  grabId: string;
+  by: ActorId;
+  startedAt: number;
+  /** Taps count until this time (plus a short grace for late messages); the bite lands later. */
+  until: number;
+  need: number;
+  /** Taps credited so far. */
+  got: number;
+  /** Highest cumulative tap count the victim's phone has reported. */
+  reported: number;
+  /** CPU victims: simulated taps per second and taps so far. */
+  cpuRate: number;
+  cpuTaps: number;
+  cpuAt: number;
 }
 
 export interface Sos {
@@ -126,6 +157,8 @@ export interface MatchSetup {
 export class GameError extends Error {}
 
 const round2 = (v: number) => Math.round(v * 100) / 100;
+const validVec = (p: unknown): p is Vec2 =>
+  Array.isArray(p) && p.length === 2 && typeof p[0] === "number" && typeof p[1] === "number" && Number.isFinite(p[0]) && Number.isFinite(p[1]);
 
 export class HauntedGame {
   phase: Phase = "opening";
@@ -140,6 +173,8 @@ export class HauntedGame {
   readonly photographer: CharacterId;
   /** Test servers only (HG_TEST_HOOKS): a longer search so screenshots can catch it. */
   testSearchMs: number | null = null;
+  /** Test servers only (HG_TEST_HOOKS): a fixed number of taps to break free. */
+  testStruggleNeed: number | null = null;
   camera: { holder: CharacterId | null; pos: Vec2; zone: ZoneId; room: RoomId; readyAt: number };
   snares: Snare[] = [];
   /** Clue ids whose snare has been taken (each clue gives one). */
@@ -203,7 +238,7 @@ export class HauntedGame {
       path: [], pace: "walk", intent: { kind: "idle" }, intentSeq: 0, intentState: "done", intentReason: null, lastIntentAt: -Infinity,
       hide: null, hideState: "none", hideTimer: 0, afterLeave: null, peeking: false,
       stunnedUntil: 0, stunKind: null, snareImmuneUntil: 0, grabbedBy: null, grabbing: null, biteAt: 0, searching: null, blocking: null, viewing: null, steer: null,
-      snares: 0, clues: new Set(), clueNotes: new Map(),
+      snares: 0, clues: new Set(), clueNotes: new Map(), pending: null, struggle: null, breaks: 0, grabImmuneUntil: 0,
       ai: { nextThinkAt: 0, sawHide: [], heard: null, hideUntil: 0, blockUntil: 0, lastSeen: null, lastSearched: new Map(), replanAt: 0, guardUntil: 0, nextGuardAt: Infinity, committedUntil: 0, chaseUntil: 0, ignore: new Map(), windup: null },
     };
   }
@@ -282,6 +317,15 @@ export class HauntedGame {
       this.exitOpen = true;
       this.emit({ type: "exit_open", to: ["*"] });
     }
+    // Taps queued during the move cooldown: the last one is applied once it expires.
+    for (const a of this.actors.values()) {
+      const q = a.pending;
+      if (!q || now < q.at) continue;
+      a.pending = null;
+      try { this.setIntent(a.id, q.intent, now, q.pace); } catch (e) {
+        if (e instanceof GameError && !a.cpu) this.emit({ type: "interrupted", to: [a.id], reason: e.message });
+      }
+    }
     for (const a of this.actors.values()) {
       if (!a.cpu || a.status === "escaped") continue;
       // CPU survivors react at once to a hunter they can recognise close by.
@@ -336,23 +380,49 @@ export class HauntedGame {
     a.pace = pace;
   }
 
-  /** Validate and start a movement/action intent. Returns the intent sequence number. */
+  /**
+   * Validate and start a movement/action intent. Returns the intent sequence number.
+   * Move/room taps inside the cooldown are queued (the last one wins) instead of refused.
+   */
   setIntent(id: ActorId, intent: Intent, now: number, pace?: Pace): number {
     if (this.phase !== "hunt") throw new GameError(this.phase === "opening" ? "Wait for the lockdown" : "The night is over");
     const a = this.get(id);
     if (a.status === "escaped") throw new GameError("You're already out");
-    if (a.grabbedBy) throw new GameError("You're caught — you can't pull free by yourself");
-    if (this.stunned(a, now)) throw new GameError(a.stunKind === "tangled" ? "You're tangled in the rope" : a.stunKind === "turning" ? "You're still turning…" : "You're frozen by the flash");
+    if (a.grabbedBy) throw new GameError("You're caught — tap to break free");
+    if (this.stunned(a, now)) throw new GameError(a.stunKind === "tangled" ? "You're tangled in the rope" : a.stunKind === "turning" ? "You're still turning…"
+      : a.stunKind === "shoved" ? "You're staggering back" : "You're frozen by the flash");
     if (a.grabbing) throw new GameError("You're holding someone");
-    if (now - a.lastIntentAt < TUNING.intentCooldownMs) throw new GameError("One move at a time");
-    if (pace) this.setPace(id, pace);
+    if (pace !== undefined && pace !== "walk" && pace !== "run") throw new GameError("Walk or run");
+    const travel = intent?.kind === "move" || intent?.kind === "room";
+    const cooling = now - a.lastIntentAt < TUNING.intentCooldownMs;
+    if (cooling && !travel) throw new GameError("One move at a time");
+    const checked = this.checkIntent(a, intent);
+    if (cooling) {
+      // Re-validated from wherever the character is when the cooldown ends.
+      a.pending = { intent, pace, at: a.lastIntentAt + TUNING.intentCooldownMs };
+      return a.intentSeq + 1;
+    }
+    a.pending = null;
+    if (pace) a.pace = pace;
+    a.lastIntentAt = now;
+    this.beginIntent(a, checked, now);
+    return a.intentSeq;
+  }
+
+  /** Throws a GameError if the intent isn't allowed now; returns it normalised (taps resolved). */
+  private checkIntent(a: Actor, intent: Intent): Intent {
     const hunter = a.status === "infected";
     const rooms = this.allowedRooms(a);
     switch (intent?.kind) {
       case "idle": break;
+      case "move": return this.resolveMove(a, intent.p);
       case "room":
         if (!rooms.includes(intent.room)) throw new GameError("That room isn't reachable from here");
-        break;
+        if (intent.p != null) {
+          if (!validVec(intent.p)) throw new GameError("Bad position");
+          return { kind: "room", room: intent.room, p: [intent.p[0], intent.p[1]] };
+        }
+        return { kind: "room", room: intent.room };
       case "hide": {
         if (hunter) throw new GameError("Hunters don't hide");
         const h = hideSpot(intent.spot);
@@ -361,7 +431,7 @@ export class HauntedGame {
       }
       case "exit":
         if (hunter) throw new GameError("Hunters don't leave");
-        if (!rooms.includes(EXIT_ROOM) && a.zone !== "exit") throw new GameError("The exit is in the Sealed Exhibition Room");
+        if (!rooms.includes(EXIT_ROOM) && a.zone !== "exit") throw new GameError("The Garden Gate is in the Sealed Exhibition Room");
         break;
       case "pickup":
         if (hunter) throw new GameError("Hunters can't use the camera");
@@ -396,9 +466,24 @@ export class HauntedGame {
         break;
       default: throw new GameError("Unknown action");
     }
-    a.lastIntentAt = now;
-    this.beginIntent(a, intent, now);
-    return a.intentSeq;
+    return intent;
+  }
+
+  /**
+   * A tap on the floor. Inside your own zone (room or passage) you walk there, nudged off
+   * furniture and walls by up to TUNING.moveSnapRange; a tap inside a reachable neighbouring
+   * room travels there and stops at that point; the Garden Gate passage means leaving.
+   */
+  private resolveMove(a: Actor, p: unknown): Intent {
+    if (!validVec(p)) throw new GameError("Bad position");
+    const z = zoneAt(p);
+    const rooms = this.allowedRooms(a);
+    if (z && z !== a.zone && isRoom(z) && rooms.includes(z)) return { kind: "room", room: z, p: [p[0], p[1]] };
+    if (z === "exit" && a.zone !== "exit" && a.status === "alive" && rooms.includes(EXIT_ROOM)) return { kind: "exit" };
+    const q = nearestStandable(a.zone, p, TUNING.moveSnapRange);
+    if (q) return { kind: "move", p: q, zone: a.zone };
+    if (z && z !== a.zone) throw new GameError("That isn't reachable from here");
+    throw new GameError("You can't stand there");
   }
 
   private beginIntent(a: Actor, intent: Intent, now: number) {
@@ -429,9 +514,24 @@ export class HauntedGame {
     let dest: { zone: ZoneId; p: Vec2 } | null = null;
     switch (intent.kind) {
       case "idle": a.path = []; a.intentState = "done"; return;
-      case "room": dest = { zone: intent.room, p: this.arrivalPoint(intent.room, a) }; break;
+      case "move": dest = { zone: intent.zone ?? a.zone, p: intent.p }; break;
+      case "room": {
+        // A tapped point in that room; else phones stop just inside the entry doorway
+        // (CPU players still spread out over the room).
+        const p = intent.p ? nearestWalkable(intent.room, intent.p, TUNING.moveSnapRange) : null;
+        dest = { zone: intent.room, p: p ?? (a.cpu ? this.arrivalPoint(intent.room, a) : this.entryPoint(a, intent.room)) };
+        break;
+      }
       case "hide": {
         const h = hideSpot(intent.spot)!;
+        if (this.walkableSpot(h)) {
+          // Standing room behind furniture (a rack, a cabinet): walk all the way in around it.
+          const route = planRoute(a.pos, a.zone, { zone: h.room, p: h.spot.pos });
+          if (!route) return this.interrupt(a, "No route");
+          a.path = route;
+          return;
+        }
+        // Under/inside furniture: walk to its open side, then crawl straight in.
         const approach = frontOf(h.spot);
         const route = planRoute(a.pos, a.zone, { zone: h.room, p: approach });
         if (!route) return this.interrupt(a, "No route");
@@ -442,7 +542,7 @@ export class HauntedGame {
       case "pickup": dest = { zone: this.camera.zone, p: this.camera.pos }; break;
       case "search": {
         const h = hideSpot(intent.spot)!;
-        dest = { zone: h.room, p: frontOf(h.spot) };
+        dest = { zone: h.room, p: this.searchStand(h) };
         break;
       }
       case "block": dest = { zone: a.zone, p: blockSpot(intent.door)! }; break;
@@ -464,6 +564,69 @@ export class HauntedGame {
     if (room === a.zone) return a.pos;
     const [x, z] = standingSpot(room, Math.floor(this.rand() * 16));
     return [x + (this.rand() - 0.5), z + (this.rand() - 0.5)];
+  }
+
+  /**
+   * Where a phone player arriving in `room` stops: about 1.5 m inside the doorway they come
+   * through, stepping a little to the side if someone already stands (or is heading) there.
+   */
+  private entryPoint(a: Actor, room: RoomId): Vec2 {
+    if (room === a.zone) return a.pos;
+    const e = entryOf(a.pos, a.zone, room);
+    if (!e) return this.arrivalPoint(room, a);
+    const d = TUNING.entryStopDistance;
+    const base: Vec2 = [e.door[0] + e.inward[0] * d, e.door[1] + e.inward[1] * d];
+    const side: Vec2 = [-e.inward[1], e.inward[0]];
+    const taken = (p: Vec2) => [...this.actors.values()].some(o => o !== a && o.status !== "escaped" && !this.concealed(o)
+      && ((o.zone === room && dist(o.pos, p) < 0.7) || (o.path.length > 0 && dist(o.path[o.path.length - 1].p, p) < 0.7)));
+    for (const k of [0, 0.8, -0.8, 1.6, -1.6]) {
+      const c = nearestWalkable(room, [base[0] + side[0] * k, base[1] + side[1] * k], 0.6);
+      if (c && !taken(c)) return c;
+    }
+    return nearestWalkable(room, base) ?? base;
+  }
+
+  /** A hiding place with standing room (behind a rack or cabinet), not inside a piece of furniture. */
+  private walkableSpot(h: { room: RoomId; spot: HideSpot }) {
+    return hasObstacles(h.room) && isWalkable(h.room, h.spot.pos);
+  }
+
+  private mouthCache = new Map<string, Vec2>();
+  /**
+   * The way into a standing-room hiding place: the point `d` metres from the hider back along
+   * the walk in (towards the cover's open side). Searchers stand here and snares land here.
+   */
+  private coverMouth(h: { room: RoomId; spot: HideSpot }, d: number): Vec2 {
+    const key = `${h.spot.id}:${d}`;
+    const hit = this.mouthCache.get(key);
+    if (hit) return hit;
+    let prev: Vec2 = h.spot.pos, left = d, out: Vec2 | null = null;
+    for (const p of roomPath(h.room, h.spot.pos, frontOf(h.spot)) ?? []) {
+      const l = dist(prev, p);
+      if (l >= left) { out = toward(prev, p, left); break; }
+      left -= l; prev = p;
+    }
+    out = out ?? prev;
+    this.mouthCache.set(key, out);
+    return out;
+  }
+
+  /** Where a searcher stands to search a hiding place. */
+  private searchStand(h: { room: RoomId; spot: HideSpot }): Vec2 {
+    return this.walkableSpot(h) ? this.coverMouth(h, TUNING.searchStandDistance) : frontOf(h.spot);
+  }
+
+  /** Where someone climbing out of cover ends up: out on the open side, never inside furniture. */
+  private outOfCover(h: { room: RoomId; spot: HideSpot }, pos: Vec2): Vec2 {
+    if (this.walkableSpot(h)) return pos;
+    const p = frontOf(h.spot, 0.35);
+    return hasObstacles(h.room) ? nearestWalkable(h.room, p) ?? p : p;
+  }
+
+  /** Snap a point off furniture when it lies in a furnished room (other rooms: unchanged). */
+  private offFurniture(p: Vec2): Vec2 {
+    const z = zoneAt(p);
+    return z && isRoom(z) && hasObstacles(z) ? nearestWalkable(z, p) ?? p : p;
   }
 
   private interrupt(a: Actor, reason: string) {
@@ -511,7 +674,7 @@ export class HauntedGame {
       a.hideState = "none";
       // Out on the open side of the cover (not left standing inside the bed or wardrobe).
       const hs = a.hide ? hideSpot(a.hide) : null;
-      if (hs) { a.pos = frontOf(hs.spot, 0.35); this.updateZone(a); }
+      if (hs) { a.pos = this.outOfCover(hs, a.pos); this.updateZone(a); }
       a.hide = null;
       const next = a.afterLeave; a.afterLeave = null;
       this.emit({ type: "left_cover", to: this.witnessesOf(a), id: a.id });
@@ -596,7 +759,7 @@ export class HauntedGame {
         return this.complete(a);
       }
       case "exit":
-        if (!this.exitOpen) return this.interrupt(a, "The service door is still locked");
+        if (!this.exitOpen) return this.interrupt(a, "The Garden Gate is still locked");
         this.escape(a, now);
         return;
       case "pickup":
@@ -610,7 +773,8 @@ export class HauntedGame {
         a.searching = { spot: intent.spot, until: now + (this.testSearchMs ?? TUNING.searchMs) };
         // Face the hiding place (to look under / behind / into it).
         const hs = hideSpot(intent.spot);
-        if (hs) a.yaw = (hs.spot.look + 180) % 360;
+        if (hs && this.walkableSpot(hs) && dist(hs.spot.pos, a.pos) > 1e-3) a.yaw = Math.atan2(hs.spot.pos[0] - a.pos[0], hs.spot.pos[1] - a.pos[1]) * 180 / Math.PI;
+        else if (hs) a.yaw = (hs.spot.look + 180) % 360;
         a.ai.lastSearched.set(intent.spot, now);
         this.emit({ type: "searching", to: this.witnessesOf(a, ...this.actorsHiddenAt(intent.spot)), id: a.id, spot: intent.spot });
         return;
@@ -645,42 +809,134 @@ export class HauntedGame {
     const found = this.actorsHiddenAt(spot);
     for (const v of found) {
       v.hide = null; v.hideState = "none"; v.peeking = false; v.afterLeave = null;
-      // Pulled out of cover to the open side, right in front of the searcher.
-      v.pos = toward(h.pos, v.pos, Math.min(0.45, dist(h.pos, v.pos)));
+      // Pulled out of cover to the open side, right in front of the searcher (never into furniture).
+      v.pos = this.offFurniture(toward(h.pos, v.pos, Math.min(0.45, dist(h.pos, v.pos))));
       this.updateZone(v);
       if (v.cpu) v.ai.nextThinkAt = now;
     }
     this.emit({ type: "search_done", to: this.witnessesOf(h, ...found), id: h.id, spot, found: found.map(f => f.id) });
   }
 
-  // ------------------------------------------------------------------ grabs, bites, infection
+  // ------------------------------------------------------------------ grabs, struggles, bites, infection
   private resolveGrabs(now: number) {
     for (const h of this.hunters()) {
       if (h.grabbing) {
         const v = this.get(h.grabbing);
-        if (now >= h.biteAt) this.infect(v, h, now);
+        if (v.struggle) this.updateStruggle(v, now);
+        if (h.grabbing && now >= h.biteAt) this.infect(v, h, now);
         continue;
       }
-      if (this.stunned(h, now) || h.searching) continue;
-      if ((h.id === "elias" || h.birthday) && !this.graceOver(now)) continue;
-      const prey = this.survivors().filter(s => !s.grabbedBy && this.exposed(s) && dist(s.pos, h.pos) <= TUNING.grabDistance && this.perceives(h, s));
+      if (this.stunned(h, now) || h.searching) { h.ai.windup = null; continue; }
+      if ((h.id === "elias" || h.birthday) && !this.graceOver(now)) { h.ai.windup = null; continue; }
+      const prey = this.survivors().filter(s => !s.grabbedBy && s.grabImmuneUntil <= now && this.exposed(s)
+        && dist(s.pos, h.pos) <= TUNING.grabDistance && this.perceives(h, s));
       if (!prey.length) { h.ai.windup = null; continue; }
       const v = prey.sort((x, y) => dist(x.pos, h.pos) - dist(y.pos, h.pos))[0];
       // The lunge: stay within reach for a moment (a survivor who keeps running breaks it).
       if (!h.ai.windup || h.ai.windup.target !== v.id) { h.ai.windup = { target: v.id, since: now }; continue; }
       if (now - h.ai.windup.since < TUNING.grabWindupMs) continue;
-      h.ai.windup = null;
-      h.grabbing = v.id; h.biteAt = now + TUNING.biteDelayMs; h.path = []; h.blocking = null;
-      v.grabbedBy = h.id; v.path = []; v.peeking = false; v.viewing = null;
-      if (v.hideState !== "none") { v.hideState = "none"; v.hide = null; v.afterLeave = null; }
-      v.intentState = "interrupted"; v.intentReason = "Caught";
-      this.emit({ type: "grabbed", to: this.witnessesOf(h, v), victim: v.id, hunter: h.id });
+      this.startGrab(h, v, now);
     }
+  }
+
+  /**
+   * The grab lands. The bite follows TUNING.biteDelayMs later (unchanged, so a friend's flash
+   * has the same window); during the first TUNING.struggleMs the victim can tap to break free.
+   */
+  private startGrab(h: Actor, v: Actor, now: number) {
+    h.ai.windup = null;
+    h.grabbing = v.id; h.biteAt = now + TUNING.biteDelayMs; h.path = []; h.blocking = null; h.pending = null;
+    v.grabbedBy = h.id; v.path = []; v.peeking = false; v.viewing = null; v.steer = null; v.pending = null;
+    if (v.hideState !== "none") { v.hideState = "none"; v.hide = null; v.afterLeave = null; }
+    v.intentState = "interrupted"; v.intentReason = "Caught";
+    const need = this.testStruggleNeed ?? TUNING.struggleNeed + (h.id === "elias" ? TUNING.struggleNeedElias : 0) + TUNING.struggleNeedPerBreak * v.breaks;
+    const s: Struggle = {
+      grabId: this.newId(), by: h.id, startedAt: now, until: now + TUNING.struggleMs, need, got: 0, reported: 0, cpuRate: 0, cpuTaps: 0, cpuAt: now,
+    };
+    v.struggle = s;
+    this.emit({ type: "grabbed", to: this.witnessesOf(h, v), victim: v.id, hunter: h.id });
+    this.emit({ type: "struggle", to: [v.id], grabId: s.grabId, by: h.id, until: s.until, need: s.need });
+  }
+
+  /**
+   * Taps reported by the victim's phone: `n` is its cumulative count for this grab. The server
+   * credits at most TUNING.struggleMaxTapsPerSec since the grab and decides the outcome.
+   * Returns false for a stale or malformed report (ignored).
+   */
+  struggle(id: ActorId, grabId: string, n: number, now: number): boolean {
+    if (this.phase !== "hunt") return false;
+    const v = this.actors.get(id);
+    const s = v?.struggle;
+    if (!v || !s || s.grabId !== grabId || !Number.isFinite(n)) return false;
+    if (now > s.until + TUNING.struggleGraceMs) return false;
+    const taps = Math.min(1000, Math.floor(n));
+    if (taps <= s.reported) return false;
+    s.reported = taps;
+    this.creditStruggle(v, now);
+    return true;
+  }
+
+  private updateStruggle(v: Actor, now: number) {
+    const s = v.struggle!;
+    const t = Math.min(now, s.until);
+    if (v.cpu) {
+      // CPU survivors tap at their own steady pace.
+      if (!s.cpuRate) { const [lo, hi] = TUNING.cpuTapRate; s.cpuRate = lo + this.rand() * (hi - lo); }
+      s.cpuTaps += s.cpuRate * Math.max(0, t - s.cpuAt) / 1000;
+    }
+    s.cpuAt = Math.max(s.cpuAt, t);
+    this.creditStruggle(v, now);
+  }
+
+  private creditStruggle(v: Actor, now: number) {
+    const s = v.struggle!;
+    if (now > s.until + TUNING.struggleGraceMs) return;
+    const elapsed = Math.max(0, Math.min(now, s.until) - s.startedAt);
+    const cap = Math.floor(elapsed * TUNING.struggleMaxTapsPerSec / 1000) + 1;
+    s.got = Math.max(s.got, Math.min(cap, s.reported + Math.floor(s.cpuTaps)));
+    if (s.got >= s.need) this.breakFree(v, now);
+  }
+
+  /** The victim wrenches free: the hunter staggers back (can't grab for a moment) and nobody can grab the victim right away. */
+  private breakFree(v: Actor, now: number) {
+    const s = v.struggle!;
+    const h = this.get(s.by);
+    v.struggle = null;
+    v.breaks += 1;
+    v.grabImmuneUntil = now + TUNING.grabImmunityMs;
+    this.disable(h, "shoved", TUNING.shoveStunMs, now, null, "camera_stun");
+    // Pushed back half a step, if there is floor there.
+    if (isRoom(h.zone)) {
+      const back = toward(v.pos, h.pos, dist(v.pos, h.pos) + 0.5);
+      if (zoneAt(back) === h.zone && isWalkable(h.zone, back)) h.pos = back;
+      h.yaw = Math.atan2(v.pos[0] - h.pos[0], v.pos[1] - h.pos[1]) * 180 / Math.PI;
+    }
+    this.emit({ type: "broke_free", to: this.witnessesOf(v, h), id: v.id, from: h.id });
+  }
+
+  /** Test support (HG_TEST_HOOKS): make `hunter` grab `victim` now, standing them face to face if apart. */
+  forceGrab(hunter: ActorId, victim: ActorId, now: number) {
+    if (this.phase !== "hunt") throw new GameError("Not now");
+    const h = this.get(hunter), v = this.get(victim);
+    if (h.status !== "infected" || v.status !== "alive" || !v.active) throw new GameError("Pick a hunter and a survivor");
+    if (h.grabbing || v.grabbedBy || this.stunned(h, now)) throw new GameError("Not now");
+    if (dist(h.pos, v.pos) > TUNING.grabDistance) {
+      const dirs: Vec2[] = [h.pos, [v.pos[0] + 1, v.pos[1]], [v.pos[0] - 1, v.pos[1]], [v.pos[0], v.pos[1] + 1], [v.pos[0], v.pos[1] - 1]];
+      for (const d of dirs) {
+        const p = toward(v.pos, d, 0.8);
+        if (zoneAt(p) === v.zone && (!isRoom(v.zone) || isWalkable(v.zone, p))) { h.pos = p; break; }
+      }
+      if (dist(h.pos, v.pos) > TUNING.grabDistance) h.pos = [...v.pos] as Vec2;
+      this.updateZone(h);
+    }
+    h.path = []; h.searching = null; h.intent = { kind: "idle" }; h.intentState = "done";
+    this.startGrab(h, v, now);
   }
 
   private infect(v: Actor, h: Actor, now: number) {
     h.grabbing = null;
     v.grabbedBy = null;
+    v.struggle = null; v.pending = null;
     v.status = "infected";
     v.hide = null; v.hideState = "none"; v.path = []; v.pace = "walk";
     v.intent = { kind: "idle" }; v.intentState = "done";
@@ -698,17 +954,20 @@ export class HauntedGame {
     v.ai.nextThinkAt = now + 1500;
   }
 
-  /** Freeze/tangle a hunter: it cannot attack, search or block, and it lets go. */
-  private disable(h: Actor, kind: "frozen" | "tangled", ms: number, now: number, helper: Actor | null, method: Assist["method"]) {
+  /** Freeze/tangle/shove a hunter: it cannot attack, search or block, and it lets go. */
+  private disable(h: Actor, kind: "frozen" | "tangled" | "shoved", ms: number, now: number, helper: Actor | null, method: Assist["method"]) {
     h.stunnedUntil = now + ms;
     h.stunKind = kind;
     h.path = [];
     h.searching = null;
+    h.pending = null;
+    h.ai.windup = null;
     h.intentState = "interrupted";
     const saved: ActorId[] = [];
     if (h.grabbing) {
       const v = this.get(h.grabbing);
       v.grabbedBy = null;
+      v.struggle = null;
       h.grabbing = null;
       saved.push(v.id);
       if (helper && v.id !== helper.id && !this.assists.has(v.id as CharacterId)) {
@@ -720,7 +979,7 @@ export class HauntedGame {
     // A doorway blocker staggers clear so the opening is actually usable.
     if (h.blocking) {
       const s = staggerSpot(h.blocking);
-      if (s) { h.pos = s; this.updateZone(h); }
+      if (s) { h.pos = this.offFurniture(s); this.updateZone(h); }
       h.blocking = null;
     }
     return saved;
@@ -795,7 +1054,7 @@ export class HauntedGame {
     }
     if (c.effect === "exit") {
       const left = Math.max(0, Math.ceil((this.exitOpensAt - now) / 1000));
-      note += this.exitOpen ? " The door has already released." : ` The panel timer reads ${left} seconds.`;
+      note += this.exitOpen ? " The Garden Gate has already released." : ` The panel timer reads ${left} seconds.`;
     }
     if (c.effect === "snare") {
       if (!this.clueSnaresTaken.has(c.id)) {
@@ -813,9 +1072,12 @@ export class HauntedGame {
     if (this.phase !== "hunt" || a.status !== "alive") throw new GameError("Not now");
     if (a.snares < 1) throw new GameError("You don't have a snare");
     if (a.grabbedBy) throw new GameError("Not while caught");
-    // From cover, rig it just outside your hiding place.
+    // From cover, rig it just outside your hiding place (in the way in, for standing-room cover).
     let pos: Vec2 = [...a.pos] as Vec2;
-    if (a.hide) { const h = hideSpot(a.hide)!; pos = frontOf(h.spot, 0.35); }
+    if (a.hide) {
+      const h = hideSpot(a.hide)!;
+      pos = this.walkableSpot(h) ? this.coverMouth(h, TUNING.snareMouthDistance) : this.outOfCover(h, a.pos);
+    }
     a.snares -= 1;
     const s: Snare = { id: this.newId(), owner: id as CharacterId, pos, zone: zoneAt(pos) ?? a.zone, placedAt: now };
     this.snares.push(s);
@@ -837,7 +1099,7 @@ export class HauntedGame {
   // ------------------------------------------------------------------ escape and end
   private escape(a: Actor, now: number) {
     a.status = "escaped";
-    a.path = []; a.hide = null; a.hideState = "none";
+    a.path = []; a.hide = null; a.hideState = "none"; a.pending = null;
     a.score += SCORE.escape;
     this.teamScore += SCORE.escape;
     const withCamera = this.camera.holder === a.id;
@@ -1118,6 +1380,9 @@ export class HauntedGame {
       coverPose: o.hideState === "entering" && o.hide ? hideSpot(o.hide)?.spot.pose ?? null : null,
       searchSpot: o.searching ? o.searching.spot : null,
       grabbedBy: o.grabbedBy && this.perceives(me, this.get(o.grabbedBy)) ? o.grabbedBy : null,
+      // A hunter in its grab windup: the target always feels it coming; onlookers only notice
+      // when they can already tell that person is a hunter (infection stays secret).
+      lunging: o.status === "infected" && !!o.ai.windup && !o.grabbing && (o.ai.windup.target === me.id || this.revealed(me, o, now)),
     }));
     const hs = me.hide ? hideSpot(me.hide) : null;
     const cam = this.camera;
@@ -1133,6 +1398,7 @@ export class HauntedGame {
         path: me.path.slice(0, 12).map(w => r2(w.p)),
         intent: { seq: me.intentSeq, kind: me.intent.kind, target: (me.intent as any).room ?? (me.intent as any).spot ?? (me.intent as any).door ?? (me.intent as any).target ?? null, state: me.intentState, reason: me.intentReason },
         caught: !!me.grabbedBy, caughtBy: me.grabbedBy, grabbing: me.grabbing,
+        struggle: me.struggle ? { grabId: me.struggle.grabId, by: me.struggle.by, until: me.struggle.until, need: me.struggle.need, got: me.struggle.got } : null,
         stunned: this.stunned(me, now) ? me.stunKind : null,
         searching: me.searching?.spot ?? null, blocking: me.blocking, viewing: me.viewing,
         snares: me.snares,
@@ -1172,17 +1438,18 @@ export class HauntedGame {
         rooms: rooms.filter(r => r !== me.room || !isRoom(me.zone)),
         searchSpots: isRoom(me.zone) ? ROOMS[me.zone].hides.map(h => ({ id: h.id, label: h.label })) : [],
         nearSearch: this.nearSpots(me, TUNING.searchOfferRange).map(h => ({ id: h.id, label: h.label, pose: h.pose })),
-        doors: isRoom(me.zone) ? DOORWAYS.filter(d => d.room === me.zone).map(d => ({ key: d.key, to: d.to, label: d.to === "exit" ? "Service exit" : `Door to ${ROOMS[d.to as RoomId].name}` })) : [],
+        doors: isRoom(me.zone) ? DOORWAYS.filter(d => d.room === me.zone).map(d => ({ key: d.key, to: d.to, label: d.to === "exit" ? "Garden Gate" : `Door to ${ROOMS[d.to as RoomId].name}` })) : [],
         chase: actors.filter(x => x.id !== "elias" && this.get(x.id).status === "alive").map(x => x.id),
       };
     }
     return view;
   }
 
-  /** Hiding places in this room whose open side is within `range` metres. */
+  /** Hiding places in this room whose open side (or, for standing-room cover, the spot itself) is within `range` metres. */
   private nearSpots(a: Actor, range: number) {
     if (!isRoom(a.zone) || a.hideState !== "none") return [];
-    return ROOMS[a.zone].hides.filter(h => dist(frontOf(h), a.pos) <= range);
+    const room = a.zone;
+    return ROOMS[room].hides.filter(h => dist(frontOf(h), a.pos) <= range || (this.walkableSpot({ room, spot: h }) && dist(h.pos, a.pos) <= range));
   }
 
   private isMoving(a: Actor, now: number) {
@@ -1203,6 +1470,7 @@ export class HauntedGame {
     if (!Number.isFinite(len) || !Number.isFinite(strength)) throw new GameError("Bad input");
     if (len < 1e-3 || strength < 0.12) { a.steer = null; return; }
     const run = strength >= TUNING.steerRunThreshold;
+    a.pending = null;
     if (a.path.length || a.intent.kind !== "idle") {
       a.path = []; a.intent = { kind: "idle" }; a.intentState = "done"; a.intentReason = null;
     }

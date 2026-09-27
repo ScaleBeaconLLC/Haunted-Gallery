@@ -1,7 +1,7 @@
 import assert from "assert";
 import { CAST, CharacterId, CORRIDORS, EXIT_POINT, ROOMS, ROOM_GRAPH, ROOM_IDS, RoomId, SCORE, TUNING, Vec2, frontOf, hideSpot } from "../src/game/data.js";
 import { ActorId, HauntedGame } from "../src/game/engine.js";
-import { blockSpot, planRoute, zoneAt } from "../src/game/nav.js";
+import { blockSpot, canSee, isWalkable, planRoute, zoneAt } from "../src/game/nav.js";
 
 function seeded(seed: number) {
   return () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
@@ -97,7 +97,15 @@ describe("Real-time rules", () => {
     assert.throws(() => g.setIntent("julian", { kind: "room", room: "mirrors" }, clock.t), /reachable/);
     assert.throws(() => g.setIntent("julian", { kind: "hide", spot: "velvet_pocket" }, clock.t), /reachable/);
     g.setIntent("julian", { kind: "room", room: "sealed" }, clock.t);
-    assert.throws(() => g.setIntent("julian", { kind: "room", room: "sculpture" }, clock.t + 50), /One move at a time/);
+    // Travel taps inside the cooldown are queued (the last one wins), other actions still wait.
+    g.setIntent("julian", { kind: "room", room: "sculpture" }, clock.t + 50);
+    assert.throws(() => g.setIntent("julian", { kind: "hide", spot: "curtain_recess" }, clock.t + 60), /One move at a time/);
+    assert.throws(() => g.setIntent("julian", { kind: "room", room: "mirrors" }, clock.t + 70), /reachable/, "queued taps are still validated");
+    g.setIntent("julian", { kind: "room", room: "sealed" }, clock.t + 80);
+    assert.strictEqual(g.get("julian").pending?.intent.kind, "room");
+    advance(g, clock, TUNING.intentCooldownMs + 100);
+    assert.strictEqual(g.get("julian").pending, null, "applied when the cooldown expired");
+    assert.deepStrictEqual(g.get("julian").intent, { kind: "room", room: "sealed" }, "the last tap won");
     run(g, clock, () => g.get("julian").zone === "c1");
     g.setIntent("julian", { kind: "room", room: "portrait" }, clock.t);
     run(g, clock, () => !g.get("julian").path.length);
@@ -477,5 +485,438 @@ describe("Real-time rules", () => {
       assert.strictEqual(r.escaped.length + r.trapped.length + r.turned.filter(id => id !== g.birthday).length, 12);
       assert.ok(checks > 0);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------------------
+// Eagle-eye round: furniture-aware paths, floor taps, entry stops, same-room sight, the
+// lunge warning and the break-free struggle. The Conservation Lab is the rebuilt proof room.
+// ---------------------------------------------------------------------------------------
+describe("Eagle-eye rules", () => {
+  const LAB = ROOMS.conservation;
+  const R = TUNING.bodyRadius;
+  const furniture = LAB.obstacles!.map(([x0, x1, z0, z1]) => [x0 - R, x1 + R, z0 - R, z1 + R]);
+  /** Strictly inside a lab obstacle grown by the body radius (touching its edge is fine). */
+  const inFurniture = (p: Vec2, e = 1e-4) => zoneAt(p) === "conservation" && furniture.some(([x0, x1, z0, z1]) => p[0] > x0 + e && p[0] < x1 - e && p[1] > z0 + e && p[1] < z1 - e);
+  /** Every 5 cm of the leg a-b stays out of the lab furniture. */
+  const legClear = (a: Vec2, b: Vec2) => {
+    const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 0.05));
+    for (let k = 0; k <= n; k++) if (inFurniture([a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n])) return false;
+    return true;
+  };
+  const d2 = (a: Vec2, b: Vec2) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  const view = (g: HauntedGame, id: ActorId, t: number) => g.viewFor(id, t, names) as any;
+
+  /** Walk julian into a hiding place, checking every tick that he never stands inside furniture (except the final crawl under it). */
+  function hideTraced(g: HauntedGame, clock: { t: number }, spot: string) {
+    const h = hideSpot(spot)!;
+    const trace: Vec2[] = [];
+    const j = g.get("julian");
+    g.setIntent("julian", { kind: "hide", spot }, clock.t);
+    const crawl = !isWalkable("conservation", h.spot.pos);
+    // The planned waypoints: all standable except the crawl into the cover; every walked leg clear.
+    const pts = [j.pos, ...j.path.map(w => w.p)];
+    const walked = crawl ? pts.slice(0, -1) : pts;
+    for (let k = 1; k < walked.length; k++) {
+      assert.ok(!inFurniture(walked[k]), `${spot}: waypoint ${walked[k]} is inside furniture`);
+      assert.ok(legClear(walked[k - 1], walked[k]), `${spot}: leg ${walked[k - 1]} -> ${walked[k]} crosses furniture`);
+    }
+    if (crawl) assert.deepStrictEqual(pts.at(-2), frontOf(h.spot), "crawls in from the open side");
+    run(g, clock, () => {
+      const onCrawl = crawl && j.path.length === 1;
+      if (!onCrawl && j.hideState === "none") { assert.ok(!inFurniture(j.pos), `${spot}: walked through furniture at ${j.pos}`); trace.push([...j.pos] as Vec2); }
+      return j.hideState === "hidden";
+    }, 30_000);
+    assert.deepStrictEqual(j.pos, h.spot.pos);
+    return { trace, pts };
+  }
+
+  describe("paths around furniture", () => {
+    it("routes into, out of and through the Conservation Lab never cut through its furniture", () => {
+      const starts: Vec2[] = [LAB.center, [17, 23], [31.2, 35.3], [20.5, 36.8], [28, 31], [24, 36]];
+      for (const p of starts) assert.ok(!inFurniture(p), `start ${p} is standable`);
+      const goals: { zone: string; p: Vec2 }[] = [
+        ...starts.map(p => ({ zone: "conservation", p })),
+        // Goals on furniture (the covered statue, the restoration table) end beside it.
+        { zone: "conservation", p: [31, 37] }, { zone: "conservation", p: [24.6, 32] },
+        ...LAB.hides.map(h => ({ zone: "conservation", p: frontOf(h) })),
+        { zone: "mirrors", p: ROOMS.mirrors.center }, { zone: "archive", p: ROOMS.archive.center }, { zone: "sealed", p: ROOMS.sealed.center },
+      ];
+      let furnished = 0;
+      for (const s of starts) for (const goal of goals) {
+        const route = planRoute(s, "conservation", goal)!;
+        assert.ok(route, `no route ${s} -> ${goal.p}`);
+        let prev = s;
+        for (const w of route) {
+          assert.ok(!inFurniture(w.p), `waypoint ${w.p} inside furniture (${s} -> ${goal.p})`);
+          assert.ok(legClear(prev, w.p), `leg ${prev} -> ${w.p} crosses furniture (${s} -> ${goal.p})`);
+          prev = w.p;
+        }
+        if (route.length > 1 && goal.zone === "conservation") furnished++;
+      }
+      assert.ok(furnished > 5, "some routes had to bend around furniture");
+      // Through-traffic: Archive -> Hall of Mirrors crosses the lab by its doorways, around the rack.
+      const through = planRoute(ROOMS.archive.center, "archive", { zone: "mirrors", p: ROOMS.mirrors.center })!;
+      let prev = ROOMS.archive.center;
+      for (const w of through) { assert.ok(legClear(prev, w.p)); prev = w.p; }
+      assert.strictEqual(through.filter(w => w.door).length, 4, "doorway waypoints kept");
+      // Rooms without furniture keep a straight line.
+      assert.deepStrictEqual(planRoute([-15, 5], "portrait", { zone: "portrait", p: [-6, 14] }), [{ p: [-6, 14] }]);
+    });
+
+    it("hides under the restoration table: walks around it to the open side, then crawls under", () => {
+      const { g, clock } = huntStarted(["julian"]);
+      parkOthers(g, ["julian"]);
+      place(g, "julian", [24.6, 36.5]);   // north of the table: must go round it
+      const { pts } = hideTraced(g, clock, "under_restoration_table");
+      assert.ok(pts.length >= 4, "went around the table");
+      assert.strictEqual((view(g, "julian", clock.t)).me.pose, "under");
+      // Climbing out lands on the open side, clear of the table.
+      clock.t += TUNING.intentCooldownMs;
+      g.setIntent("julian", { kind: "move", p: [20, 29] }, clock.t);
+      advance(g, clock, TUNING.leaveCoverMs + 100);
+      assert.ok(!inFurniture(g.get("julian").pos), "out from under the table");
+    });
+
+    it("reaches the canvas rack hiding place through the bay along the west wall", () => {
+      const { g, clock } = huntStarted(["julian"]);
+      parkOthers(g, ["julian"]);
+      place(g, "julian", [26, 29]);
+      const { trace } = hideTraced(g, clock, "canvas_rack");
+      // Behind the rack (x < 17.55) south of the spot: the only way in is the bay past the notes desk.
+      assert.ok(trace.some(p => p[0] < 17.55 && p[1] > 33.0 && p[1] < 34.8), "walked up the bay");
+      assert.ok(!trace.some(p => p[0] > 17.55 && p[0] < 19.25 && p[1] > 33.05 && p[1] < 36.45), "never through the rack");
+      // Standing-room cover: leaving it doesn't teleport you anywhere.
+      clock.t += TUNING.intentCooldownMs;
+      g.setIntent("julian", { kind: "idle" }, clock.t);
+      g.steer("julian", 1, 0, 0.5, clock.t);
+      assert.strictEqual(g.get("julian").hideState, "leaving");
+      advance(g, clock, TUNING.leaveCoverMs + 50);
+      assert.ok(d2(g.get("julian").pos, hideSpot("canvas_rack")!.spot.pos) < 0.2);
+    });
+
+    it("reaches the cabinet bay through the gap south of the solvent cabinet", () => {
+      const { g, clock } = huntStarted(["julian"]);
+      parkOthers(g, ["julian"]);
+      place(g, "julian", [24, 30]);
+      const { trace, pts } = hideTraced(g, clock, "cabinet_bay");
+      // The cabinet's inflated footprint spans x 29.0-30.15; crossing that band is only possible in the gap z 23.22-23.95.
+      const band = trace.filter(p => p[0] > 29.0 && p[0] < 30.15);
+      assert.ok(band.length > 0 && band.every(p => p[1] > 23.2 && p[1] < 23.96), `crossed beside the cabinet at ${JSON.stringify(band)}`);
+      assert.ok(pts.some(p => p[0] > 28.7 && p[0] < 30.6 && p[1] > 23.2 && p[1] < 24.0), "a waypoint in the south gap");
+    });
+
+    it("a hunter searching standing-room cover stands in its way in, finds the hider and pulls them clear of the furniture", () => {
+      const { g, clock } = huntStarted(["julian"]);
+      const B = g.birthday;
+      parkOthers(g, ["julian"]);
+      advance(g, clock, TUNING.lockdownGraceMs);
+      place(g, "julian", [28, 24]);
+      hideTraced(g, clock, "cabinet_bay");
+      place(g, B, [24, 29]);
+      assert.deepStrictEqual((view(g, B, clock.t)).huntOptions.nearSearch, [], "not offered from across the room");
+      g.setIntent(B, { kind: "search", spot: "cabinet_bay" }, clock.t);
+      const route = [g.get(B).pos, ...g.get(B).path.map(w => w.p)];
+      for (let k = 1; k < route.length; k++) assert.ok(legClear(route[k - 1], route[k]));
+      run(g, clock, () => !!g.get(B).searching, 20_000);
+      assert.ok(d2(g.get(B).pos, hideSpot("cabinet_bay")!.spot.pos) < 1.0, "searches from inside the bay");
+      run(g, clock, () => !!g.get("julian").grabbedBy, 10_000);
+      assert.ok(!inFurniture(g.get("julian").pos));
+    });
+  });
+
+  describe("floor taps and arrivals", () => {
+    it("move: validated, snapped off furniture within reach, refused when nowhere near floor", () => {
+      const { g, clock } = huntStarted(["julian", "anika"]);
+      parkOthers(g, ["julian", "anika"]);
+      place(g, "julian", [20, 29]);
+      for (const bad of [[NaN, 1], [1], [1, 2, 3], "20,29", [Infinity, 30], null] as any[]) {
+        assert.throws(() => g.setIntent("julian", { kind: "move", p: bad } as any, clock.t), /Bad position/, JSON.stringify(bad));
+      }
+      assert.throws(() => g.setIntent("julian", { kind: "move", p: [24, 40.5] }, clock.t), /can't stand there/, "outside the building");
+      assert.throws(() => g.setIntent("julian", { kind: "move", p: [-11, 9] }, clock.t), /reachable/, "a room two doors away");
+      // On the restoration table: nudged to the nearest floor beside it.
+      g.setIntent("julian", { kind: "move", p: [24.6, 31.4] }, clock.t, "walk");
+      const target = g.get("julian").path.at(-1)!.p;
+      assert.ok(!inFurniture(target) && d2(target, [24.6, 31.4]) <= TUNING.moveSnapRange, `snapped to ${target}`);
+      run(g, clock, () => g.get("julian").intentState === "done");
+      assert.deepStrictEqual(g.get("julian").pos, target);
+      assert.strictEqual(g.get("julian").room, "conservation");
+      // Hunters use floor taps too.
+      g.get("anika").status = "infected";
+      place(g, "anika", [22, 26]);
+      g.setIntent("anika", { kind: "move", p: [27, 24] }, clock.t);
+      run(g, clock, () => !g.get("anika").path.length);
+      assert.deepStrictEqual(g.get("anika").pos, [27, 24]);
+    });
+
+    it("move: a tap in the next room travels there and stops at that point; hidden movers leave cover first", () => {
+      const { g, clock } = huntStarted(["julian"]);
+      parkOthers(g, ["julian"]);
+      place(g, "julian", [20, 29]);
+      g.setIntent("julian", { kind: "move", p: [3, 31] }, clock.t, "run");
+      assert.deepStrictEqual(g.get("julian").intent, { kind: "room", room: "sealed", p: [3, 31] });
+      run(g, clock, () => g.get("julian").intentState === "done");
+      assert.strictEqual(g.get("julian").room, "sealed");
+      assert.deepStrictEqual(g.get("julian").pos, [3, 31]);
+      // From cover: out first, then walk.
+      clock.t += TUNING.intentCooldownMs;
+      g.setIntent("julian", { kind: "hide", spot: "blackout_recess" }, clock.t);
+      run(g, clock, () => g.get("julian").hideState === "hidden");
+      clock.t += TUNING.intentCooldownMs;
+      g.setIntent("julian", { kind: "move", p: [0, 30] }, clock.t);
+      assert.strictEqual(g.get("julian").hideState, "leaving");
+      assert.strictEqual(g.get("julian").afterLeave?.kind, "move");
+      run(g, clock, () => g.get("julian").intentState === "done" && g.get("julian").hideState === "none");
+      assert.deepStrictEqual(g.get("julian").pos, [0, 30]);
+    });
+
+    it("move: taps inside the cooldown are queued, the last one wins; other actions still wait", () => {
+      const { g, clock } = huntStarted(["julian"]);
+      parkOthers(g, ["julian"]);
+      place(g, "julian", [20, 29]);
+      const t0 = clock.t;
+      g.setIntent("julian", { kind: "move", p: [22, 27] }, t0);
+      g.setIntent("julian", { kind: "move", p: [26, 29] }, t0 + 100);
+      g.setIntent("julian", { kind: "move", p: [27, 34] }, t0 + 200);
+      assert.throws(() => g.setIntent("julian", { kind: "hide", spot: "canvas_rack" }, t0 + 250), /One move at a time/);
+      assert.strictEqual(g.get("julian").pending!.at, t0 + TUNING.intentCooldownMs);
+      assert.deepStrictEqual((g.get("julian").intent as any).p, [22, 27], "the first tap is under way");
+      run(g, clock, () => clock.t >= t0 + TUNING.intentCooldownMs);
+      assert.deepStrictEqual((g.get("julian").intent as any).p, [27, 34], "the last queued tap replaced it");
+      run(g, clock, () => g.get("julian").intentState === "done");
+      assert.deepStrictEqual(g.get("julian").pos, [27, 34]);
+      // A queued tap that is no longer possible when it comes due is dropped with a reason.
+      g.setIntent("julian", { kind: "move", p: [24, 29] }, clock.t);
+      g.setIntent("julian", { kind: "move", p: [22, 29] }, clock.t + 10);
+      g.get("julian").stunnedUntil = clock.t + 5000; g.get("julian").stunKind = "tangled";
+      g.drainEvents();
+      advance(g, clock, 500);
+      assert.strictEqual(g.get("julian").pending, null);
+      assert.ok(g.drainEvents().some(e => e.type === "interrupted" && e.to.includes("julian")));
+    });
+
+    it("room: phones stop ~1.5 m inside the entry doorway (side-stepping someone standing there) or at a tapped point", () => {
+      const { g, clock } = huntStarted(["julian", "anika", "marcus"]);
+      parkOthers(g, ["julian", "anika", "marcus"]);
+      place(g, "julian", ROOMS.sealed.center);
+      g.setIntent("julian", { kind: "room", room: "conservation" }, clock.t, "run");
+      run(g, clock, () => g.get("julian").intentState === "done");
+      const j = g.get("julian").pos;
+      assert.ok(d2(j, [17.5, 30]) < 0.05, `stopped 1.5 m inside the west doorway (16, 30), at ${j}`);
+      // The next arrival through the same doorway steps aside.
+      place(g, "anika", ROOMS.sealed.center);
+      g.setIntent("anika", { kind: "room", room: "conservation" }, clock.t, "run");
+      run(g, clock, () => g.get("anika").intentState === "done");
+      const a = g.get("anika").pos;
+      assert.ok(Math.abs(a[0] - 17.5) < 0.05 && Math.abs(Math.abs(a[1] - 30) - 0.8) < 0.05, `side-stepped to ${a}`);
+      // A tapped point in the room.
+      place(g, "marcus", ROOMS.archive.center);
+      g.setIntent("marcus", { kind: "room", room: "conservation", p: [27, 33] }, clock.t, "run");
+      run(g, clock, () => g.get("marcus").intentState === "done");
+      assert.deepStrictEqual(g.get("marcus").pos, [27, 33]);
+      // A point that isn't anywhere near that room's floor falls back to the entry stop (south doorway (18, 22)).
+      place(g, "marcus", ROOMS.archive.center);
+      clock.t += TUNING.intentCooldownMs;
+      g.setIntent("marcus", { kind: "room", room: "conservation", p: [0, 30] }, clock.t, "run");
+      run(g, clock, () => g.get("marcus").intentState === "done");
+      assert.ok(d2(g.get("marcus").pos, [18, 23.5]) < 0.05, `entry stop at ${g.get("marcus").pos}`);
+    });
+  });
+
+  describe("sight", () => {
+    it("everyone in the same room is visible at any distance; passages keep the range limit", () => {
+      const { g, clock } = huntStarted(["julian", "anika"]);
+      parkOthers(g, ["julian", "anika"]);
+      for (const [room, a, b] of [["conservation", [16.6, 22.6], [31.4, 37.4]], ["portrait", [-20, 2], [-3.5, 16]]] as [string, Vec2, Vec2][]) {
+        place(g, "julian", a); place(g, "anika", b);
+        assert.ok(d2(a, b) > TUNING.sightRange, "further apart than the old sight range");
+        assert.ok(g.perceives(g.get("julian"), g.get("anika")) && g.perceives(g.get("anika"), g.get("julian")), room);
+        assert.ok(view(g, "julian", clock.t).actors.some((x: any) => x.id === "anika"), `${room}: in the view`);
+      }
+      assert.ok(!canSee([0, 0], "c3", [0, TUNING.sightRange + 1], "c3"), "a passage keeps the cap");
+      assert.ok(!canSee([17, 23], "conservation", [5, 10], "archive"), "walls still block other rooms");
+    });
+
+    it("a secretly turned guest far across the room is visible but not revealed; hiding still hides", () => {
+      const { g, clock } = huntStarted(["julian", "marcus"]);
+      parkOthers(g, ["julian", "marcus"]);
+      place(g, "julian", [16.8, 22.8]);
+      place(g, "marcus", [31.2, 37.2]);
+      g.get("marcus").status = "infected";
+      const v = view(g, "julian", clock.t);
+      const m = v.actors.find((x: any) => x.id === "marcus");
+      assert.ok(m, "seen across the lab");
+      assert.strictEqual(m.revealed, false);
+      assert.strictEqual(m.lunging, false);
+      assert.ok(!/infected/.test(JSON.stringify(v)), "no trace of the infection in the view");
+      g.get("julian").hide = "under_restoration_table"; g.get("julian").hideState = "hidden";
+      assert.ok(!view(g, "marcus", clock.t).actors.some((x: any) => x.id === "julian"), "cover still hides");
+    });
+  });
+
+  describe("lunge and break free", () => {
+    /** Julian in the lab with a secretly turned Marcus beside him (no lockdown grace for him). */
+    function grabScene(extra: CharacterId[] = []) {
+      const { g, clock } = huntStarted(["julian", "anika", "marcus", ...extra]);
+      parkOthers(g, ["julian", "anika", "marcus", ...extra]);
+      advance(g, clock, TUNING.lockdownGraceMs);
+      place(g, "julian", [24, 28]);
+      place(g, "anika", [30.5, 34]);    // same room, far away
+      g.get("marcus").status = "infected";
+      place(g, "marcus", [24.8, 28]);
+      g.drainEvents();
+      return { g, clock };
+    }
+    const grabbed = (g: HauntedGame, clock: { t: number }) => { run(g, clock, () => !!g.get("julian").grabbedBy, 5000); return g.get("julian").struggle!; };
+
+    it("the lunge warning goes to its target, and to onlookers only when they can tell it's a hunter", () => {
+      const { g, clock } = grabScene();
+      advance(g, clock, TUNING.tickMs);   // the windup starts
+      assert.ok(g.get("marcus").ai.windup, "winding up");
+      assert.strictEqual(view(g, "julian", clock.t).actors.find((x: any) => x.id === "marcus").lunging, true, "the target feels it");
+      const far = view(g, "anika", clock.t).actors.find((x: any) => x.id === "marcus");
+      assert.ok(far && far.lunging === false && far.revealed === false, "a bystander can't tell a secret hunter is lunging");
+      g.get(g.birthday).pos = [30, 34.5]; g.get(g.birthday).zone = "conservation"; g.get(g.birthday).room = "conservation";
+      assert.strictEqual(view(g, g.birthday, clock.t).actors.find((x: any) => x.id === "marcus").lunging, true, "fellow hunters know");
+      // Elias is always recognisable: everyone who sees him lunge is warned.
+      place(g, "marcus", [26, 26]); g.get("marcus").ai.windup = null;
+      place(g, "elias", [24.8, 28]);
+      advance(g, clock, TUNING.tickMs);
+      assert.strictEqual(view(g, "anika", clock.t).actors.find((x: any) => x.id === "elias").lunging, true);
+      run(g, clock, () => !!g.get("julian").grabbedBy, 3000);
+      assert.strictEqual(view(g, "julian", clock.t).actors.find((x: any) => x.id === "elias").lunging, false, "grabbing, not lunging");
+      assert.strictEqual(g.get("julian").struggle!.need, TUNING.struggleNeed + TUNING.struggleNeedElias, "Elias is harder to break from");
+    });
+
+    it("enough taps in time: the victim breaks free, the hunter is shoved, and nobody can grab them for a moment", () => {
+      const { g, clock } = grabScene();
+      const B = g.birthday;
+      const s = grabbed(g, clock);
+      assert.strictEqual(s.need, TUNING.struggleNeed);
+      assert.strictEqual(s.until - s.startedAt, TUNING.struggleMs);
+      assert.strictEqual(g.get("marcus").biteAt - s.startedAt, TUNING.biteDelayMs, "bite timing unchanged");
+      const ev = g.drainEvents();
+      const fx = ev.filter(e => e.type === "struggle");
+      assert.strictEqual(fx.length, 1);
+      assert.deepStrictEqual(fx[0].to, ["julian"], "only the victim is asked to struggle");
+      assert.deepStrictEqual({ ...fx[0], to: undefined }, { type: "struggle", to: undefined, grabId: s.grabId, by: "marcus", until: s.until, need: s.need });
+      assert.deepStrictEqual(view(g, "julian", clock.t).me.struggle, { grabId: s.grabId, by: "marcus", until: s.until, need: s.need, got: 0 });
+      assert.strictEqual(view(g, "anika", clock.t).me.struggle, null);
+      assert.ok(!JSON.stringify(view(g, "anika", clock.t)).includes(s.grabId), "the struggle is private");
+      // 8 taps a second, reported like a phone does (cumulative count).
+      let freedAt = 0;
+      while (!freedAt) {
+        const n = Math.floor((clock.t - s.startedAt) * 8 / 1000) + 1;
+        g.struggle("julian", s.grabId, n, clock.t);
+        if (!g.get("julian").grabbedBy) { freedAt = clock.t; break; }
+        assert.ok(view(g, "julian", clock.t).me.struggle.got <= n);
+        advance(g, clock, TUNING.tickMs);
+        assert.ok(clock.t < s.until + 500 && g.get("julian").status === "alive", "should have broken free");
+      }
+      assert.ok(freedAt - s.startedAt < TUNING.struggleMs);
+      const j = g.get("julian"), m = g.get("marcus");
+      assert.strictEqual(j.status, "alive");
+      assert.strictEqual(j.struggle, null);
+      assert.strictEqual(j.breaks, 1);
+      assert.strictEqual(j.grabImmuneUntil, freedAt + TUNING.grabImmunityMs);
+      assert.strictEqual(m.grabbing, null);
+      assert.strictEqual(m.stunKind, "shoved");
+      assert.strictEqual(m.stunnedUntil, freedAt + TUNING.shoveStunMs);
+      assert.ok(!g.assists.has("julian"), "breaking free is nobody's rescue");
+      const broke = g.drainEvents().find(e => e.type === "broke_free")!;
+      assert.deepStrictEqual({ id: broke.id, from: broke.from }, { id: "julian", from: "marcus" });
+      assert.ok(["julian", "marcus", "anika"].every(x => broke.to.includes(x as ActorId)), "witnesses see it");
+      assert.ok(!broke.to.includes("elias"), "people elsewhere don't");
+      const seen = view(g, "julian", clock.t).actors.find((x: any) => x.id === "marcus");
+      assert.strictEqual(seen.stunned, "shoved");
+      assert.throws(() => g.setIntent("marcus", { kind: "move", p: [20, 29] }, clock.t), /staggering/);
+      assert.strictEqual(view(g, "julian", clock.t).me.struggle, null);
+      // Another hunter right there can't grab Julian until the immunity ends; then the next struggle is harder.
+      place(g, B, [j.pos[0] - 0.6, j.pos[1]]);
+      run(g, clock, () => clock.t >= j.grabImmuneUntil - TUNING.tickMs);
+      assert.strictEqual(j.grabbedBy, null, "immune");
+      assert.strictEqual(g.get(B).ai.windup, null, "no lunge at an immune survivor");
+      run(g, clock, () => !!j.grabbedBy, 3000);
+      assert.strictEqual(j.grabbedBy, B);
+      assert.ok(clock.t >= freedAt + TUNING.grabImmunityMs + TUNING.grabWindupMs);
+      assert.strictEqual(j.struggle!.need, TUNING.struggleNeed + TUNING.struggleNeedPerBreak);
+    });
+
+    it("no taps: bitten exactly 3 s after the grab; late or stale reports are ignored", () => {
+      const { g, clock } = grabScene();
+      const s = grabbed(g, clock);
+      assert.strictEqual(g.struggle("julian", "not-this-grab", 5, clock.t), false);
+      assert.strictEqual(g.struggle("anika", s.grabId, 5, clock.t), false, "only the victim");
+      run(g, clock, () => clock.t >= s.until + TUNING.struggleGraceMs - TUNING.tickMs);
+      assert.strictEqual(g.get("julian").status, "alive");
+      run(g, clock, () => g.get("julian").status === "infected", 2000);
+      assert.strictEqual(clock.t, s.startedAt + TUNING.biteDelayMs);
+      assert.strictEqual(g.get("julian").struggle, null);
+      assert.strictEqual(g.struggle("julian", s.grabId, 99, clock.t), false);
+      assert.strictEqual(g.infectionLog.at(-1)!.victim, "julian");
+    });
+
+    it("the server clamps credited taps to 12 a second", () => {
+      const { g, clock } = grabScene();
+      const s = grabbed(g, clock);
+      run(g, clock, () => clock.t >= s.startedAt + 500);
+      assert.strictEqual(g.struggle("julian", s.grabId, 100, clock.t), true);
+      assert.strictEqual(s.got, Math.floor(500 * TUNING.struggleMaxTapsPerSec / 1000) + 1);
+      assert.ok(g.get("julian").grabbedBy, "not free yet");
+      assert.strictEqual(g.struggle("julian", s.grabId, 50, clock.t + 10), false, "a count can't go backwards");
+      assert.strictEqual(g.struggle("julian", s.grabId, NaN, clock.t + 10), false);
+      run(g, clock, () => !g.get("julian").grabbedBy, 3000);
+      const needMs = Math.ceil((s.need - 1) * 1000 / TUNING.struggleMaxTapsPerSec);
+      assert.ok(clock.t - s.startedAt >= needMs, `freed at +${clock.t - s.startedAt} ms, no sooner than the cap allows (+${needMs})`);
+      assert.strictEqual(g.get("julian").status, "alive");
+    });
+
+    it("a friend's flash during the struggle still frees the victim", () => {
+      const { g, clock } = grabScene();
+      place(g, "anika", [27, 28]);
+      g.camera.holder = "anika";
+      const s = grabbed(g, clock);
+      advance(g, clock, 1000);
+      g.struggle("julian", s.grabId, 3, clock.t);
+      const r = g.flash("anika", clock.t);
+      assert.ok(r.saved.includes("julian"));
+      const j = g.get("julian");
+      assert.strictEqual(j.grabbedBy, null);
+      assert.strictEqual(j.struggle, null);
+      assert.strictEqual(j.breaks, 0, "not a break-free");
+      assert.strictEqual(g.get("marcus").stunKind, "frozen");
+      assert.strictEqual(g.assists.get("julian")?.helper, "anika");
+      advance(g, clock, TUNING.biteDelayMs);
+      assert.strictEqual(j.status, "alive");
+    });
+
+    it("CPU survivors tap at 3.5-6.5 a second: fast ones break free, slow ones don't", () => {
+      for (const [rate, free] of [[6.5, true], [3.5, false]] as const) {
+        const { g, clock } = grabScene();
+        const s = grabbed(g, clock);
+        g.get("julian").cpu = true;       // (a CPU survivor would have fled the revealed hunter; take over once caught)
+        advance(g, clock, TUNING.tickMs);
+        assert.ok(s.cpuRate >= TUNING.cpuTapRate[0] && s.cpuRate <= TUNING.cpuTapRate[1], `rate ${s.cpuRate}`);
+        s.cpuRate = rate;
+        run(g, clock, () => !g.get("julian").grabbedBy, 4000);
+        assert.strictEqual(g.get("julian").status, free ? "alive" : "infected", `rate ${rate}`);
+        if (free) {
+          assert.strictEqual(g.get("julian").breaks, 1);
+          assert.ok(clock.t - s.startedAt <= Math.ceil(s.need / rate * 1000) + TUNING.tickMs);
+        } else assert.strictEqual(clock.t, s.startedAt + TUNING.biteDelayMs);
+      }
+    });
+  });
+
+  it("messages say Garden Gate", () => {
+    const { g, clock } = huntStarted(["julian"]);
+    const B = g.birthday;
+    parkOthers(g, ["julian"]);
+    place(g, "julian", ROOMS.master_bedroom.center);
+    assert.throws(() => g.setIntent("julian", { kind: "exit" }, clock.t), /Garden Gate/);
+    place(g, B, ROOMS.sealed.center);
+    const doors = view(g, B, clock.t).huntOptions.doors;
+    assert.strictEqual(doors.find((d: any) => d.key === "exit").label, "Garden Gate");
   });
 });
