@@ -36,6 +36,7 @@ const POSE = {
   // Standing inside a wardrobe/closet: a narrow view out through the ajar doors.
   inside: { height: 1.55, back: 0.25, fov: 52, hfov: 70, peekOut: 0.75, peekUp: 0, yaw: 40, pitch: [-20, 15] },
 };
+const WALL_TOP = 3.2;   // world.js wall height
 const tmpMat = new pc.Mat4();
 const UP = new pc.Vec3(0, 1, 0);
 const DEG = Math.PI / 180;
@@ -57,17 +58,19 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const isLong = ([x0, x1, z0, z1]) => (x1 - x0) > 1.8 * (z1 - z0);
 
 /**
- * Place a camera (heading, pitch, vertical fov) so the box `bounds` (floor rect, 0..yTop high)
- * fills the safe frame (fractions of the screen kept clear on each side) and is centred in it.
+ * Place a camera (heading, pitch, vertical fov) so the rectangle `bounds`, taken at the heights
+ * `ys`, fills the safe frame (fractions of the screen kept clear on each side), centred in it.
+ * Rooms are framed at wall-top height: that is the outline you see from above (the floor just
+ * inside the near wall is behind it anyway), so the room reads as centred.
  */
-export function fitView(bounds, { heading, pitch, fovV, aspect, safe, yTop = 1.2 }) {
+export function fitView(bounds, { heading, pitch, fovV, aspect, safe, ys = [WALL_TOP] }) {
   const h = heading * DEG, p = pitch * DEG;
   const f = new pc.Vec3(Math.sin(h) * Math.cos(p), -Math.sin(p), Math.cos(h) * Math.cos(p));
   const r = new pc.Vec3().cross(f, UP).normalize();
   const u = new pc.Vec3().cross(r, f).normalize();
   const [x0, x1, z0, z1] = bounds;
   const pts = [];
-  for (const x of [x0, x1]) for (const z of [z0, z1]) for (const y of [0, yTop]) pts.push([x, y, z]);
+  for (const x of [x0, x1]) for (const z of [z0, z1]) for (const y of ys) pts.push([x, y, z]);
   const tv = Math.tan(fovV * DEG / 2), th = tv * aspect;
   const sx0 = -1 + 2 * safe.l, sx1 = 1 - 2 * safe.r, sy0 = -1 + 2 * safe.b, sy1 = 1 - 2 * safe.t;
   const T = [(x0 + x1) / 2, 0, (z0 + z1) / 2];
@@ -433,7 +436,7 @@ export class Game3D {
     const aspect = this.aspect();
     if (this.mode === 'mansion') {
       const c = VIEW.mansion;
-      const fit = fitView(MANSION_BOUNDS, { heading: 90, pitch: c.pitch, fovV: c.fovV, aspect, safe: this.safeFrame(), yTop: 3.2 });
+      const fit = fitView(MANSION_BOUNDS, { heading: 90, pitch: c.pitch, fovV: c.fovV, aspect, safe: this.safeFrame() });
       fit.pos.add(this.pan); fit.target.add(this.pan);
       return { pos: fit.pos, target: fit.target, fovV: c.fovV, near: c.near, far: c.far, overhead: true };
     }
@@ -441,7 +444,7 @@ export class Game3D {
       const c = VIEW.room;
       const fovV = this.vfov(c.hfov, c.fovV);
       const { bounds, heading } = this.roomFrame();
-      const fit = fitView(bounds, { heading, pitch: c.pitch, fovV, aspect, safe: this.safeFrame(), yTop: 1.2 });
+      const fit = fitView(bounds, { heading, pitch: c.pitch, fovV, aspect, safe: this.safeFrame() });
       fit.pos.add(this.pan); fit.target.add(this.pan);
       const e = this.emphasisWeight();
       const ea = e > 0 && this.actors.get(this.emph.id)?.pos;

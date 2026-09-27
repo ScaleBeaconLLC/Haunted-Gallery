@@ -6,6 +6,8 @@ import { local } from './net.js';
 const $ = id => document.getElementById(id);
 const ua = navigator.userAgent || '';
 export const isIOS = /iP(hone|od|ad)/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+/** Safari itself (in-app browsers and other iOS browsers show different share menus). */
+const isIOSSafari = isIOS && /Safari\//.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS|GSA\/|FBAN|FBAV|Instagram|Line\//.test(ua);
 export const isStandalone = () => navigator.standalone === true
   || matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches;
 const canFullscreen = () => !!(document.documentElement.requestFullscreen && document.fullscreenEnabled);
@@ -57,7 +59,7 @@ function renderInstall() {
 export function setupInstall() {
   const sheet = $('a2hs');
   const dismissed = local?.getItem('hg.a2hs.dismissed') === '1';
-  if (sheet) sheet.hidden = !(isIOS && !isStandalone() && !dismissed);
+  if (sheet) sheet.hidden = !(isIOSSafari && !isStandalone() && !dismissed);
   $('a2hs-close')?.addEventListener('click', () => { local?.setItem('hg.a2hs.dismissed', '1'); sheet.hidden = true; });
   $('install-go')?.addEventListener('click', async () => {
     if (!installEvent) return;
