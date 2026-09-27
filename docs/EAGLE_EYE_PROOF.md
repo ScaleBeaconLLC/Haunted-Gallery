@@ -103,4 +103,4 @@ A PlayCanvas Editor project would not help this game much. The game is code-firs
 
 ## Screenshots
 
-Screenshots are in `docs/screenshots/eagle-eye-proof/`. They include the reference, Blender render, old game and new game for the mansion, room and hiding views, and frames from the playthrough at 844 × 390.
+`docs/screenshots/eagle-eye-proof/` holds the old game and the new game side by side for the mansion, room and hiding views (01–06). It also has frames from the playthrough at 844 × 390 (07–14), the lab at 932 × 430 (15), and the game engine at the Blender render cameras (16). The references are in `references/eagle-eye-refs/` (01, 03 and 04 for this room), and the Blender renders are in `docs/renders/`.

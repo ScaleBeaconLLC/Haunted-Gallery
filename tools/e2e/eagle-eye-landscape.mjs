@@ -21,10 +21,11 @@ const report = { checks: {}, errors: [], console: [] };
 const shots = [];
 // SHARP=1: render each screenshot at pixel ratio 2 (software GL otherwise drops to 0.6); CLEAN=1: hide the debug overlay.
 const SHARP = !!process.env.SHARP, CLEAN = !!process.env.CLEAN;
-const shot = async (p, name) => {
+// quick: a moment that is over in a couple of seconds (the struggle), so no slow sharp re-render.
+const shot = async (p, name, { quick = false } = {}) => {
   const f = join(out, `${name}.png`);
   if (CLEAN) await p.addStyleTag({ content: '#debug{display:none!important}' }).catch(() => {});
-  const sharp = SHARP && await p.evaluate(() => { const g = window.__hgGame; if (!g) return false; g.__saved = g.app.graphicsDevice.maxPixelRatio; g.fixedRatio = 2; g.app.graphicsDevice.maxPixelRatio = 2; g.app.resizeCanvas(); return true; }).catch(() => false);
+  const sharp = SHARP && !quick && await p.evaluate(() => { const g = window.__hgGame; if (!g) return false; g.__saved = g.app.graphicsDevice.maxPixelRatio; g.fixedRatio = 2; g.app.graphicsDevice.maxPixelRatio = 2; g.app.resizeCanvas(); return true; }).catch(() => false);
   if (sharp) await p.waitForTimeout(900);
   await p.screenshot({ path: f });
   if (sharp) await p.evaluate(() => { const g = window.__hgGame; g.fixedRatio = null; g.app.graphicsDevice.maxPixelRatio = g.__saved; g.app.resizeCanvas(); }).catch(() => {});
@@ -335,7 +336,7 @@ try {
   await hook({ place: { elias: [21, 28.6], julian: [22, 28.5] }, struggleNeed: 200, grab: { hunter: 'elias', victim: 'julian' } });
   await p.waitForFunction(() => !document.getElementById('struggle').hidden, null, { timeout: 6000 }).catch(() => {});
   await drum(4);
-  await shot(p, '14-struggle-overlay');
+  await shot(p, '14-struggle-overlay', { quick: true });
   await p.waitForFunction(() => window.__hgView?.status === 'infected', null, { timeout: 8000 }).then(() => check('failed struggle -> bitten', true), () => check('failed struggle -> bitten', false));
   await hook({ struggleNeed: null });
   // Hunter taps once the turning is over: a hiding place (search) and the floor (move).
