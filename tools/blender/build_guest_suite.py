@@ -2,6 +2,21 @@
 Guest suite (Guest Bedroom + new Guest Bathroom) for Haunted Gallery, built in Blender.
 
     blender --background --factory-startup --python tools/blender/build_guest_suite.py -- [--no-render]
+            [--only=room_level,...] [--out=DIR] [--res=PERCENT] [--samples=N] [--overwrite-committed]
+
+    --out=DIR      write the .blend, textures, GLB and renders under DIR instead of the repo
+                   (use it for test runs so the committed files stay untouched)
+    --res=PERCENT  render at a percentage of the shot size (e.g. 25 for a quick check)
+    --samples=N    EEVEE render samples (default 48)
+
+Poly Haven sources are read from assets-src/polyhaven/ (tools/assets/fetch-polyhaven.mjs). When that
+folder is missing (e.g. a cloud session), the tinted/resized maps already committed in
+art/blender/textures/ are used instead, and the placed furniture is appended from the committed
+art/blender/guest_suite.blend. That route needs --out=DIR (or --overwrite-committed) so it can't
+replace the committed files by accident.
+
+Cloud sessions (no Blender download): tools/blender/setup-cloud.sh, then
+    tools/blender/blender-py tools/blender/build_guest_suite.py -- --out=/tmp/gs --only=room_level --res=25
 
 Writes (paths relative to the repo root):
     art/blender/guest_suite.blend             editable source (textures in art/blender/textures/)
@@ -17,6 +32,7 @@ Walls are 0.3 m thick and centred on those edges (inner faces 0.15 m inside), as
 """
 import math
 import os
+import shutil
 import sys
 
 import bmesh
@@ -25,11 +41,31 @@ import numpy as np
 from mathutils import Vector
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-TEX_DIR = os.path.join(ROOT, "art", "blender", "textures")
-BLEND = os.path.join(ROOT, "art", "blender", "guest_suite.blend")
-GLB = os.path.join(ROOT, "client", "public", "models", "rooms", "guest_suite.glb")
-RENDERS = os.path.join(ROOT, "docs", "renders")
 ARGS = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+
+
+def arg(name, default=None):
+    return next((a.split("=", 1)[1] for a in ARGS if a.startswith(f"--{name}=")), default)
+
+
+TEX_COMMITTED = os.path.join(ROOT, "art", "blender", "textures")
+BLEND_COMMITTED = os.path.join(ROOT, "art", "blender", "guest_suite.blend")
+OUT = arg("out")
+if OUT:
+    OUT = os.path.abspath(OUT)
+    TEX_DIR = os.path.join(OUT, "textures")
+    BLEND = os.path.join(OUT, "guest_suite.blend")
+    GLB = os.path.join(OUT, "guest_suite.glb")
+    RENDERS = os.path.join(OUT, "renders")
+else:
+    TEX_DIR = TEX_COMMITTED
+    BLEND = BLEND_COMMITTED
+    GLB = os.path.join(ROOT, "client", "public", "models", "rooms", "guest_suite.glb")
+    RENDERS = os.path.join(ROOT, "docs", "renders")
+PH = os.path.join(ROOT, "assets-src", "polyhaven")
+if not OUT and not os.path.isdir(PH) and "--overwrite-committed" not in ARGS:
+    sys.exit("assets-src/polyhaven/ is missing, so this run would rebuild from the committed files and "
+             "overwrite them. Pass --out=DIR for a test build, or --overwrite-committed to replace them.")
 Z0 = 70.5            # game z of the local origin
 WALL_H = 3.2
 IN = 0.15            # inner wall face offset from the room edge
@@ -336,11 +372,27 @@ def material(name, color=(0.5, 0.5, 0.5), rough=0.6, metal=0.0, img=None, emit=N
     return m
 
 
-PH = os.path.join(ROOT, "assets-src", "polyhaven")
+def committed_image(out, non_color):
+    """Fallback when assets-src/polyhaven is absent: reuse the already tinted/resized committed map."""
+    src = os.path.join(TEX_COMMITTED, out + ".jpg")
+    if not os.path.exists(src):
+        return None
+    path = os.path.join(TEX_DIR, out + ".jpg")
+    if os.path.abspath(src) != os.path.abspath(path):
+        shutil.copyfile(src, path)
+    img = bpy.data.images.load(path)
+    img.filepath = "//textures/" + out + ".jpg"
+    img.name = out
+    if non_color:
+        img.colorspace_settings.name = "Non-Color"
+    return img
 
 
 def ph_image(tex, map_name, tint=None, size=1024, non_color=False, name=None):
     """Load a Poly Haven map, optionally tinted (multiplied) and resized, saved beside the .blend."""
+    out = name or f"{tex}_{map_name}"
+    if not os.path.isdir(os.path.join(PH, tex)):
+        return committed_image(out, non_color)
     src = next((os.path.join(PH, tex, f) for f in os.listdir(os.path.join(PH, tex)) if f.startswith(map_name + ".")), None)
     if src is None:
         return None
@@ -351,7 +403,6 @@ def ph_image(tex, map_name, tint=None, size=1024, non_color=False, name=None):
         px = np.array(img.pixels[:], dtype=np.float32).reshape(-1, 4)
         px[:, :3] *= np.array(tint, dtype=np.float32)
         img.pixels.foreach_set(px.ravel())
-    out = name or f"{tex}_{map_name}"
     path = os.path.join(TEX_DIR, out + ".jpg")
     img.filepath_raw = path
     img.file_format = "JPEG"
@@ -527,10 +578,30 @@ def empty(name, c, coll=EXPORT):
     return ob
 
 
+_COMMITTED_OBJECTS = None
+
+
+def committed_model(root_name):
+    """Fallback when assets-src/polyhaven is absent: append the already placed model (root empty and
+    its children, packed textures, decimation as saved) from the committed guest_suite.blend."""
+    global _COMMITTED_OBJECTS
+    if _COMMITTED_OBJECTS is None:
+        with bpy.data.libraries.load(BLEND_COMMITTED, link=False) as (src, dst):
+            names = list(src.objects)
+            dst.objects = list(names)   # filled in place with the appended objects
+        _COMMITTED_OBJECTS = dict(zip(names, dst.objects))
+    root = _COMMITTED_OBJECTS[root_name]
+    for o in [root, *root.children_recursive]:
+        EXPORT.objects.link(o)
+    return root
+
+
 def place_model(model_id, c, yaw=0.0, height=None, width=None, depth=None, decimate=None, name=None):
     """Import a CC0 Poly Haven glTF, fit it to a height / width (x) / depth (z) in metres, stand it on
     the floor at game-local c = (x, y, z) facing +z rotated by yaw (degrees), optionally decimated."""
     path = os.path.join(PH, model_id, f"{model_id}.gltf")
+    if not os.path.exists(path):
+        return committed_model(name or model_id)
     before = set(bpy.data.objects)
     bpy.ops.import_scene.gltf(filepath=path)
     new = [o for o in bpy.data.objects if o not in before]
@@ -906,6 +977,11 @@ scene.world = world
 for c in (EXPORT, RENDER_ONLY):
     for ob in c.objects:
         pass
+if _COMMITTED_OBJECTS is not None:   # drop the committed-file objects that were appended but not used
+    for o in _COMMITTED_OBJECTS.values():
+        if not o.users_collection:
+            bpy.data.objects.remove(o)
+    bpy.data.orphans_purge(do_local_ids=True, do_linked_ids=True, do_recursive=True)
 bpy.ops.wm.save_as_mainfile(filepath=BLEND, relative_remap=True)
 print("saved", BLEND)
 
@@ -967,7 +1043,7 @@ if "--no-render" in ARGS:
 engine = "BLENDER_EEVEE" if "BLENDER_EEVEE" in {e.identifier for e in bpy.types.RenderSettings.bl_rna.properties["engine"].enum_items} else "BLENDER_EEVEE_NEXT"
 scene.render.engine = engine
 try:
-    scene.eevee.taa_render_samples = 48
+    scene.eevee.taa_render_samples = int(arg("samples", 48))
     scene.eevee.use_raytracing = True
 except Exception:
     pass
@@ -1001,6 +1077,7 @@ for name, pos, target, lens, (w, h) in SHOTS:
     cam = camera(f"Cam_{name}", pos, target, lens)
     scene.camera = cam
     scene.render.resolution_x, scene.render.resolution_y = w, h
+    scene.render.resolution_percentage = int(arg("res", 100))
     scene.render.filepath = os.path.join(RENDERS, f"guest_suite_{name}.png")
     print("rendering", name)
     bpy.ops.render.render(write_still=True)
