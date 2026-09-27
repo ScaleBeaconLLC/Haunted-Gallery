@@ -92,7 +92,7 @@ input#join-code { text-transform: uppercase; letter-spacing: .3em; font-family: 
   .join-card label { margin: 6px 0; }
   .join-card input { padding: 9px 12px; }
   .join-card .sub { margin-bottom: 6px; }
-  .lobby-card { width: 100%; max-width: 900px; max-height: calc(100dvh - 20px); display: flex; flex-direction: column; }
+  .card.lobby-card { width: 100%; max-width: 900px; max-height: calc(100dvh - 20px); display: flex; flex-direction: column; }
   .lobby-card .sub { margin-bottom: 8px; }
   #cast-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; overflow-y: auto; min-height: 0; }
   .cast { min-height: 46px; padding: 6px 8px; }

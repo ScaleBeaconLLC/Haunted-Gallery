@@ -152,7 +152,9 @@ export class Game3D {
     this.lantern = lantern;
 
     const ringMat = new pc.StandardMaterial();
-    ringMat.diffuse = new pc.Color(0, 0, 0); ringMat.emissive = new pc.Color(1, 0.82, 0.45); ringMat.emissiveIntensity = 1.4; ringMat.update();
+    ringMat.diffuse = new pc.Color(0, 0, 0); ringMat.emissive = new pc.Color(1, 0.82, 0.45); ringMat.emissiveIntensity = 1.4;
+    ringMat.depthTest = false;   // your own cover marker shows through the tabletop or bed above you
+    ringMat.update();
     const ring = new pc.Entity('HideRing');
     ring.addComponent('render', { type: 'torus', material: ringMat, castShadows: false });
     ring.enabled = false;
@@ -396,8 +398,9 @@ export class Game3D {
   safeFrame(mode = this.mode) {
     const w = Math.max(1, window.innerWidth), h = Math.max(1, window.innerHeight);
     const i = this.hudInsets;
-    const kv = mode === 'mansion' ? 0.55 : 0.7;
-    return { l: clamp(i.left / w, 0, 0.3), r: clamp(i.right / w, 0, 0.3), t: clamp(i.top * kv / h, 0, 0.3), b: clamp(i.bottom * kv / h, 0, 0.3) };
+    // The room sits between the top corners' controls; its bottom edge may run behind the pills.
+    const kt = mode === 'mansion' ? 0.55 : 0.9, kb = mode === 'mansion' ? 0.55 : 0.6;
+    return { l: clamp(i.left / w, 0, 0.3), r: clamp(i.right / w, 0, 0.3), t: clamp(i.top * kt / h, 0, 0.3), b: clamp(i.bottom * kb / h, 0, 0.3) };
   }
 
   /** The room (or passage) the room view frames, and its heading. */

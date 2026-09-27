@@ -1,11 +1,11 @@
 // Touch/mouse gestures on the 3D view, classified before anything happens:
-//   tap (< 10 px, < 300 ms)       -> onTap(x, y, { double })   (double: a second tap within 300 ms / 32 px)
+//   tap (< 10 px, < 300 ms)       -> onTap(x, y, { double })   (double: a second tap within 350 ms / 32 px)
 //   one-finger drag               -> onDrag(dx, dy)             (look around in first person, a small pan overhead)
 //   two-finger pinch              -> onPinchEnd(scale, cx, cy)  (< 1 fingers closed = zoom out, > 1 spread = zoom in)
 //   mouse wheel                   -> onWheel(dir, x, y)         (desktop: -1 zoom in, +1 zoom out)
 // Coordinates are CSS pixels relative to the viewport.
 
-const TAP_MOVE = 10, TAP_MS = 300, DOUBLE_MS = 300, DOUBLE_PX = 32;
+const TAP_MOVE = 10, TAP_MS = 300, DOUBLE_MS = 350, DOUBLE_PX = 32;
 
 export class Gestures {
   constructor(el, handlers) {
@@ -37,7 +37,7 @@ export class Gestures {
   down(e) {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     this.pointers.set(e.pointerId, { x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, t0: e.timeStamp, drag: false });
-    this.el.setPointerCapture?.(e.pointerId);
+    try { this.el.setPointerCapture?.(e.pointerId); } catch { /* synthetic or already released pointer */ }
     if (this.pointers.size === 2) {
       const [a, b] = [...this.pointers.values()];
       this.pinch = { d0: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), scale: 1, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };

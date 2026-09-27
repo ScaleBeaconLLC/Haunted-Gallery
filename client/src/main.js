@@ -27,6 +27,8 @@ const setText = (el, s) => { if (el && el.__t !== s) { el.textContent = s; el.__
 // Capture mode renders an empty room from a fixed viewpoint for the room picture cards.
 const captureRoom = params.get('capture');
 
+// The Add to Home Screen sheet and install button don't wait for the 3D world to build.
+if (!captureRoom) setupInstall();
 const conn = new Connection();
 const audio = new GameAudio();
 const game = new Game3D($('stage'), { now: () => conn.now() });
@@ -60,7 +62,6 @@ if (captureRoom) {
   $('join-code').value = (params.get('code') || '').toUpperCase();
   $('join-name').value = local?.getItem('hg.name') || '';
   if (params.get('debug')) { $('debug').hidden = false; window.__hgGame = game; game.countStats = true; }
-  setupInstall();
 }
 
 // ------------------------------------------------------------------ join
