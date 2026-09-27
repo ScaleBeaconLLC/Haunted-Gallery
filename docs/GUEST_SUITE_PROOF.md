@@ -31,6 +31,20 @@
 - `guest_suite_inside_wardrobe.png`
 - `guest_suite_under_bed.png`
 
+### Rendering from a cloud session
+
+Claude Code on the web can't download Blender or the Poly Haven sources, so the build has a second route:
+
+- `tools/blender/setup-cloud.sh` installs the `bpy` 5.0.1 wheel from PyPI (Blender as a Python module, in `/opt/bpy-venv`) and Mesa's software EGL, so EEVEE renders on the CPU. The SessionStart hook in `.claude/` runs it in cloud sessions only.
+- Without `assets-src/polyhaven/`, the script uses the committed `art/blender/textures/*.jpg` maps and appends the placed furniture from the committed `guest_suite.blend`.
+- `--out=DIR` sends the .blend, GLB, textures and renders to `DIR`, so the committed files stay untouched. Without it, this route stops rather than overwrite them (unless you pass `--overwrite-committed`). `--res=25` and `--samples=8` make a quick check.
+
+```
+tools/blender/blender-py tools/blender/build_guest_suite.py -- --out=/tmp/gs --only=room_level --res=25 --samples=8
+```
+
+A quarter-size room-level test render takes about 20 seconds to build and render on 4 CPUs. Don't write the game GLB from this route yet. Its export differs from the committed one: the two nightstands get separate copies of the same material, and the furniture carries an extra UV set (4.5 MB against 3.4 MB).
+
 ## How it plays
 
 ### Rules and server
